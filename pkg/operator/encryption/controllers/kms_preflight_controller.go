@@ -23,6 +23,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -165,13 +166,17 @@ type KMSPreflightDeployer interface {
 }
 
 type kmsPreflightController struct {
-	controllerInstanceName string
+	controllerInstanceName   string
+	instanceName             string
+	unsupportedConfigPrefix  []string
+	encryptionSecretSelector metav1.ListOptions
 
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
 	coreClient      corev1client.CoreV1Interface
 
 	deployer                 KMSPreflightDeployer
+	encryptionDeployer       statemachine.Deployer
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 	encryptionStatusProvider kms.EncryptionStatusProvider
@@ -249,28 +254,39 @@ type kmsPreflightController struct {
 // so that its logs can be inspected, then cleaned up by a subsequent sync.
 func NewKMSPreflightController(
 	instanceName string,
+	unsupportedConfigPrefix []string,
 	provider Provider,
 	preconditionsFulfilledFn preconditionsFulfilled,
 	deployer KMSPreflightDeployer,
+	// encryptionDeployer is the same statemachine.Deployer used by the key and state
+	// controllers. It is consulted once when seeding the dry-run that produces the
+	// encryption-config Secret for the preflight pod.
+	encryptionDeployer statemachine.Deployer,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	// coreClient reads referenced Secrets and ConfigMaps in openshift-config for hash
-	// computation. No informer is needed: the key-controller detects config changes and
-	// updates ObservedConfigHash, which triggers this controller via the operatorClient
+	// computation and seeds the key/state dry-run sandbox. No informer is needed for
+	// openshift-config: the key-controller detects config changes and updates
+	// ObservedConfigHash, which triggers this controller via the operatorClient
 	// informer. The minute-based resync covers the rest.
 	coreClient corev1client.CoreV1Interface,
+	encryptionSecretSelector metav1.ListOptions,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &kmsPreflightController{
-		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
+		controllerInstanceName:   factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
+		instanceName:             instanceName,
+		unsupportedConfigPrefix:  unsupportedConfigPrefix,
+		encryptionSecretSelector: encryptionSecretSelector,
 
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
 		coreClient:      coreClient,
 
 		deployer:                 deployer,
+		encryptionDeployer:       encryptionDeployer,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		encryptionStatusProvider: encryptionStatusProvider,
@@ -356,7 +372,9 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     2a. Result already recorded as Failed and pod is gone: surface the error
 //     without re-deploying. The admin must fix the config (new hash) before
 //     a new check can run.
-//     2b. No result yet: call Deploy. On success, requeue and wait for the pod to report results.
+//     2b. No result yet: compute the encryption-config Secret via dry-run, then
+//     call Deploy. On success, requeue and wait for the pod to report results.
+//     If the encryption deployer has not converged, requeue and wait before Deploy.
 //
 //  3. Preflight required, pod exists (Status returns a PodStatus).
 //     Evaluate the pod state via conditions and phase:
@@ -408,8 +426,8 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //	1         No preflight required — cleanup                   false    nil   False     False        No
 //	1a        Already Succeeded — cleanup, no pod work          false    nil   False     False        No
 //	2a        No pod, already Failed — surface error            false    *pe   True      False        Yes
-//	2b        No pod, Deploy success                            true     nil   False     True         No
-//	2b        No pod, Deploy error                              true     err   True      False        No
+//	2b        No pod, dry-run / Deploy success                  true     nil   False     True         No
+//	2b        No pod, dry-run / Deploy error                    true     err   True      False        No
 //	3a        Pod Failed — keep for inspection                  false    *pe   True      False        Yes
 //	3b        No hash, pod Running, no timeout                  true     nil   False     True         No
 //	3b        No hash, timeout exceeded                         true     *pe   True      False        Yes
@@ -454,8 +472,28 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 				message: fmt.Sprintf("preflight check failed for hash %s: pod was removed but failure is recorded in status", requiredHash),
 			}
 		}
-		// TODO: compute the encryption configuration and pass it to the deployer
-		if err := c.deployer.Deploy(ctx, requiredHash, nil); err != nil {
+		requeueForConvergence, encryptionSecret, err := computeEncryptionConfigSecretDryRun(
+			ctx,
+			c.instanceName,
+			c.unsupportedConfigPrefix,
+			c.provider,
+			c.encryptionDeployer,
+			c.operatorClient,
+			c.apiServerClient,
+			c.coreClient,
+			c.encryptionSecretSelector,
+		)
+		if err != nil {
+			return true, "", "", fmt.Errorf("failed to compute encryption config for preflight: %w", err)
+		}
+		// The preflight pod must test the actual encryption config that will be deployed
+		// to the API server. If the deployer hasn't converged (e.g., a new revision is
+		// still rolling out), the dry-run won't produce the correct config. Wait for
+		// convergence before deploying the preflight workload.
+		if requeueForConvergence {
+			return true, "RunningPreflightCheck", "Waiting for encryption deployer to converge before computing preflight encryption config", nil
+		}
+		if err := c.deployer.Deploy(ctx, requiredHash, encryptionSecret); err != nil {
 			return true, "", "", err
 		}
 		return true, "RunningPreflightCheck", fmt.Sprintf("Deploying preflight pod for hash %s", requiredHash), nil

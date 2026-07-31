@@ -24,6 +24,7 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -310,16 +311,18 @@ func TestKMSConfigHasher(t *testing.T) {
 }
 
 type fakeDeployer struct {
-	deployed   bool
-	cleaned    bool
-	deployErr  error
-	statusErr  error
-	cleanupErr error
-	podStatus  corev1.PodStatus
+	deployed                   bool
+	cleaned                    bool
+	deployErr                  error
+	statusErr                  error
+	cleanupErr                 error
+	podStatus                  corev1.PodStatus
+	lastEncryptionConfigSecret *corev1.Secret
 }
 
-func (f *fakeDeployer) Deploy(_ context.Context, _ string, _ *corev1.Secret) error {
+func (f *fakeDeployer) Deploy(_ context.Context, _ string, encryptionConfiguration *corev1.Secret) error {
 	f.deployed = true
+	f.lastEncryptionConfigSecret = encryptionConfiguration
 	return f.deployErr
 }
 
@@ -371,6 +374,7 @@ func TestKMSPreflightController(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: configv1.APIServerSpec{
 			Encryption: configv1.APIServerEncryption{
+				Type: "KMS",
 				KMS: configv1.KMSPluginConfig{
 					Type:  configv1.VaultKMSProvider,
 					Vault: wellKnownBaseVaultConfig,
@@ -970,16 +974,20 @@ func TestKMSPreflightController(t *testing.T) {
 			if deployer == nil {
 				deployer = &fakeDeployer{}
 			}
+			encryptionSecretSelector := metav1.ListOptions{LabelSelector: "encryption.apiserver.operator.openshift.io/component=test"}
 
 			target := NewKMSPreflightController(
 				"test",
+				nil,
 				provider,
 				preconditionsFn,
 				deployer,
+				&staticEncryptionDeployer{},
 				fakeOperatorClient,
 				fakeApiServerClient,
 				fakeApiServerInformer,
 				fakeKubeClient.CoreV1(),
+				encryptionSecretSelector,
 				scenario.encryptionStatusProvider,
 				eventRecorder,
 			)
@@ -1010,8 +1018,174 @@ func TestKMSPreflightController(t *testing.T) {
 			if fakeDeployerInstance.cleaned != scenario.expectedPreflightPodCleanup {
 				t.Errorf("deployer.Cleanup called: got %v, want %v", fakeDeployerInstance.cleaned, scenario.expectedPreflightPodCleanup)
 			}
+			if fakeDeployerInstance.deployed {
+				if fakeDeployerInstance.lastEncryptionConfigSecret == nil {
+					t.Fatalf("expected Deploy to receive a non-nil encryption config secret")
+				}
+				if fakeDeployerInstance.lastEncryptionConfigSecret.Data["encryption-config"] == nil {
+					t.Fatalf("expected encryption config secret to contain encryption-config data")
+				}
+			}
 
 			encryptiontesting.ValidateOperatorClientConditions(t, fakeOperatorClient, scenario.expectedConditions)
 		})
+	}
+}
+
+func TestKMSPreflightController_DeployUsesDryRunEncryptionConfig(t *testing.T) {
+	apiServer := apiServerWithWellKnownVaultKMS()
+	const matchingHash = "cuZm_g=="
+
+	fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+		&operatorv1.StaticPodOperatorSpec{OperatorSpec: operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}},
+		&operatorv1.StaticPodOperatorStatus{OperatorStatus: operatorv1.OperatorStatus{
+			Conditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+			},
+		}},
+		nil,
+		nil,
+	)
+	fakeKubeClient := fake.NewSimpleClientset(&wellKnownBaseSecret, &wellKnownBaseConfigMap)
+	eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events("test"), "test-kmsPreflightController", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
+	fakeConfigClient := configv1clientfake.NewSimpleClientset(apiServer)
+	fakeApiServerInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute).Config().V1().APIServers()
+	deployer := &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")}
+
+	target := NewKMSPreflightController(
+		"test",
+		nil,
+		newTestProvider([]schema.GroupResource{{Group: "", Resource: "secrets"}}),
+		alwaysFulfilledPreconditions,
+		deployer,
+		&staticEncryptionDeployer{},
+		fakeOperatorClient,
+		fakeConfigClient.ConfigV1().APIServers(),
+		fakeApiServerInformer,
+		fakeKubeClient.CoreV1(),
+		metav1.ListOptions{LabelSelector: "encryption.apiserver.operator.openshift.io/component=test"},
+		&fakeEncryptionStatusProvider{observedConfigHash: matchingHash},
+		eventRecorder,
+	)
+
+	if err := target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !deployer.deployed {
+		t.Fatal("expected Deploy to be called")
+	}
+	assertDeployedPreflightEncryptionConfig(t, deployer.lastEncryptionConfigSecret)
+
+	encryptiontesting.ValidateOperatorClientConditions(t, fakeOperatorClient, []operatorv1.OperatorCondition{
+		{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+		{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Deploying preflight pod for hash cuZm_g=="},
+	})
+}
+
+func TestKMSPreflightController_WaitsWhenEncryptionDeployerNotConverged(t *testing.T) {
+	apiServer := apiServerWithWellKnownVaultKMS()
+	const matchingHash = "cuZm_g=="
+
+	fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+		&operatorv1.StaticPodOperatorSpec{OperatorSpec: operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}},
+		&operatorv1.StaticPodOperatorStatus{OperatorStatus: operatorv1.OperatorStatus{
+			Conditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+			},
+		}},
+		nil,
+		nil,
+	)
+	fakeKubeClient := fake.NewSimpleClientset(&wellKnownBaseSecret, &wellKnownBaseConfigMap)
+	eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events("test"), "test-kmsPreflightController", &corev1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
+	fakeConfigClient := configv1clientfake.NewSimpleClientset(apiServer)
+	fakeApiServerInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute).Config().V1().APIServers()
+	deployer := &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")}
+
+	target := NewKMSPreflightController(
+		"test",
+		nil,
+		newTestProvider([]schema.GroupResource{{Group: "", Resource: "secrets"}}),
+		alwaysFulfilledPreconditions,
+		deployer,
+		&staticEncryptionDeployerNotConverged{},
+		fakeOperatorClient,
+		fakeConfigClient.ConfigV1().APIServers(),
+		fakeApiServerInformer,
+		fakeKubeClient.CoreV1(),
+		metav1.ListOptions{LabelSelector: "encryption.apiserver.operator.openshift.io/component=test"},
+		&fakeEncryptionStatusProvider{observedConfigHash: matchingHash},
+		eventRecorder,
+	)
+
+	if err := target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if deployer.deployed {
+		t.Fatal("expected Deploy not to be called while encryption deployer is not converged")
+	}
+	if deployer.lastEncryptionConfigSecret != nil {
+		t.Fatal("expected no encryption config secret to be passed to Deploy")
+	}
+
+	encryptiontesting.ValidateOperatorClientConditions(t, fakeOperatorClient, []operatorv1.OperatorCondition{
+		{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+		{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting for encryption deployer to converge before computing preflight encryption config"},
+	})
+}
+
+func apiServerWithWellKnownVaultKMS() *configv1.APIServer {
+	return &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.APIServerSpec{
+			Encryption: configv1.APIServerEncryption{
+				Type: "KMS",
+				KMS: configv1.KMSPluginConfig{
+					Type:  configv1.VaultKMSProvider,
+					Vault: wellKnownBaseVaultConfig,
+				},
+			},
+		},
+	}
+}
+
+func assertDeployedPreflightEncryptionConfig(t *testing.T, secret *corev1.Secret) {
+	t.Helper()
+	if secret == nil {
+		t.Fatal("expected Deploy to receive a non-nil encryption config secret")
+	}
+	if secret.Data["encryption-config"] == nil {
+		t.Fatal("expected encryption config secret to contain encryption-config data")
+	}
+
+	cfg, err := encryptiondata.FromSecret(secret)
+	if err != nil {
+		t.Fatalf("failed to parse encryption config secret: %v", err)
+	}
+	if cfg == nil || cfg.Encryption == nil {
+		t.Fatal("expected non-empty encryption configuration")
+	}
+	if _, ok := cfg.KMSPlugins["1"]; !ok {
+		t.Fatalf("expected KMS plugin for key ID 1, got %#v", cfg.KMSPlugins)
+	}
+
+	foundPreflightEndpoint := false
+	for _, resource := range cfg.Encryption.Resources {
+		for _, providerCfg := range resource.Providers {
+			if providerCfg.KMS == nil {
+				continue
+			}
+			if providerCfg.KMS.Endpoint == preflightKMSSocketEndpoint {
+				foundPreflightEndpoint = true
+			}
+			if strings.Contains(providerCfg.KMS.Endpoint, "kms-1.sock") {
+				t.Fatalf("expected write-key endpoint to be rewritten away from per-key socket, got %q", providerCfg.KMS.Endpoint)
+			}
+		}
+	}
+	if !foundPreflightEndpoint {
+		t.Fatalf("expected write-key KMS endpoint rewritten to %s", preflightKMSSocketEndpoint)
 	}
 }
