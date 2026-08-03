@@ -131,7 +131,7 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	s := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("encryption-key-%s-%s", component, ks.Key.Name),
-			Namespace: "openshift-config-managed",
+			Namespace: EncryptionKeysNamespace,
 			Labels: map[string]string{
 				EncryptionKeySecretsLabel: component,
 			},
@@ -203,9 +203,14 @@ func (m *MigratedGroupResources) HasResource(resource schema.GroupResource) bool
 	return false
 }
 
-// ListKeySecrets returns the current key secrets from openshift-config-managed.
+// ListKeySecrets returns the current key secrets from EncryptionKeysNamespace.
 func ListKeySecrets(ctx context.Context, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) ([]*corev1.Secret, error) {
-	encryptionSecretList, err := secretClient.Secrets("openshift-config-managed").List(ctx, encryptionSecretSelector)
+	return ListKeySecretsInNamespace(ctx, secretClient, EncryptionKeysNamespace, encryptionSecretSelector)
+}
+
+// ListKeySecretsInNamespace returns the current key secrets from the given namespace.
+func ListKeySecretsInNamespace(ctx context.Context, secretClient corev1client.SecretsGetter, namespace string, encryptionSecretSelector metav1.ListOptions) ([]*corev1.Secret, error) {
+	encryptionSecretList, err := secretClient.Secrets(namespace).List(ctx, encryptionSecretSelector)
 	if err != nil {
 		return nil, err
 	}

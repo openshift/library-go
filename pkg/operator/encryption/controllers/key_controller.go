@@ -136,13 +136,28 @@ func NewKeyController(
 	)
 }
 
-func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	return c.syncInternal(ctx, syncCtx, keySyncOptions{
+		keysNamespace: secrets.EncryptionKeysNamespace,
+		writeStatus:   true,
+	})
+}
+
+// keySyncOptions controls where key secrets are written and whether operator
+// status conditions are updated. Preflight callers use a temporary namespace
+// and writeStatus=false so degraded conditions are not written to the live operator.
+type keySyncOptions struct {
+	keysNamespace string
+	writeStatus   bool
+}
+
+func (c *keyController) syncInternal(ctx context.Context, syncCtx factory.SyncContext, opts keySyncOptions) (err error) {
 	// The status for this condition is intentionally omitted to ensure it's correctly set in each branch
 	degradedCondition := applyoperatorv1.OperatorCondition().
 		WithType("EncryptionKeyControllerDegraded")
 
 	defer func() {
-		if degradedCondition == nil {
+		if !opts.writeStatus || degradedCondition == nil {
 			return
 		}
 		status := applyoperatorv1.OperatorStatus().WithConditions(degradedCondition)
@@ -161,7 +176,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	err = c.checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs())
+	err = c.checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs(), opts.keysNamespace)
 	if err != nil {
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
@@ -175,13 +190,13 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 	return err
 }
 
-func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
+func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource, keysNamespace string) error {
 	currentMode, externalReason, apiEncryptionConfiguration, err := c.getCurrentModeReasonAndEncryptionConfig(ctx)
 	if err != nil {
 		return err
 	}
 
-	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndStateInNamespace(ctx, c.deployer, c.secretClient, keysNamespace, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -251,9 +266,10 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
-	_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(ctx, keySecret, metav1.CreateOptions{})
+	keySecret.Namespace = keysNamespace
+	_, createErr := c.secretClient.Secrets(keysNamespace).Create(ctx, keySecret, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(createErr) {
-		return c.validateExistingSecret(ctx, keySecret, newKeyID)
+		return c.validateExistingSecret(ctx, keySecret, newKeyID, keysNamespace)
 	}
 	if createErr != nil {
 		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, err)
@@ -265,8 +281,8 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	return nil
 }
 
-func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
-	actualKeySecret, err := c.secretClient.Secrets("openshift-config-managed").Get(ctx, keySecret.Name, metav1.GetOptions{})
+func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64, keysNamespace string) error {
+	actualKeySecret, err := c.secretClient.Secrets(keysNamespace).Get(ctx, keySecret.Name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

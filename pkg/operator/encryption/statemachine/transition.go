@@ -35,6 +35,19 @@ func GetEncryptionConfigAndState(
 	encryptionSecretSelector metav1.ListOptions,
 	encryptedGRs []schema.GroupResource,
 ) (current *encryptiondata.Config, desired map[schema.GroupResource]state.GroupResourceState, encryptionSecrets []*corev1.Secret, transitioningReason string, err error) {
+	return GetEncryptionConfigAndStateInNamespace(ctx, deployer, secretClient, secrets.EncryptionKeysNamespace, encryptionSecretSelector, encryptedGRs)
+}
+
+// GetEncryptionConfigAndStateInNamespace is like GetEncryptionConfigAndState but lists
+// encryption key secrets from keysNamespace instead of the default production namespace.
+func GetEncryptionConfigAndStateInNamespace(
+	ctx context.Context,
+	deployer Deployer,
+	secretClient corev1client.SecretsGetter,
+	keysNamespace string,
+	encryptionSecretSelector metav1.ListOptions,
+	encryptedGRs []schema.GroupResource,
+) (current *encryptiondata.Config, desired map[schema.GroupResource]state.GroupResourceState, encryptionSecrets []*corev1.Secret, transitioningReason string, err error) {
 	// get current config
 	encryptionConfigSecret, converged, err := deployer.DeployedEncryptionConfigSecret(ctx)
 	if err != nil {
@@ -52,7 +65,7 @@ func GetEncryptionConfigAndState(
 	}
 
 	// compute desired config
-	encryptionSecrets, err = secrets.ListKeySecrets(ctx, secretClient, encryptionSecretSelector)
+	encryptionSecrets, err = secrets.ListKeySecretsInNamespace(ctx, secretClient, keysNamespace, encryptionSecretSelector)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

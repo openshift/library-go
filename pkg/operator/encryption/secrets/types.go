@@ -5,6 +5,10 @@ import (
 )
 
 const (
+	// EncryptionKeysNamespace is the namespace where encryption key secrets and the
+	// consolidated encryption-config secret are stored in production.
+	EncryptionKeysNamespace = "openshift-config-managed"
+
 	// This label is used to find secrets that build up the final encryption config.  The names of the
 	// secrets are in format <shared prefix>-<unique monotonically increasing uint> (the uint is the keyID).
 	// For example, openshift-kube-apiserver-encryption-3.  Note that other than the -3 postfix, the name of
