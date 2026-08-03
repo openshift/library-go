@@ -287,7 +287,11 @@ func TestKMSConfigHasher(t *testing.T) {
 			}
 
 			client := fake.NewSimpleClientset(scenario.resources...).CoreV1()
-			got, err := newKMSConfigHasher(provider, client, "openshift-config").hash(context.Background())
+			hasher, err := newKMSConfigHasher(provider, newCoreClientKMSConfigHasherResourceProvider(client), "openshift-config")
+			if err != nil {
+				t.Fatalf("newKMSConfigHasher: %v", err)
+			}
+			got, err := hasher.hash(context.Background())
 
 			if scenario.expectedError != "" {
 				if err == nil {
