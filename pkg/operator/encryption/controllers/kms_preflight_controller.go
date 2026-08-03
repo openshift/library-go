@@ -482,12 +482,18 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 
 	// Scenario 1: no preflight required, cleanup lingering resources.
 	if requiredHash == "" {
+		if err := cleanupPreflightTempNamespaces(ctx, c.coreClient); err != nil {
+			klog.Warningf("failed to clean up leftover preflight temp namespaces: %v", err)
+		}
 		return false, "", "", c.deployer.Cleanup(ctx)
 	}
 
 	// Result already recorded for this hash as Succeeded: clean up the pod
 	// (idempotent if already gone) and return — no pod work needed.
 	if isPreflightResultSucceeded(existingResult) {
+		if err := deletePreflightTempNamespace(ctx, c.coreClient, preflightTempNamespaceName(requiredHash)); err != nil {
+			klog.Warningf("failed to delete preflight temp namespace for hash %s: %v", requiredHash, err)
+		}
 		return false, "", "", c.deployer.Cleanup(ctx)
 	}
 

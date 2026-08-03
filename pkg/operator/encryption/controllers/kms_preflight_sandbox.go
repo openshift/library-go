@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	preflightKMSSocketEndpoint = "unix:///var/run/kmsplugin/kms.sock"
+	preflightKMSSocketEndpoint  = "unix:///var/run/kmsplugin/kms.sock"
 	preflightTempNamespaceLabel = "encryption.apiserver.operator.openshift.io/kms-preflight"
 )
 
@@ -223,6 +223,28 @@ func deletePreflightTempNamespace(ctx context.Context, coreClient corev1client.C
 	err := coreClient.Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
+	}
+	return nil
+}
+
+// cleanupPreflightTempNamespaces deletes any leftover namespaces labeled as
+// KMS preflight temporary namespaces. Best-effort; used when no specific hash
+// is known (e.g. preflight no longer required).
+func cleanupPreflightTempNamespaces(ctx context.Context, coreClient corev1client.CoreV1Interface) error {
+	list, err := coreClient.Namespaces().List(ctx, metav1.ListOptions{
+		LabelSelector: preflightTempNamespaceLabel + "=true",
+	})
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for i := range list.Items {
+		if err := deletePreflightTempNamespace(ctx, coreClient, list.Items[i].Name); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to delete some preflight temp namespaces: %v", errs)
 	}
 	return nil
 }
