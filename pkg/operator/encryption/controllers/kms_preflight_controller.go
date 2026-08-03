@@ -16,6 +16,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
@@ -684,6 +685,17 @@ func FindPodCondition(conditions []corev1.PodCondition, condType corev1.PodCondi
 // and any existing result already recorded for that hash, or an empty string
 // when no preflight is needed.
 func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string, *operatorv1.KMSPreflightResult, error) {
+	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get apiserver config: %w", err)
+	}
+	if apiServer.Spec.Encryption.Type != configv1.EncryptionTypeKMS {
+		// Encryption is not KMS — nothing to preflight. A stale ObservedConfigHash
+		// (written when KMS was active) is irrelevant; the key controller will
+		// overwrite it when/if KMS is re-enabled.
+		return "", nil, nil
+	}
+
 	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get KMS encryption status: %w", err)
@@ -691,11 +703,6 @@ func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string,
 	requiredHash := encryptionStatus.Preflight.ObservedConfigHash
 	if requiredHash == "" {
 		return "", nil, nil
-	}
-
-	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to get apiserver config: %w", err)
 	}
 
 	providerCfg, err := newKMSProviderConfig(apiServer.Spec.Encryption.KMS)

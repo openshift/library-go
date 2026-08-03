@@ -375,6 +375,7 @@ func TestKMSPreflightController(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: configv1.APIServerSpec{
 			Encryption: configv1.APIServerEncryption{
+				Type: configv1.EncryptionTypeKMS,
 				KMS: configv1.KMSPluginConfig{
 					Type:  configv1.VaultKMSProvider,
 					Vault: wellKnownBaseVaultConfig,
@@ -929,6 +930,30 @@ func TestKMSPreflightController(t *testing.T) {
 			encryptionStatusProvider:    &fakeEncryptionStatusProvider{observedConfigHash: ""},
 			apiServerObjects:            []runtime.Object{apiServerWithKMS},
 			coreObjects:                 []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			preconditionsMet:            true,
+			expectedPreflightPodCleanup: true,
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+			},
+		},
+		{
+			// ObservedConfigHash is non-empty (set when KMS was active) but the
+			// cluster has since reverted to identity encryption. The controller
+			// must not degrade — the stale hash is irrelevant until KMS is
+			// re-enabled and the key controller overwrites it.
+			name: "ObservedConfigHash set but encryption reverted to identity — no preflight, not degraded",
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{
+				observedConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+			},
+			apiServerObjects: []runtime.Object{&configv1.APIServer{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+				Spec: configv1.APIServerSpec{
+					Encryption: configv1.APIServerEncryption{
+						Type: configv1.EncryptionTypeIdentity,
+					},
+				},
+			}},
 			preconditionsMet:            true,
 			expectedPreflightPodCleanup: true,
 			expectedConditions: []operatorv1.OperatorCondition{
