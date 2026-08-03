@@ -16,6 +16,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -83,13 +84,30 @@ func NewStateController(
 	)
 }
 
-func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	return c.syncInternal(ctx, syncCtx, stateSyncOptions{
+		keysNamespace:             secrets.EncryptionKeysNamespace,
+		encryptionConfigNamespace: secrets.EncryptionKeysNamespace,
+		writeStatus:               true,
+	})
+}
+
+// stateSyncOptions controls where key secrets are read, where the encryption-config
+// secret is written, and whether operator status conditions are updated. Preflight
+// callers use a temporary namespace and writeStatus=false.
+type stateSyncOptions struct {
+	keysNamespace             string
+	encryptionConfigNamespace string
+	writeStatus               bool
+}
+
+func (c *stateController) syncInternal(ctx context.Context, syncCtx factory.SyncContext, opts stateSyncOptions) (err error) {
 	// The status for this condition is intentionally omitted to ensure it's correctly set in each branch
 	degradedCondition := applyoperatorv1.OperatorCondition().
 		WithType("EncryptionStateControllerDegraded")
 
 	defer func() {
-		if degradedCondition == nil {
+		if !opts.writeStatus || degradedCondition == nil {
 			return
 		}
 		status := applyoperatorv1.OperatorStatus().WithConditions(degradedCondition)
@@ -108,7 +126,7 @@ func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.generateAndApplyCurrentEncryptionConfigSecret(ctx, syncCtx.Queue(), syncCtx.Recorder(), c.provider.EncryptedGRs())
+	configError := c.generateAndApplyCurrentEncryptionConfigSecret(ctx, syncCtx.Queue(), syncCtx.Recorder(), c.provider.EncryptedGRs(), opts)
 	if configError != nil {
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
@@ -126,8 +144,8 @@ type eventWithReason struct {
 	message string
 }
 
-func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
-	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource, opts stateSyncOptions) error {
+	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndStateInNamespace(ctx, c.deployer, c.secretClient, opts.keysNamespace, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -147,7 +165,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	if err != nil {
 		return err
 	}
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData, recorder)
+	changed, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData, recorder, opts.encryptionConfigNamespace)
 	if err != nil {
 		return err
 	}
@@ -163,8 +181,8 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	return nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config, recorder events.Recorder) (bool, error) {
-	s, err := encryptiondata.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName), secretData)
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config, recorder events.Recorder, encryptionConfigNamespace string) (bool, error) {
+	s, err := encryptiondata.ToSecret(encryptionConfigNamespace, fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName), secretData)
 	if err != nil {
 		return false, err
 	}
