@@ -110,16 +110,6 @@ type testStep struct {
 	testFunc func(testing.TB)
 }
 
-// requireExactlyOne fails the test unless items contains exactly one element.
-// Used to ensure only one scenario supplies the shared EncryptionProvider(s).
-func requireExactlyOne[T any](t testing.TB, items []T, what string) T {
-	t.Helper()
-	if len(items) != 1 {
-		t.Fatalf("requires exactly one %s, got %d", what, len(items))
-	}
-	return items[0]
-}
-
 func TestEncryptionTurnOnAndOff(ctx context.Context, t testing.TB, onOffScenarios ...OnOffScenario) {
 	if len(onOffScenarios) == 0 {
 		t.Fatalf("TestEncryptionTurnOnAndOff requires at least one scenario")
@@ -132,7 +122,10 @@ func TestEncryptionTurnOnAndOff(ctx context.Context, t testing.TB, onOffScenario
 			providers = append(providers, scenario.EncryptionProvider)
 		}
 	}
-	provider := requireExactlyOne(t, providers, "EncryptionProvider")
+	if len(providers) != 1 {
+		t.Fatalf("TestEncryptionTurnOnAndOff requires exactly one EncryptionProvider, got %d", len(providers))
+	}
+	provider := providers[0]
 
 	var (
 		createSteps                   []testStep
@@ -242,14 +235,22 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 		t.Fatalf("TestEncryptionProvidersMigration requires at least one scenario")
 	}
 
-	// Only one scenario should provide EncryptionProviders (shared cluster-wide APIServer config).
-	var providerLists [][]EncryptionProvider
-	for _, scenario := range migrationScenarios {
-		if len(scenario.EncryptionProviders) > 0 {
-			providerLists = append(providerLists, scenario.EncryptionProviders)
+	var providerScenario *ProvidersMigrationScenario
+	for i := range migrationScenarios {
+		if len(migrationScenarios[i].EncryptionProviders) == 0 {
+			continue
 		}
+		if providerScenario != nil {
+			t.Fatalf("only one scenario may provide EncryptionProviders, got %q and %q",
+				providerScenario.ResourceName, migrationScenarios[i].ResourceName)
+		}
+		providerScenario = &migrationScenarios[i]
 	}
-	providers := requireExactlyOne(t, providerLists, "EncryptionProviders")
+	if providerScenario == nil {
+		t.Fatalf("one scenario must provide EncryptionProviders")
+	}
+
+	providers := providerScenario.EncryptionProviders
 	if len(providers) < 2 {
 		t.Fatalf("ProvidersMigrationScenario requires at least 2 encryption providers, got %d", len(providers))
 	}
