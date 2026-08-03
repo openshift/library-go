@@ -384,62 +384,70 @@ func ApplyEncryption(ctx context.Context, t testing.TB, encryption configv1.APIS
 	t.Logf("Applied encryption config (type=%s)", encryption.Type)
 }
 
-// KMSInPlaceUpdateScenario tests that updating an in-place KMS config field
-// (e.g. kmsPluginImage) takes effect without creating a new encryption key.
-// The caller supplies Provider (initial valid config) and UpdatedProvider (same config
-// with one in-place field changed).
-type KMSInPlaceUpdateScenario struct {
+// InPlaceUpdateScenario tests that updating a config field that does not affect
+// the encryption key (e.g. KMS plugin image) takes effect without creating a
+// new encryption key and without disrupting existing encrypted resources.
+type InPlaceUpdateScenario struct {
 	BasicScenario
-	Provider        EncryptionProvider
-	UpdatedProvider EncryptionProvider
-	// WaitForPropagation is called after the in-place update to verify the change
-	// took effect. Receives the current encryption key so callers can match pod
-	// container names to the active key. Same pattern as WaitForStuck in
-	// KMSInvalidEncryptionRecoveryScenario.
-	WaitForPropagation func(ctx context.Context, t testing.TB, keyMeta EncryptionKeyMeta)
+	CreateResourceFunc          func(t testing.TB, clientSet ClientSet, namespace string) runtime.Object
+	AssertResourceEncryptedFunc func(t testing.TB, clientSet ClientSet, resource runtime.Object)
+	ResourceFunc                func(t testing.TB, namespace string) runtime.Object
+	ResourceName                string
+	EncryptionProvider          EncryptionProvider
+	UpdatedEncryptionProvider   EncryptionProvider
+	AssertInPlaceUpdateFunc     func(t testing.TB, clientSet ClientSet, keyMeta EncryptionKeyMeta)
 }
 
-// TestKMSInPlaceUpdate validates in-place KMS config field updates:
-//  1. Apply valid provider and verify migration
-//  2. Update in-place field and verify no new encryption key is created
-//  3. WaitForPropagation — caller verifies the change took effect
-func TestKMSInPlaceUpdate(ctx context.Context, t testing.TB, scenario KMSInPlaceUpdateScenario) {
-	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
-	clientSet := GetClients(e)
-
-	require.NotNil(t, scenario.Provider.Setup, "Provider.Setup must not be nil")
-	require.NotNil(t, scenario.UpdatedProvider.Setup, "UpdatedProvider.Setup must not be nil")
-	require.NotNil(t, scenario.WaitForPropagation, "WaitForPropagation must not be nil")
-	require.Equal(t, configv1.EncryptionTypeKMS, scenario.Provider.Type, "Provider must use KMS encryption type")
-	require.Equal(t, configv1.EncryptionTypeKMS, scenario.UpdatedProvider.Type, "UpdatedProvider must use KMS encryption type")
-
+// TestInPlaceUpdate validates in-place config field updates:
+//  1. Create the resource
+//  2. Encrypt with the initial provider and verify migration
+//  3. Assert the resource is encrypted
+//  4. Apply updated provider and verify no new encryption key is created
+//  5. Assert the resource remains encrypted after the update
+//  6. AssertInPlaceUpdateFunc — caller verifies the change took effect
+func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenario InPlaceUpdateScenario) {
 	steps := []testStep{
-		{name: "ApplyValidProviderAndVerifyMigration", testFunc: func(t testing.TB) {
-			SetAndWaitForEncryptionType(ctx, t, scenario.Provider, scenario.TargetGRs,
+		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
+		}},
+		{name: fmt.Sprintf("EncryptWith%s", strings.ToUpper(string(scenario.EncryptionProvider.Type))), testFunc: func(t testing.TB) {
+			TestEncryptionType(ctx, t, scenario.BasicScenario, scenario.EncryptionProvider)
+		}},
+		{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+		}},
+		{name: "ApplyInPlaceUpdate", testFunc: func(t testing.TB) {
+			e := NewE(t)
+			clientSet := GetClients(e)
+			keyMeta, err := GetLastKeyMeta(e, clientSet.Kube,
 				scenario.Namespace, scenario.LabelSelector)
-			scenario.AssertFunc(t, clientSet, scenario.Provider.Type,
+			require.NoError(e, err)
+			if scenario.UpdatedEncryptionProvider.Setup != nil {
+				scenario.UpdatedEncryptionProvider.Setup(ctx, e)
+			}
+			ApplyEncryption(ctx, e, scenario.UpdatedEncryptionProvider.APIServerEncryption)
+			WaitForNoNewEncryptionKey(e, clientSet.Kube, keyMeta,
 				scenario.Namespace, scenario.LabelSelector)
 		}},
-		{name: "UpdateInPlaceField", testFunc: func(t testing.TB) {
-			keyMeta, err := GetLastKeyMeta(t, clientSet.Kube,
-				scenario.Namespace, scenario.LabelSelector)
-			require.NoError(t, err)
-			scenario.UpdatedProvider.Setup(ctx, t)
-			ApplyEncryption(ctx, t, scenario.UpdatedProvider.APIServerEncryption)
-			WaitForNoNewEncryptionKey(t, clientSet.Kube, keyMeta,
-				scenario.Namespace, scenario.LabelSelector)
+		{name: fmt.Sprintf("Assert%sEncryptedAfterUpdate", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
-		{name: "WaitForPropagation", testFunc: func(t testing.TB) {
-			keyMeta, err := GetLastKeyMeta(t, clientSet.Kube,
+		{name: fmt.Sprintf("AssertInPlaceUpdate%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			clientSet := GetClients(e)
+			keyMeta, err := GetLastKeyMeta(e, clientSet.Kube,
 				scenario.Namespace, scenario.LabelSelector)
-			require.NoError(t, err)
-			scenario.WaitForPropagation(ctx, t, keyMeta)
+			require.NoError(e, err)
+			scenario.AssertInPlaceUpdateFunc(e, clientSet, keyMeta)
 		}},
 	}
 
 	for _, step := range steps {
 		t.Logf("=== STEP: %s ===", step.name)
-		step.testFunc(e)
+		step.testFunc(t)
 		if t.Failed() {
 			t.Errorf("stopping the test as %q step failed", step.name)
 			return
