@@ -118,7 +118,7 @@ func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	secretToApply, pendingEvents, configError := c.generateEncryptionConfigSecret(ctx, syncCtx.Queue(), c.provider.EncryptedGRs(), c.deployedEncryptionConfigSecretFn, c.listKeySecretsFn)
+	secretToApply, pendingEvents, configError := c.computeEncryptionConfigSecret(ctx, syncCtx.Queue())
 	if configError == nil && secretToApply != nil {
 		_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, syncCtx.Recorder(), secretToApply)
 		if applyErr != nil {
@@ -146,7 +146,11 @@ type eventWithReason struct {
 	message string
 }
 
-func (c *stateController) generateEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, encryptedGRs []schema.GroupResource, deployedEncryptionConfigSecretFn func(context.Context) (*corev1.Secret, bool, error), listKeySecretsFn func(context.Context) ([]*corev1.Secret, error)) (*corev1.Secret, []eventWithReason, error) {
+func (c *stateController) computeEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface) (*corev1.Secret, []eventWithReason, error) {
+	return generateEncryptionConfigSecret(ctx, queue, c.provider.EncryptedGRs(), c.instanceName, c.deployedEncryptionConfigSecretFn, c.listKeySecretsFn)
+}
+
+func generateEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, encryptedGRs []schema.GroupResource, instanceName string, deployedEncryptionConfigSecretFn func(context.Context) (*corev1.Secret, bool, error), listKeySecretsFn func(context.Context) ([]*corev1.Secret, error)) (*corev1.Secret, []eventWithReason, error) {
 	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(
 		ctx,
 		deployedEncryptionConfigSecretFn,
@@ -172,7 +176,7 @@ func (c *stateController) generateEncryptionConfigSecret(ctx context.Context, qu
 	if err != nil {
 		return nil, nil, err
 	}
-	secretToApply, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData)
+	secretToApply, err := applyEncryptionConfigSecret(instanceName, desiredSecretData)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -183,8 +187,8 @@ func (c *stateController) generateEncryptionConfigSecret(ctx context.Context, qu
 	return secretToApply, pendingEvents, nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config) (*corev1.Secret, error) {
-	s, err := encryptiondata.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName), secretData)
+func applyEncryptionConfigSecret(instanceName string, secretData *encryptiondata.Config) (*corev1.Secret, error) {
+	s, err := encryptiondata.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, instanceName), secretData)
 	if err != nil {
 		return nil, err
 	}
