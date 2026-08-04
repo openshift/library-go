@@ -110,7 +110,17 @@ func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.generateAndApplyCurrentEncryptionConfigSecret(ctx, syncCtx.Queue(), syncCtx.Recorder(), c.provider.EncryptedGRs())
+	secretToApply, pendingEvents, configError := c.generateEncryptionConfigSecret(ctx, syncCtx.Queue(), c.provider.EncryptedGRs())
+	if configError == nil && secretToApply != nil {
+		_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, syncCtx.Recorder(), secretToApply)
+		if applyErr != nil {
+			configError = applyErr
+		} else if changed {
+			for _, event := range pendingEvents {
+				syncCtx.Recorder().Eventf(event.reason, "%s", event.message)
+			}
+		}
+	}
 	if configError != nil {
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
@@ -128,7 +138,7 @@ type eventWithReason struct {
 	message string
 }
 
-func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
+func (c *stateController) generateEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, encryptedGRs []schema.GroupResource) (*corev1.Secret, []eventWithReason, error) {
 	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(
 		ctx,
 		c.deployer.DeployedEncryptionConfigSecret,
@@ -138,48 +148,41 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 		encryptedGRs,
 	)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	if len(transitioningReason) > 0 {
 		queue.AddAfter(stateWorkKey, 2*time.Minute)
-		return nil
+		return nil, nil, nil
 	}
 
 	if currentConfig == nil && len(encryptionSecrets) == 0 {
 		// we depend on the key controller to create the first key to bootstrap encryption.
 		// Later-on either the config exists or there are keys, even in the case of disabled
 		// encryption via the apiserver config.
-		return nil
+		return nil, nil, nil
 	}
 
 	desiredSecretData, err := encryptiondata.FromEncryptionState(desiredEncryptionState)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData, recorder)
+	secretToApply, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	if changed {
-		currentEncryptionConfig, _ := encryptiondata.ToEncryptionState(currentConfig, encryptionSecrets)
-		if actionEvents := eventsFromEncryptionConfigChanges(currentEncryptionConfig, desiredEncryptionState); len(actionEvents) > 0 {
-			for _, event := range actionEvents {
-				recorder.Eventf(event.reason, "%s", event.message)
-			}
-		}
-	}
-	return nil
+	currentEncryptionConfig, _ := encryptiondata.ToEncryptionState(currentConfig, encryptionSecrets)
+	pendingEvents := eventsFromEncryptionConfigChanges(currentEncryptionConfig, desiredEncryptionState)
+
+	return secretToApply, pendingEvents, nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config, recorder events.Recorder) (bool, error) {
+func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config) (*corev1.Secret, error) {
 	s, err := encryptiondata.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName), secretData)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-
-	_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, recorder, s)
-	return changed, applyErr
+	return s, nil
 }
 
 // eventsFromEncryptionConfigChanges return slice of event reasons with messages corresponding to a difference between current and desired encryption state.
