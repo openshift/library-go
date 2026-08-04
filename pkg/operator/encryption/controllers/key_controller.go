@@ -81,11 +81,11 @@ type keyController struct {
 
 	unsupportedConfigPrefix []string
 
-	getAPIServerAndOperatorSpecFnFn    func(context.Context) (*configv1.APIServer, *operatorv1.OperatorSpec, error)
-	deployedEncryptionConfigSecretFnFn func(context.Context) (*corev1.Secret, bool, error)
+	getAPIServerAndOperatorSpecFn    func(context.Context) (*configv1.APIServer, *operatorv1.OperatorSpec, error)
+	deployedEncryptionConfigSecretFn func(context.Context) (*corev1.Secret, bool, error)
 	listKeySecretsFn                 func(context.Context) ([]*corev1.Secret, error)
-	getKMSPluginSecretFnFn             func(context.Context, string) (*corev1.Secret, error)
-	getKMSPluginConfigMapFnFn          func(context.Context, string) (*corev1.ConfigMap, error)
+	getKMSPluginSecretFn             func(context.Context, string) (*corev1.Secret, error)
+	getKMSPluginConfigMapFn          func(context.Context, string) (*corev1.ConfigMap, error)
 }
 
 func NewKeyController(
@@ -119,7 +119,7 @@ func NewKeyController(
 		configMapClient:          configMapClient,
 	}
 
-	c.getAPIServerAndOperatorSpecFnFn = func(ctx context.Context) (*configv1.APIServer, *operatorv1.OperatorSpec, error) {
+	c.getAPIServerAndOperatorSpecFn = func(ctx context.Context) (*configv1.APIServer, *operatorv1.OperatorSpec, error) {
 		apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 		if err != nil {
 			return nil, nil, err
@@ -130,14 +130,14 @@ func NewKeyController(
 		}
 		return apiServer, operatorSpec, nil
 	}
-	c.deployedEncryptionConfigSecretFnFn = c.deployer.DeployedEncryptionConfigSecret
+	c.deployedEncryptionConfigSecretFn = c.deployer.DeployedEncryptionConfigSecret
 	c.listKeySecretsFn = func(ctx context.Context) ([]*corev1.Secret, error) {
 		return secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
 	}
-	c.getKMSPluginSecretFnFn = func(ctx context.Context, name string) (*corev1.Secret, error) {
+	c.getKMSPluginSecretFn = func(ctx context.Context, name string) (*corev1.Secret, error) {
 		return c.secretClient.Secrets(openshiftConfigNS).Get(ctx, name, metav1.GetOptions{})
 	}
-	c.getKMSPluginConfigMapFnFn = func(ctx context.Context, name string) (*corev1.ConfigMap, error) {
+	c.getKMSPluginConfigMapFn = func(ctx context.Context, name string) (*corev1.ConfigMap, error) {
 		return c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, name, metav1.GetOptions{})
 	}
 
@@ -182,7 +182,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	keySecret, err := checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs(), c.instanceName, c.unsupportedConfigPrefix, c.getAPIServerAndOperatorSpecFnFn, c.deployedEncryptionConfigSecretFnFn, c.listKeySecretsFn, c.getKMSPluginSecretFnFn, c.getKMSPluginConfigMapFnFn)
+	keySecret, err := c.computeKeySecret(ctx, syncCtx)
 	if err == nil && keySecret != nil {
 		keyID, _ := state.NameToKeyID(keySecret.Name)
 		_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(ctx, keySecret, metav1.CreateOptions{})
@@ -206,6 +206,18 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 	}
 
 	return err
+}
+
+func (c *keyController) computeKeySecret(ctx context.Context, syncContext factory.SyncContext) (*corev1.Secret, error) {
+	return checkAndCreateKeys(
+		ctx, syncContext, c.provider.EncryptedGRs(),
+		c.instanceName, c.unsupportedConfigPrefix,
+		c.getAPIServerAndOperatorSpecFn,
+		c.deployedEncryptionConfigSecretFn,
+		c.listKeySecretsFn,
+		c.getKMSPluginSecretFn,
+		c.getKMSPluginConfigMapFn,
+	)
 }
 
 func checkAndCreateKeys(
