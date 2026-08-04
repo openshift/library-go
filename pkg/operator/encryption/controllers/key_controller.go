@@ -69,9 +69,10 @@ type keyController struct {
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
 
-	controllerInstanceName   string
-	instanceName             string
-	encryptionSecretSelector metav1.ListOptions
+	controllerInstanceName    string
+	instanceName              string
+	encryptionSecretNamespace string
+	encryptionSecretSelector  metav1.ListOptions
 
 	deployer                 statemachine.Deployer
 	secretClient             corev1client.SecretsGetter
@@ -84,6 +85,7 @@ type keyController struct {
 
 func NewKeyController(
 	instanceName string,
+	encryptionSecretNamespace string,
 	unsupportedConfigPrefix []string,
 	provider Provider,
 	deployer statemachine.Deployer,
@@ -101,9 +103,10 @@ func NewKeyController(
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
 
-		instanceName:            instanceName,
-		controllerInstanceName:  factory.ControllerInstanceName(instanceName, "EncryptionKey"),
-		unsupportedConfigPrefix: unsupportedConfigPrefix,
+		instanceName:              instanceName,
+		controllerInstanceName:    factory.ControllerInstanceName(instanceName, "EncryptionKey"),
+		encryptionSecretNamespace: encryptionSecretNamespace,
+		unsupportedConfigPrefix:   unsupportedConfigPrefix,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
@@ -123,7 +126,7 @@ func NewKeyController(
 		WithInformers(
 			apiServerInformer.Informer(),
 			operatorClient.Informer(),
-			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+			kubeInformersForNamespaces.InformersFor(c.encryptionSecretNamespace).Core().V1().Secrets().Informer(),
 			// openshift-config secrets/configmaps are not watched directly. While we could
 			// build a mechanism to watch only the referenced resources, creating and
 			// maintaining it is not free, and watching all resources in the namespace
@@ -181,7 +184,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return err
 	}
 
-	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.encryptionSecretNamespace, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -251,7 +254,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
-	_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(ctx, keySecret, metav1.CreateOptions{})
+	_, createErr := c.secretClient.Secrets(c.encryptionSecretNamespace).Create(ctx, keySecret, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(createErr) {
 		return c.validateExistingSecret(ctx, keySecret, newKeyID)
 	}
@@ -266,7 +269,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
-	actualKeySecret, err := c.secretClient.Secrets("openshift-config-managed").Get(ctx, keySecret.Name, metav1.GetOptions{})
+	actualKeySecret, err := c.secretClient.Secrets(c.encryptionSecretNamespace).Get(ctx, keySecret.Name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -342,7 +345,7 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			}
 		}
 	}
-	return secrets.FromKeyState(c.instanceName, ks)
+	return secrets.FromKeyState(c.encryptionSecretNamespace, c.instanceName, ks)
 }
 
 func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, configv1.APIServerEncryption, error) {

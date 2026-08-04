@@ -37,9 +37,10 @@ const stateWorkKey = "key"
 // is converted into a single encryption config.  The logic for determining
 // the current write key is of special interest.
 type stateController struct {
-	instanceName             string
-	controllerInstanceName   string
-	encryptionSecretSelector metav1.ListOptions
+	instanceName              string
+	controllerInstanceName    string
+	encryptionSecretNamespace string
+	encryptionSecretSelector  metav1.ListOptions
 
 	operatorClient           operatorv1helpers.OperatorClient
 	secretClient             corev1client.SecretsGetter
@@ -50,6 +51,7 @@ type stateController struct {
 
 func NewStateController(
 	instanceName string,
+	encryptionSecretNamespace string,
 	provider Provider,
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
@@ -61,9 +63,10 @@ func NewStateController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &stateController{
-		operatorClient:         operatorClient,
-		instanceName:           instanceName,
-		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionState"),
+		operatorClient:            operatorClient,
+		instanceName:              instanceName,
+		controllerInstanceName:    factory.ControllerInstanceName(instanceName, "EncryptionState"),
+		encryptionSecretNamespace: encryptionSecretNamespace,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
@@ -74,7 +77,7 @@ func NewStateController(
 
 	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
 		operatorClient.Informer(),
-		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		kubeInformersForNamespaces.InformersFor(c.encryptionSecretNamespace).Core().V1().Secrets().Informer(),
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ToController(
@@ -127,7 +130,7 @@ type eventWithReason struct {
 }
 
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
-	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.encryptionSecretNamespace, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -164,7 +167,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 }
 
 func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config, recorder events.Recorder) (bool, error) {
-	s, err := encryptiondata.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName), secretData)
+	s, err := encryptiondata.ToSecret(c.encryptionSecretNamespace, fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName), secretData)
 	if err != nil {
 		return false, err
 	}

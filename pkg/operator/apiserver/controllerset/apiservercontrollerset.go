@@ -360,6 +360,7 @@ func (cs *APIServerControllerSet) WithoutPruneController() *APIServerControllerS
 
 func (cs *APIServerControllerSet) WithEncryptionControllers(
 	component string,
+	encryptionSecretNamespace string,
 	provider controllers.Provider,
 	deployer statemachine.Deployer,
 	migrator migrators.Migrator,
@@ -376,6 +377,7 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 		eventRecorder:  cs.eventRecorder,
 
 		component:                  component,
+		encryptionSecretNamespace:  encryptionSecretNamespace,
 		provider:                   provider,
 		deployer:                   deployer,
 		migrator:                   migrator,
@@ -483,6 +485,7 @@ type encryptionControllerBuilder struct {
 	eventRecorder  events.Recorder
 
 	component                  string
+	encryptionSecretNamespace  string
 	provider                   controllers.Provider
 	deployer                   statemachine.Deployer
 	migrator                   migrators.Migrator
@@ -503,6 +506,7 @@ func (e *encryptionControllerBuilder) build() []controllerWrapper {
 
 	controllers, err := encryption.NewControllers(
 		e.component,
+		e.encryptionSecretNamespace,
 		e.unsupportedConfigPrefix,
 		e.provider,
 		e.deployer,

@@ -155,6 +155,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 
 	controllers, err := encryption.NewControllers(
 		component,
+		"openshift-config-managed",
 		[]string{},
 		provider,
 		deployer,

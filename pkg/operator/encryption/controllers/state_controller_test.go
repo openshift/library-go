@@ -1229,6 +1229,7 @@ func TestStateController(t *testing.T) {
 
 			target := NewStateController(
 				scenario.targetNamespace,
+				"openshift-config-managed",
 				provider,
 				deployer,
 				alwaysFulfilledPreconditions,

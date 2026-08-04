@@ -37,8 +37,9 @@ const (
 // them.  Keeping a small number of old keys around is meant to help facilitate
 // decryption of old backups (and general precaution).
 type pruneController struct {
-	controllerInstanceName string
-	operatorClient         operatorv1helpers.OperatorClient
+	controllerInstanceName    string
+	encryptionSecretNamespace string
+	operatorClient            operatorv1helpers.OperatorClient
 
 	encryptionSecretSelector metav1.ListOptions
 
@@ -50,6 +51,7 @@ type pruneController struct {
 
 func NewPruneController(
 	instanceName string,
+	encryptionSecretNamespace string,
 	provider Provider,
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
@@ -61,18 +63,19 @@ func NewPruneController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &pruneController{
-		operatorClient:           operatorClient,
-		controllerInstanceName:   factory.ControllerInstanceName(instanceName, "EncryptionPrune"),
-		encryptionSecretSelector: encryptionSecretSelector,
-		deployer:                 deployer,
-		provider:                 provider,
-		preconditionsFulfilledFn: preconditionsFulfilledFn,
-		secretClient:             secretClient,
+		operatorClient:            operatorClient,
+		controllerInstanceName:    factory.ControllerInstanceName(instanceName, "EncryptionPrune"),
+		encryptionSecretNamespace: encryptionSecretNamespace,
+		encryptionSecretSelector:  encryptionSecretSelector,
+		deployer:                  deployer,
+		provider:                  provider,
+		preconditionsFulfilledFn:  preconditionsFulfilledFn,
+		secretClient:              secretClient,
 	}
 
 	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
 		operatorClient.Informer(),
-		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		kubeInformersForNamespaces.InformersFor(c.encryptionSecretNamespace).Core().V1().Secrets().Informer(),
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ToController(
@@ -121,7 +124,7 @@ func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 }
 
 func (c *pruneController) deleteOldMigratedSecrets(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.encryptionSecretNamespace, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -135,7 +138,7 @@ func (c *pruneController) deleteOldMigratedSecrets(ctx context.Context, syncCont
 		allUsedKeys = append(allUsedKeys, grKeys.ReadKeys...)
 	}
 
-	allSecrets, err := c.secretClient.Secrets("openshift-config-managed").List(ctx, c.encryptionSecretSelector)
+	allSecrets, err := c.secretClient.Secrets(c.encryptionSecretNamespace).List(ctx, c.encryptionSecretSelector)
 	if err != nil {
 		return err
 	}
@@ -181,7 +184,7 @@ NextEncryptionSecret:
 		if idx > -1 {
 			secret.Finalizers = slices.Delete(secret.Finalizers, idx, idx+1)
 			var updateErr error
-			secret, updateErr = c.secretClient.Secrets("openshift-config-managed").Update(ctx, secret, metav1.UpdateOptions{})
+			secret, updateErr = c.secretClient.Secrets(c.encryptionSecretNamespace).Update(ctx, secret, metav1.UpdateOptions{})
 			deleteErrs = append(deleteErrs, updateErr)
 			if updateErr != nil {
 				continue
@@ -189,7 +192,7 @@ NextEncryptionSecret:
 		}
 
 		// remove the actual secret
-		if err := c.secretClient.Secrets("openshift-config-managed").Delete(ctx, secret.Name, metav1.DeleteOptions{}); err != nil {
+		if err := c.secretClient.Secrets(c.encryptionSecretNamespace).Delete(ctx, secret.Name, metav1.DeleteOptions{}); err != nil {
 			deleteErrs = append(deleteErrs, err)
 		} else {
 			deletedKeys++

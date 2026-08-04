@@ -55,8 +55,9 @@ const (
 //     encryption.apiserver.operator.openshift.io/migrated-resources annotations on the
 //     current write-key secrets.
 type migrationController struct {
-	instanceName           string
-	controllerInstanceName string
+	instanceName              string
+	controllerInstanceName    string
+	encryptionSecretNamespace string
 
 	operatorClient operatorv1helpers.OperatorClient
 	secretClient   corev1client.SecretsGetter
@@ -72,6 +73,7 @@ type migrationController struct {
 
 func NewMigrationController(
 	instanceName string,
+	encryptionSecretNamespace string,
 	provider Provider,
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
@@ -84,9 +86,10 @@ func NewMigrationController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &migrationController{
-		instanceName:           instanceName,
-		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionMigration"),
-		operatorClient:         operatorClient,
+		instanceName:              instanceName,
+		controllerInstanceName:    factory.ControllerInstanceName(instanceName, "EncryptionMigration"),
+		encryptionSecretNamespace: encryptionSecretNamespace,
+		operatorClient:            operatorClient,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
@@ -99,7 +102,7 @@ func NewMigrationController(
 	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
 		migrator,
 		operatorClient.Informer(),
-		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		kubeInformersForNamespaces.InformersFor(c.encryptionSecretNamespace).Core().V1().Secrets().Informer(),
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ToController(
@@ -168,7 +171,7 @@ func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncCont
 // TODO doc
 func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) (migratingResources []schema.GroupResource, err error) {
 	// no storage migration during revision changes
-	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.encryptionSecretNamespace, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +180,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		return nil, nil
 	}
 
-	encryptionSecrets, err := secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
+	encryptionSecrets, err := secrets.ListKeySecrets(ctx, c.encryptionSecretNamespace, c.secretClient, c.encryptionSecretSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +255,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		}
 
 		// update secret annotations
-		oldWriteKey, err := secrets.FromKeyState(c.instanceName, grActualKeys.WriteKey)
+		oldWriteKey, err := secrets.FromKeyState(c.encryptionSecretNamespace, c.instanceName, grActualKeys.WriteKey)
 		if err != nil {
 			errs = append(errs, result)
 			continue

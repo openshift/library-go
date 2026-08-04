@@ -117,8 +117,8 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 	return key, nil
 }
 
-// ToKeyState converts a key state to a key secret.
-func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
+// FromKeyState converts a key state to a key secret in the given namespace.
+func FromKeyState(encryptionSecretNamespace, component string, ks state.KeyState) (*corev1.Secret, error) {
 	bs, err := base64.StdEncoding.DecodeString(ks.Key.Secret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode key string")
@@ -131,7 +131,7 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	s := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("encryption-key-%s-%s", component, ks.Key.Name),
-			Namespace: "openshift-config-managed",
+			Namespace: encryptionSecretNamespace,
 			Labels: map[string]string{
 				EncryptionKeySecretsLabel: component,
 			},
@@ -203,9 +203,9 @@ func (m *MigratedGroupResources) HasResource(resource schema.GroupResource) bool
 	return false
 }
 
-// ListKeySecrets returns the current key secrets from openshift-config-managed.
-func ListKeySecrets(ctx context.Context, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) ([]*corev1.Secret, error) {
-	encryptionSecretList, err := secretClient.Secrets("openshift-config-managed").List(ctx, encryptionSecretSelector)
+// ListKeySecrets returns the current key secrets from the given namespace.
+func ListKeySecrets(ctx context.Context, encryptionSecretNamespace string, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) ([]*corev1.Secret, error) {
+	encryptionSecretList, err := secretClient.Secrets(encryptionSecretNamespace).List(ctx, encryptionSecretSelector)
 	if err != nil {
 		return nil, err
 	}

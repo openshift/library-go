@@ -22,7 +22,7 @@ type preconditionChecker struct {
 
 // newEncryptionEnabledPrecondition determines if encryption controllers should synchronise.
 // It uses the cache for gathering data to avoid sending requests to the API servers.
-func newEncryptionEnabledPrecondition(apiServerConfigLister configv1listers.APIServerLister, kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces, encryptionSecretSelectorString, component string) (*preconditionChecker, error) {
+func newEncryptionEnabledPrecondition(apiServerConfigLister configv1listers.APIServerLister, kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces, encryptionSecretNamespace, encryptionSecretSelectorString, component string) (*preconditionChecker, error) {
 	encryptionSecretSelector, err := labels.Parse(encryptionSecretSelectorString)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func newEncryptionEnabledPrecondition(apiServerConfigLister configv1listers.APIS
 	return &preconditionChecker{
 		component:                component,
 		encryptionSecretSelector: encryptionSecretSelector,
-		secretLister:             kubeInformersForNamespaces.SecretLister().Secrets("openshift-config-managed"),
+		secretLister:             kubeInformersForNamespaces.SecretLister().Secrets(encryptionSecretNamespace),
 		apiServerConfigLister:    apiServerConfigLister,
 	}, nil
 }

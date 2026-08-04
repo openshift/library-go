@@ -189,6 +189,7 @@ func TestPruneController(t *testing.T) {
 
 			target := NewPruneController(
 				"EncryptionPruneController",
+				"openshift-config-managed",
 				provider,
 				deployer,
 				alwaysFulfilledPreconditions,

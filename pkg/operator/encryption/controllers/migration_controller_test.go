@@ -650,6 +650,7 @@ func TestMigrationController(t *testing.T) {
 			// act
 			target := NewMigrationController(
 				"kms",
+				"openshift-config-managed",
 				provider,
 				deployer,
 				alwaysFulfilledPreconditions,

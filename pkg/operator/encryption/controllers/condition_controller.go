@@ -25,8 +25,9 @@ import (
 // conditionController maintains the Encrypted condition. It sets it to true iff there is a
 // fully migrated read-key in the current config, and no later key is of identity type.
 type conditionController struct {
-	controllerInstanceName string
-	operatorClient         operatorv1helpers.OperatorClient
+	controllerInstanceName    string
+	encryptionSecretNamespace string
+	operatorClient            operatorv1helpers.OperatorClient
 
 	encryptionSecretSelector metav1.ListOptions
 
@@ -38,6 +39,7 @@ type conditionController struct {
 
 func NewConditionController(
 	instanceName string,
+	encryptionSecretNamespace string,
 	provider Provider,
 	deployer statemachine.Deployer,
 	preconditionsFulfilledFn preconditionsFulfilled,
@@ -49,8 +51,9 @@ func NewConditionController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &conditionController{
-		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionCondition"),
-		operatorClient:         operatorClient,
+		controllerInstanceName:    factory.ControllerInstanceName(instanceName, "EncryptionCondition"),
+		encryptionSecretNamespace: encryptionSecretNamespace,
+		operatorClient:            operatorClient,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
@@ -60,7 +63,7 @@ func NewConditionController(
 	}
 
 	return factory.New().WithInformers(
-		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		kubeInformersForNamespaces.InformersFor(c.encryptionSecretNamespace).Core().V1().Secrets().Informer(),
 		operatorClient.Informer(),
 		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
@@ -96,7 +99,7 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 	}
 
 	encryptedGRs := c.provider.EncryptedGRs()
-	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.encryptionSecretNamespace, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil || len(transitioningReason) > 0 {
 		// do not update the encryption condition (cond). Note: progressing is set elsewhere.
 		cond = nil

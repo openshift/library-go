@@ -30,6 +30,7 @@ type Deployer interface {
 
 func GetEncryptionConfigAndState(
 	ctx context.Context,
+	encryptionSecretNamespace string,
 	deployer Deployer,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -52,7 +53,7 @@ func GetEncryptionConfigAndState(
 	}
 
 	// compute desired config
-	encryptionSecrets, err = secrets.ListKeySecrets(ctx, secretClient, encryptionSecretSelector)
+	encryptionSecrets, err = secrets.ListKeySecrets(ctx, encryptionSecretNamespace, secretClient, encryptionSecretSelector)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

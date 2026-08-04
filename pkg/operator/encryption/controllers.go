@@ -25,6 +25,7 @@ import (
 
 func NewControllers(
 	component string,
+	encryptionSecretNamespace string,
 	unsupportedConfigPrefix []string,
 	provider controllers.Provider,
 	deployer statemachine.Deployer,
@@ -44,7 +45,7 @@ func NewControllers(
 	// TODO: update the eventHandlers used by the controllers to ignore components that do not match their own
 	encryptionSecretSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + component}
 
-	encryptionEnabledChecker, err := newEncryptionEnabledPrecondition(apiServerInformer.Lister(), kubeInformersForNamespaces, encryptionSecretSelector.LabelSelector, component)
+	encryptionEnabledChecker, err := newEncryptionEnabledPrecondition(apiServerInformer.Lister(), kubeInformersForNamespaces, encryptionSecretNamespace, encryptionSecretSelector.LabelSelector, component)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +54,7 @@ func NewControllers(
 	if resourceSyncer != nil {
 		if err := resourceSyncer.SyncSecretConditionally(
 			resourcesynccontroller.ResourceLocation{Namespace: component, Name: encryptiondata.EncryptionConfSecretName},
-			resourcesynccontroller.ResourceLocation{Namespace: "openshift-config-managed", Name: fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, component)},
+			resourcesynccontroller.ResourceLocation{Namespace: encryptionSecretNamespace, Name: fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, component)},
 			encryptionEnabledChecker.PreconditionFulfilled,
 		); err != nil {
 			return nil, err
@@ -63,6 +64,7 @@ func NewControllers(
 	return []factory.Controller{
 		controllers.NewKeyController(
 			component,
+			encryptionSecretNamespace,
 			unsupportedConfigPrefix,
 			provider,
 			deployer,
@@ -78,6 +80,7 @@ func NewControllers(
 		),
 		controllers.NewStateController(
 			component,
+			encryptionSecretNamespace,
 			provider,
 			deployer,
 			encryptionEnabledChecker.PreconditionFulfilled,
@@ -90,6 +93,7 @@ func NewControllers(
 		),
 		controllers.NewPruneController(
 			component,
+			encryptionSecretNamespace,
 			provider,
 			deployer,
 			encryptionEnabledChecker.PreconditionFulfilled,
@@ -102,6 +106,7 @@ func NewControllers(
 		),
 		controllers.NewMigrationController(
 			component,
+			encryptionSecretNamespace,
 			provider,
 			deployer,
 			encryptionEnabledChecker.PreconditionFulfilled,
@@ -115,6 +120,7 @@ func NewControllers(
 		),
 		controllers.NewConditionController(
 			component,
+			encryptionSecretNamespace,
 			provider,
 			deployer,
 			encryptionEnabledChecker.PreconditionFulfilled,
