@@ -1275,8 +1275,21 @@ func TestGetCurrentModeReasonAndEncryptionConfig(t *testing.T) {
 			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 
 			// act
-			target := keyController{unsupportedConfigPrefix: scenario.prefix, operatorClient: fakeOperatorClient, apiServerClient: fakeApiServerClient}
-			currentMode, externalReason, encryption, err := target.getCurrentModeReasonAndEncryptionConfig(context.TODO())
+			target := keyController{unsupportedConfigPrefix: scenario.prefix}
+			currentMode, externalReason, encryption, err := target.getCurrentModeReasonAndEncryptionConfig(
+				context.TODO(),
+				func(ctx context.Context) (*configv1.APIServer, *operatorv1.OperatorSpec, error) {
+					apiServer, err := fakeApiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
+					if err != nil {
+						return nil, nil, err
+					}
+					operatorSpec, _, _, err := fakeOperatorClient.GetOperatorState()
+					if err != nil {
+						return nil, nil, err
+					}
+					return apiServer, operatorSpec, nil
+				},
+			)
 
 			// validate
 			if err != nil {
