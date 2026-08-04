@@ -147,7 +147,11 @@ type eventWithReason struct {
 }
 
 func (c *stateController) computeEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface) (*corev1.Secret, []eventWithReason, error) {
-	return generateEncryptionConfigSecret(ctx, queue, c.provider.EncryptedGRs(), c.instanceName, c.deployedEncryptionConfigSecretFn, c.listKeySecretsFn)
+	return c.computeEncryptionConfigSecretWithCustomListKeySecretFn(ctx, queue, c.listKeySecretsFn)
+}
+
+func (c *stateController) computeEncryptionConfigSecretWithCustomListKeySecretFn(ctx context.Context, queue workqueue.RateLimitingInterface, listKeySecretsFn func(context.Context) ([]*corev1.Secret, error)) (*corev1.Secret, []eventWithReason, error) {
+	return generateEncryptionConfigSecret(ctx, queue, c.provider.EncryptedGRs(), c.instanceName, c.deployedEncryptionConfigSecretFn, listKeySecretsFn)
 }
 
 func generateEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, encryptedGRs []schema.GroupResource, instanceName string, deployedEncryptionConfigSecretFn func(context.Context) (*corev1.Secret, bool, error), listKeySecretsFn func(context.Context) ([]*corev1.Secret, error)) (*corev1.Secret, []eventWithReason, error) {
