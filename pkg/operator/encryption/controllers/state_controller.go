@@ -48,6 +48,9 @@ type stateController struct {
 	deployer                 statemachine.Deployer
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
+
+	deployedEncryptionConfigSecretFn func(context.Context) (*corev1.Secret, bool, error)
+	listKeySecretsFn                 func(context.Context) ([]*corev1.Secret, error)
 }
 
 func NewStateController(
@@ -72,6 +75,11 @@ func NewStateController(
 		deployer:                 deployer,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
+	}
+
+	c.deployedEncryptionConfigSecretFn = c.deployer.DeployedEncryptionConfigSecret
+	c.listKeySecretsFn = func(ctx context.Context) ([]*corev1.Secret, error) {
+		return secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
 	}
 
 	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
@@ -110,7 +118,7 @@ func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	secretToApply, pendingEvents, configError := c.generateEncryptionConfigSecret(ctx, syncCtx.Queue(), c.provider.EncryptedGRs())
+	secretToApply, pendingEvents, configError := c.generateEncryptionConfigSecret(ctx, syncCtx.Queue(), c.provider.EncryptedGRs(), c.deployedEncryptionConfigSecretFn, c.listKeySecretsFn)
 	if configError == nil && secretToApply != nil {
 		_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, syncCtx.Recorder(), secretToApply)
 		if applyErr != nil {
@@ -138,13 +146,11 @@ type eventWithReason struct {
 	message string
 }
 
-func (c *stateController) generateEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, encryptedGRs []schema.GroupResource) (*corev1.Secret, []eventWithReason, error) {
+func (c *stateController) generateEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, encryptedGRs []schema.GroupResource, deployedEncryptionConfigSecretFn func(context.Context) (*corev1.Secret, bool, error), listKeySecretsFn func(context.Context) ([]*corev1.Secret, error)) (*corev1.Secret, []eventWithReason, error) {
 	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(
 		ctx,
-		c.deployer.DeployedEncryptionConfigSecret,
-		func(ctx context.Context) ([]*corev1.Secret, error) {
-			return secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
-		},
+		deployedEncryptionConfigSecretFn,
+		listKeySecretsFn,
 		encryptedGRs,
 	)
 	if err != nil {
