@@ -5,14 +5,11 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
-	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
@@ -30,13 +27,12 @@ type Deployer interface {
 
 func GetEncryptionConfigAndState(
 	ctx context.Context,
-	deployer Deployer,
-	secretClient corev1client.SecretsGetter,
-	encryptionSecretSelector metav1.ListOptions,
+	getDeployedEncryptionConfigSecret func(context.Context) (*corev1.Secret, bool, error),
+	listKeySecrets func(context.Context) ([]*corev1.Secret, error),
 	encryptedGRs []schema.GroupResource,
 ) (current *encryptiondata.Config, desired map[schema.GroupResource]state.GroupResourceState, encryptionSecrets []*corev1.Secret, transitioningReason string, err error) {
 	// get current config
-	encryptionConfigSecret, converged, err := deployer.DeployedEncryptionConfigSecret(ctx)
+	encryptionConfigSecret, converged, err := getDeployedEncryptionConfigSecret(ctx)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -52,7 +48,7 @@ func GetEncryptionConfigAndState(
 	}
 
 	// compute desired config
-	encryptionSecrets, err = secrets.ListKeySecrets(ctx, secretClient, encryptionSecretSelector)
+	encryptionSecrets, err = listKeySecrets(ctx)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

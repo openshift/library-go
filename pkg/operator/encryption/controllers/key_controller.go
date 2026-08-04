@@ -174,7 +174,14 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return err
 	}
 
-	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredEncryptionState, encryptionSecrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(
+		ctx,
+		c.deployer.DeployedEncryptionConfigSecret,
+		func(ctx context.Context) ([]*corev1.Secret, error) {
+			return secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
+		},
+		encryptedGRs,
+	)
 	if err != nil {
 		return err
 	}
@@ -184,7 +191,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	}
 
 	// avoid intended start of encryption
-	hasBeenOnBefore := currentConfig != nil || len(secrets) > 0
+	hasBeenOnBefore := currentConfig != nil || len(encryptionSecrets) > 0
 	if currentMode == state.Identity && !hasBeenOnBefore {
 		return nil
 	}

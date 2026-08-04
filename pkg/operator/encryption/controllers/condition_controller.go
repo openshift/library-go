@@ -7,6 +7,7 @@ import (
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -16,6 +17,7 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -96,7 +98,14 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 	}
 
 	encryptedGRs := c.provider.EncryptedGRs()
-	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(
+		ctx,
+		c.deployer.DeployedEncryptionConfigSecret,
+		func(ctx context.Context) ([]*corev1.Secret, error) {
+			return secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
+		},
+		encryptedGRs,
+	)
 	if err != nil || len(transitioningReason) > 0 {
 		// do not update the encryption condition (cond). Note: progressing is set elsewhere.
 		cond = nil

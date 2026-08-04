@@ -168,7 +168,14 @@ func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncCont
 // TODO doc
 func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) (migratingResources []schema.GroupResource, err error) {
 	// no storage migration during revision changes
-	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(
+		ctx,
+		c.deployer.DeployedEncryptionConfigSecret,
+		func(ctx context.Context) ([]*corev1.Secret, error) {
+			return secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
+		},
+		encryptedGRs,
+	)
 	if err != nil {
 		return nil, err
 	}

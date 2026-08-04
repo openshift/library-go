@@ -121,7 +121,14 @@ func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext)
 }
 
 func (c *pruneController) deleteOldMigratedSecrets(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(
+		ctx,
+		c.deployer.DeployedEncryptionConfigSecret,
+		func(ctx context.Context) ([]*corev1.Secret, error) {
+			return secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
+		},
+		encryptedGRs,
+	)
 	if err != nil {
 		return err
 	}
