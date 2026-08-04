@@ -156,3 +156,131 @@ func TestObserveTLSSecurityProfile(t *testing.T) {
 		})
 	}
 }
+
+func TestObserveTLSSecurityProfileWithGroupPaths(t *testing.T) {
+	defaultGroups := []string{"X25519MLKEM768", "X25519", "secp256r1", "secp384r1"}
+
+	tests := []struct {
+		name           string
+		config         *configv1.TLSSecurityProfile
+		expectedGroups []string
+	}{
+		{
+			name:           "NoAPIServerConfig",
+			config:         nil,
+			expectedGroups: defaultGroups,
+		},
+		{
+			name: "IntermediateProfile",
+			config: &configv1.TLSSecurityProfile{
+				Type:         configv1.TLSProfileIntermediateType,
+				Intermediate: &configv1.IntermediateTLSProfile{},
+			},
+			expectedGroups: defaultGroups,
+		},
+		{
+			name: "OldProfile",
+			config: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileOldType,
+				Old:  &configv1.OldTLSProfile{},
+			},
+			expectedGroups: defaultGroups,
+		},
+		{
+			name: "ModernProfile",
+			config: &configv1.TLSSecurityProfile{
+				Type:   configv1.TLSProfileModernType,
+				Modern: &configv1.ModernTLSProfile{},
+			},
+			expectedGroups: defaultGroups,
+		},
+		{
+			name: "CustomProfileNoGroups",
+			config: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						MinTLSVersion: configv1.VersionTLS12,
+						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+					},
+				},
+			},
+			expectedGroups: []string{},
+		},
+		{
+			name: "CustomProfileWithGroups",
+			config: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						MinTLSVersion: configv1.VersionTLS12,
+						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Groups:        []configv1.TLSGroup{configv1.TLSGroupX25519, configv1.TLSGroupSecP256r1},
+					},
+				},
+			},
+			expectedGroups: []string{"X25519", "secp256r1"},
+		},
+		{
+			name: "CustomProfileWithUnknownGroup",
+			config: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						MinTLSVersion: configv1.VersionTLS12,
+						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Groups:        []configv1.TLSGroup{configv1.TLSGroupX25519, "UnknownFutureGroup"},
+					},
+				},
+			},
+			expectedGroups: []string{"X25519"}, // "UnknownFutureGroup" must be dropped
+		},
+	}
+
+	minTLSVersionPath := []string{"olmTLS", "minTLSVersion"}
+	cipherSuitesPath := []string{"olmTLS", "cipherSuites"}
+	groupsPath := []string{"olmTLS", "curvePreferences"}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			if tt.config != nil {
+				if err := indexer.Add(&configv1.APIServer{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+					Spec:       configv1.APIServerSpec{TLSSecurityProfile: tt.config},
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			listers := testLister{apiLister: configlistersv1.NewAPIServerLister(indexer)}
+
+			result, errs := ObserveTLSSecurityProfileWithGroupPaths(
+				listers,
+				events.NewInMemoryRecorder(t.Name(), clocktesting.NewFakePassiveClock(time.Now())),
+				map[string]interface{}{},
+				minTLSVersionPath,
+				cipherSuitesPath,
+				groupsPath,
+			)
+			if len(errs) > 0 {
+				t.Errorf("expected 0 errors, got %v", errs)
+			}
+
+			gotGroups, _, err := unstructured.NestedStringSlice(result, groupsPath...)
+			if err != nil {
+				t.Errorf("couldn't get groups from result: %v", err)
+			}
+
+			if !reflect.DeepEqual(gotGroups, tt.expectedGroups) {
+				t.Errorf("got groups = %v, expected %v", gotGroups, tt.expectedGroups)
+			}
+
+			// Verify the result is pruned to only the observed paths
+			for k := range result {
+				if k != "olmTLS" {
+					t.Errorf("unexpected key %q in pruned result", k)
+				}
+			}
+		})
+	}
+}

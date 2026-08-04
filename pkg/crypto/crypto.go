@@ -356,6 +356,54 @@ func OpenSSLToIANACipherSuites(ciphers []string) []string {
 	return ianaCiphers
 }
 
+// tlsGroupToCurveID maps OpenShift API TLSGroup values to Go's tls.CurveID.
+// Ref: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8
+var tlsGroupToCurveID = map[configv1.TLSGroup]tls.CurveID{
+	configv1.TLSGroupX25519:             tls.X25519,
+	configv1.TLSGroupSecP256r1:          tls.CurveP256,
+	configv1.TLSGroupSecP384r1:          tls.CurveP384,
+	configv1.TLSGroupSecP521r1:          tls.CurveP521,
+	configv1.TLSGroupX25519MLKEM768:     tls.X25519MLKEM768,
+	configv1.TLSGroupSecP256r1MLKEM768:  tls.SecP256r1MLKEM768,  // IANA 4587
+	configv1.TLSGroupSecP384r1MLKEM1024: tls.SecP384r1MLKEM1024, // IANA 4589
+}
+
+// CurveIDForTLSGroup maps an OpenShift API TLSGroup constant to Go's tls.CurveID.
+// Returns (0, false) if the group is not known/mapped by library-go.
+func CurveIDForTLSGroup(group configv1.TLSGroup) (tls.CurveID, bool) {
+	id, ok := tlsGroupToCurveID[group]
+	return id, ok
+}
+
+// CurveIDsForTLSGroups converts a slice of TLSGroup values to their tls.CurveID
+// codes. Returns the recognized curve IDs and a list of unrecognized group names.
+// Unrecognized groups are silently filtered — callers should log warnings.
+func CurveIDsForTLSGroups(groups []configv1.TLSGroup) ([]tls.CurveID, []string) {
+	var curves []tls.CurveID
+	var unrecognized []string
+
+	for _, group := range groups {
+		id, ok := CurveIDForTLSGroup(group)
+		if !ok {
+			unrecognized = append(unrecognized, string(group))
+			continue
+		}
+		curves = append(curves, id)
+	}
+
+	return curves, unrecognized
+}
+
+// ValidTLSGroups returns TLS group names known/mapped by library-go, sorted alphabetically.
+func ValidTLSGroups() []string {
+	groups := make([]string, 0, len(tlsGroupToCurveID))
+	for g := range tlsGroupToCurveID {
+		groups = append(groups, string(g))
+	}
+	sort.Strings(groups)
+	return groups
+}
+
 type TLSCertificateConfig struct {
 	Certs []*x509.Certificate
 	Key   crypto.PrivateKey
