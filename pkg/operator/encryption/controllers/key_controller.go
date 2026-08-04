@@ -154,7 +154,19 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	err = c.checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs())
+	keySecret, err := c.checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs())
+	if err == nil && keySecret != nil {
+		keyID, _ := state.NameToKeyID(keySecret.Name)
+		_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(ctx, keySecret, metav1.CreateOptions{})
+		if errors.IsAlreadyExists(createErr) {
+			err = c.validateExistingSecret(ctx, keySecret, keyID)
+		} else if createErr != nil {
+			syncCtx.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, createErr)
+			err = createErr
+		} else {
+			syncCtx.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created", keySecret.Name)
+		}
+	}
 	if err != nil {
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
@@ -168,10 +180,10 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 	return err
 }
 
-func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
+func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) (*corev1.Secret, error) {
 	currentMode, externalReason, apiEncryptionConfiguration, err := c.getCurrentModeReasonAndEncryptionConfig(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	currentConfig, desiredEncryptionState, encryptionSecrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(
@@ -183,17 +195,17 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		encryptedGRs,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(isProgressingReason) > 0 {
 		syncContext.Queue().AddAfter(syncContext.QueueKey(), 2*time.Minute)
-		return nil
+		return nil, nil
 	}
 
 	// avoid intended start of encryption
 	hasBeenOnBefore := currentConfig != nil || len(encryptionSecrets) > 0
 	if currentMode == state.Identity && !hasBeenOnBefore {
-		return nil
+		return nil, nil
 	}
 
 	var (
@@ -211,7 +223,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		var err error
 		desiredProviderCfg, err = newKMSProviderConfig(apiEncryptionConfiguration.KMS)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -219,7 +231,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	for gr, grKeys := range desiredEncryptionState {
 		latestKeyID, internalReason, needed, err := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs, desiredProviderCfg)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !needed {
 			continue
@@ -239,7 +251,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		reasons = append(reasons, fmt.Sprintf("%s-%s", gr.Resource, internalReason))
 	}
 	if !newKeyRequired {
-		return nil
+		return nil, nil
 	}
 	if commonReason != nil && len(*commonReason) > 0 && len(reasons) > 1 {
 		reasons = []string{*commonReason} // don't repeat reasons
@@ -249,20 +261,9 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	internalReason := strings.Join(reasons, ", ")
 	keySecret, err := c.generateKeySecret(ctx, newKeyID, currentMode, apiEncryptionConfiguration, desiredProviderCfg, internalReason, externalReason)
 	if err != nil {
-		return fmt.Errorf("failed to create key: %v", err)
+		return nil, fmt.Errorf("failed to create key: %v", err)
 	}
-	_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(ctx, keySecret, metav1.CreateOptions{})
-	if errors.IsAlreadyExists(createErr) {
-		return c.validateExistingSecret(ctx, keySecret, newKeyID)
-	}
-	if createErr != nil {
-		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, err)
-		return createErr
-	}
-
-	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, reasons)
-
-	return nil
+	return keySecret, nil
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
