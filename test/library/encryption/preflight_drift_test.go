@@ -53,6 +53,21 @@ func TestDefaultPreflightPodSpecDriftIgnore(t *testing.T) {
 		}
 	})
 
+	t.Run("SCC-assigned SecurityContext fields do not fail", func(t *testing.T) {
+		preflightSpec := base.DeepCopy()
+		seLevel := "s0:c26,c25"
+		fsGroup := int64(1000700000)
+		seccompType := corev1.SeccompProfileTypeRuntimeDefault
+		preflightSpec.SecurityContext = &corev1.PodSecurityContext{
+			SELinuxOptions: &corev1.SELinuxOptions{Level: seLevel},
+			FSGroup:        &fsGroup,
+			SeccompProfile: &corev1.SeccompProfile{Type: seccompType},
+		}
+		if diff := cmp.Diff(base, preflightSpec, opts...); diff != "" {
+			t.Fatalf("expected SCC-assigned SecurityContext to be ignored, got:\n%s", diff)
+		}
+	})
+
 	t.Run("unexpected HostNetwork drift fails", func(t *testing.T) {
 		preflightSpec := base.DeepCopy()
 		preflightSpec.HostNetwork = false

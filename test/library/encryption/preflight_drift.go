@@ -52,6 +52,10 @@ var DefaultPreflightPodSpecDriftIgnore = []string{
 	"PriorityClassName",
 	// KAS sets an explicit numeric priority; preflight leaves it to the PriorityClass.
 	"Priority",
+
+	// SCC admission sets SELinuxOptions, FSGroup, SeccompProfile etc. per SA binding;
+	// preflight and operand run under different service accounts so values always differ.
+	"SecurityContext",
 }
 
 // AssertNoPreflightConfigDrift fetches the preflight pod and a Running operand pod matching
