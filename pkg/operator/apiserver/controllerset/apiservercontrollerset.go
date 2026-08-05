@@ -369,9 +369,9 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	resourceSyncer           *resourcesynccontroller.ResourceSyncController,
+	resourceSyncer *resourcesynccontroller.ResourceSyncController,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
-	preflightDeployer        controllers.KMSPreflightDeployer,
+	preflightDeployer controllers.KMSPreflightDeployer,
 ) *APIServerControllerSet {
 
 	cs.encryptionControllers = encryptionControllerBuilder{
@@ -399,7 +399,6 @@ func (cs *APIServerControllerSet) WithUnsupportedConfigPrefixForEncryptionContro
 	cs.encryptionControllers.unsupportedConfigPrefix = prefix
 	return cs
 }
-
 
 func (cs *APIServerControllerSet) WithoutEncryptionControllers() *APIServerControllerSet {
 	cs.encryptionControllers.controller = nil

@@ -50,9 +50,6 @@ func TestKeyController(t *testing.T) {
 	apiServerWithKMS := simpleAPIServer.DeepCopy()
 	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: encryptiontesting.DefaultKMSPluginConfig}
 
-	// Pre-compute the preflight hash for KMS scenarios that create a key.
-	// All three scenarios share the same DefaultKMSPluginConfig and the same
-	// vault-approle-secret / vault-ca-bundle data, so one provider covers all.
 	kmsCreateKeyStatusProvider := newPreflightSucceededProvider(t, encryptiontesting.DefaultKMSPluginConfig,
 		encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
 		encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
@@ -550,7 +547,7 @@ func TestKeyController(t *testing.T) {
 			apiServerObjects:         []runtime.Object{apiServerWithKMS},
 			targetNamespace:          "kms",
 			encryptionStatusProvider: kmsCreateKeyStatusProvider,
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions:          []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "create:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
@@ -622,7 +619,8 @@ func TestKeyController(t *testing.T) {
 			targetNamespace:          "kms",
 			encryptionStatusProvider: &fakeKMSStatusProvider{},
 			expectedActions:          []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
-			validateFunc:             func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
+			},
 		},
 
 		{
@@ -1039,6 +1037,18 @@ type fakeKMSStatusProvider struct {
 	updateErr   error
 }
 
+// preflightSucceededForHash returns a fakeKMSStatusProvider pre-seeded with a
+// Succeeded result for a known config hash.
+func preflightSucceededForHash(configHash string) *fakeKMSStatusProvider {
+	p := &fakeKMSStatusProvider{}
+	p.status.Preflight.ObservedConfigHash = configHash
+	p.status.Preflight.Result = operatorv1.KMSPreflightResult{
+		Status:     operatorv1.KMSPreflightResultSucceeded,
+		ConfigHash: configHash,
+	}
+	return p
+}
+
 // newPreflightSucceededProvider builds a fakeKMSStatusProvider pre-seeded with a
 // Succeeded preflight result for the given KMS plugin config and referenced objects.
 // It uses a scratch client so the reads do not pollute any test's action log.
@@ -1051,13 +1061,7 @@ func newPreflightSucceededProvider(t *testing.T, pluginConfig configv1.KMSPlugin
 	require.NoError(t, err)
 	hash, err := hasher.hash(context.Background())
 	require.NoError(t, err)
-	p := &fakeKMSStatusProvider{}
-	p.status.Preflight.ObservedConfigHash = hash
-	p.status.Preflight.Result = operatorv1.KMSPreflightResult{
-		Status:     operatorv1.KMSPreflightResultSucceeded,
-		ConfigHash: hash,
-	}
-	return p
+	return preflightSucceededForHash(hash)
 }
 
 func (f *fakeKMSStatusProvider) GetKMSEncryptionStatus(_ context.Context) (*operatorv1.KMSEncryptionStatus, error) {

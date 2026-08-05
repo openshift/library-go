@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,7 +41,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
-	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
@@ -148,6 +148,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	// create controllers
 	eventRecorder := events.NewLoggingEventRecorder(component, clk)
 	deployer := NewInstantDeployer(t, stopCh, kubeClient.CoreV1(), fmt.Sprintf("encryption-config-%s", component))
+	kmsPreflightDeployer := &configurableKMSPreflightDeployer{}
 	migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.DiscoveryClient)
 	provider := newProvider([]schema.GroupResource{
 		// some random low-cardinality GVRs:
@@ -169,8 +170,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 		kubeClient.CoreV1(),
 		eventRecorder,
 		nil, // resourceSyncer
-		&noopKMSEncryptionStatusProvider{},
-		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
+		&dynamicKMSEncryptionStatusProvider{client: dynamicClient.Resource(operatorGVR)},
+		kmsPreflightDeployer,
 	)
 	if err != nil {
 		t.Fatalf("failed to initialize controllers: %v", err)
@@ -669,6 +670,23 @@ func TestEncryptionIntegration(tt *testing.T) {
 	waitForKeys(12)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
+	t.Logf("KMS preflight failure: key must not be created when preflight fails")
+	kmsPreflightDeployer.fail.Store(true)
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-failing.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
+	require.NoError(t, err)
+	time.Sleep(5 * time.Second)
+	waitForKeys(12) // key count must not advance
+	waitForConditionStatus("EncryptionKeyControllerDegraded", operatorv1.ConditionTrue)
+	// Revert to the previous config (kms13 already exists for vault-new) and fix the deployer.
+	// The key controller will find an existing key for vault-new and skip creation,
+	// keeping the total at 12.
+	kmsPreflightDeployer.fail.Store(false)
+	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-new.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
+	require.NoError(t, err)
+	waitForConditionStatus("EncryptionKeyControllerDegraded", operatorv1.ConditionFalse)
+	time.Sleep(5 * time.Second)
+	waitForKeys(12) // still 12 — no new key needed, config reverted to one that already has kms13
+
 	t.Logf("Delete the encryption-config while in KMS mode")
 	_, err = kubeClient.CoreV1().Secrets("openshift-config-managed").Patch(ctx, fmt.Sprintf("encryption-config-%s", component), types.JSONPatchType, []byte(`[{"op":"remove","path":"/metadata/finalizers"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
@@ -746,6 +764,7 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
           status:
             type: object
+            x-kubernetes-preserve-unknown-fields: true
             properties:
               conditions:
                 type: array
@@ -1039,21 +1058,94 @@ func kmsPluginName(resource, keyID string) string {
 	return fmt.Sprintf("%s_%s", keyID, resource)
 }
 
-// noopKMSEncryptionStatusProvider is a minimal kms.EncryptionStatusProvider for
-// the e2e test, which uses AESCBC and never writes ObservedConfigHash. The
-// preflight controller reads it on every sync and does nothing (empty hash).
-type noopKMSEncryptionStatusProvider struct{}
-
-func (p *noopKMSEncryptionStatusProvider) GetKMSEncryptionStatus(_ context.Context) (*operatorv1.KMSEncryptionStatus, error) {
-	return &operatorv1.KMSEncryptionStatus{}, nil
+// dynamicKMSEncryptionStatusProvider implements kms.EncryptionStatusProvider
+// by storing the KMSEncryptionStatus as a JSON field in the encryptiontests/cluster
+// resource status on the real cluster.
+type dynamicKMSEncryptionStatusProvider struct {
+	client dynamic.ResourceInterface
 }
 
-func (p *noopKMSEncryptionStatusProvider) ApplyKMSEncryptionStatus(_ context.Context, _ string, _ *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
+const kmsStatusField = "kmsEncryptionStatus"
+
+func (p *dynamicKMSEncryptionStatusProvider) get(ctx context.Context) (*unstructured.Unstructured, *operatorv1.KMSEncryptionStatus, error) {
+	obj, err := p.client.Get(ctx, "cluster", metav1.GetOptions{}, "status")
+	if err != nil {
+		return nil, nil, err
+	}
+	raw, _, err := unstructured.NestedMap(obj.Object, "status", kmsStatusField)
+	if err != nil {
+		return nil, nil, err
+	}
+	var status operatorv1.KMSEncryptionStatus
+	return obj, &status, runtime.DefaultUnstructuredConverter.FromUnstructured(raw, &status)
+}
+
+func (p *dynamicKMSEncryptionStatusProvider) GetKMSEncryptionStatus(ctx context.Context) (*operatorv1.KMSEncryptionStatus, error) {
+	_, status, err := p.get(ctx)
+	return status, err
+}
+
+func (p *dynamicKMSEncryptionStatusProvider) ApplyKMSEncryptionStatus(_ context.Context, _ string, _ *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
+	return fmt.Errorf("ApplyKMSEncryptionStatus not implemented")
+}
+
+func (p *dynamicKMSEncryptionStatusProvider) UpdateKMSEncryptionStatus(ctx context.Context, mutateFn func(*operatorv1.KMSEncryptionStatus)) error {
+	obj, status, err := p.get(ctx)
+	if err != nil {
+		return err
+	}
+	mutateFn(status)
+	rawNew, err := runtime.DefaultUnstructuredConverter.ToUnstructured(status)
+	if err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(obj.Object, rawNew, "status", kmsStatusField); err != nil {
+		return err
+	}
+	_, err = p.client.Update(ctx, obj, metav1.UpdateOptions{}, "status")
+	return err
+}
+
+var _ kms.EncryptionStatusProvider = &dynamicKMSEncryptionStatusProvider{}
+
+// configurableKMSPreflightDeployer is a test deployer based on
+// AlwaysSucceedKMSPreflightDeployer that can be switched to report a failed
+// preflight result via the fail flag.
+type configurableKMSPreflightDeployer struct {
+	configHash string
+	deployed   bool
+	// fail is set by the test goroutine and read by the controller goroutine in Status.
+	fail atomic.Bool
+}
+
+func (d *configurableKMSPreflightDeployer) Deploy(_ context.Context, configHash string, _ *corev1.Secret) error {
+	d.configHash = configHash
+	d.deployed = true
 	return nil
 }
 
-func (p *noopKMSEncryptionStatusProvider) UpdateKMSEncryptionStatus(_ context.Context, _ func(*operatorv1.KMSEncryptionStatus)) error {
+func (d *configurableKMSPreflightDeployer) Status(_ context.Context) (corev1.PodStatus, error) {
+	if !d.deployed {
+		return corev1.PodStatus{}, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")
+	}
+	resultStatus, resultMessage := corev1.ConditionTrue, ""
+	if d.fail.Load() {
+		resultStatus, resultMessage = corev1.ConditionFalse, "intentional failure for testing"
+	}
+	return corev1.PodStatus{
+		Phase: corev1.PodSucceeded,
+		Conditions: []corev1.PodCondition{
+			{Type: controllers.KMSPreflightConfigHashPodCondition, Status: corev1.ConditionTrue, Message: d.configHash},
+			{Type: controllers.KMSPreflightResultPodCondition, Status: resultStatus, Message: resultMessage},
+			{Type: controllers.KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "configurable"},
+		},
+	}, nil
+}
+
+func (d *configurableKMSPreflightDeployer) Cleanup(_ context.Context) error {
+	d.configHash = ""
+	d.deployed = false
 	return nil
 }
 
-var _ kms.EncryptionStatusProvider = &noopKMSEncryptionStatusProvider{}
+var _ controllers.KMSPreflightDeployer = &configurableKMSPreflightDeployer{}
