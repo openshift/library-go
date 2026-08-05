@@ -39,6 +39,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
@@ -166,7 +168,9 @@ func TestEncryptionIntegration(tt *testing.T) {
 		deployer, // secret client wrapping kubeClient with encryption-config revision counting
 		kubeClient.CoreV1(),
 		eventRecorder,
-		nil,
+		nil, // resourceSyncer
+		&noopKMSEncryptionStatusProvider{},
+		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
 	)
 	if err != nil {
 		t.Fatalf("failed to initialize controllers: %v", err)
@@ -1034,3 +1038,22 @@ func (p *provider) ShouldRunEncryptionControllers() (bool, error) {
 func kmsPluginName(resource, keyID string) string {
 	return fmt.Sprintf("%s_%s", keyID, resource)
 }
+
+// noopKMSEncryptionStatusProvider is a minimal kms.EncryptionStatusProvider for
+// the e2e test, which uses AESCBC and never writes ObservedConfigHash. The
+// preflight controller reads it on every sync and does nothing (empty hash).
+type noopKMSEncryptionStatusProvider struct{}
+
+func (p *noopKMSEncryptionStatusProvider) GetKMSEncryptionStatus(_ context.Context) (*operatorv1.KMSEncryptionStatus, error) {
+	return &operatorv1.KMSEncryptionStatus{}, nil
+}
+
+func (p *noopKMSEncryptionStatusProvider) ApplyKMSEncryptionStatus(_ context.Context, _ string, _ *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
+	return nil
+}
+
+func (p *noopKMSEncryptionStatusProvider) UpdateKMSEncryptionStatus(_ context.Context, _ func(*operatorv1.KMSEncryptionStatus)) error {
+	return nil
+}
+
+var _ kms.EncryptionStatusProvider = &noopKMSEncryptionStatusProvider{}
