@@ -594,6 +594,7 @@ func CreateAndStoreWellKnownRouteOfLife(ctx context.Context, t testing.TB, cs Cl
 	if errors.IsAlreadyExists(err) {
 		// Leftover from a previous run, or a parallel create race.
 		t.Log("The route already exists, reusing it")
+		return route
 	}
 	require.NoError(t, err)
 
