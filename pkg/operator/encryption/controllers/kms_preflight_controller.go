@@ -204,7 +204,17 @@ type kmsPreflightController struct {
 	secretsClient    corev1client.SecretsGetter
 	configMapsClient corev1client.ConfigMapsGetter
 
-	deployer                 KMSPreflightDeployer
+	deployer KMSPreflightDeployer
+	// dirtyDeployer is true when preflight resources may exist in the cluster.
+	// Set to true after each Deploy and cleared to false after a successful Cleanup,
+	// so that repeated Cleanup calls in steady state issue no API requests.
+	// Initialized to true: after a process restart the controller cannot know
+	// what the previous process left behind.
+	//
+	// An alternative would be to check a cached lister before issuing Delete
+	// calls, but the encryption controllers do not use informers and have no
+	// shared cache available.
+	dirtyDeployer            bool
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 	encryptionStatusProvider kms.EncryptionStatusProvider
@@ -305,7 +315,9 @@ func NewKMSPreflightController(
 		secretsClient:    secretsClient,
 		configMapsClient: configMapsClient,
 
-		deployer:                 deployer,
+		deployer: deployer,
+		// assume resources may exist from a previous process run
+		dirtyDeployer:            true,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		encryptionStatusProvider: encryptionStatusProvider,
@@ -467,13 +479,13 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 
 	// Scenario 1: no preflight required, cleanup lingering resources.
 	if requiredHash == "" {
-		return false, "", "", c.deployer.Cleanup(ctx)
+		return false, "", "", c.cleanupDeployer(ctx)
 	}
 
 	// Result already recorded for this hash as Succeeded: clean up the pod
 	// (idempotent if already gone) and return — no pod work needed.
 	if isPreflightResultSucceeded(existingResult) {
-		return false, "", "", c.deployer.Cleanup(ctx)
+		return false, "", "", c.cleanupDeployer(ctx)
 	}
 
 	// Check whether a preflight pod already exists.
@@ -489,6 +501,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 				message: fmt.Sprintf("preflight check failed for hash %s: pod was removed but failure is recorded in status", requiredHash),
 			}
 		}
+		c.dirtyDeployer = true
 		// TODO: compute the encryption configuration and pass it to the deployer
 		if err := c.deployer.Deploy(ctx, requiredHash, nil); err != nil {
 			return true, "", "", err
@@ -521,7 +534,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 
 	// Scenario 3c: stale pod from a different config.
 	if hashCondition.Message != requiredHash {
-		if err := c.deployer.Cleanup(ctx); err != nil {
+		if err := c.cleanupDeployer(ctx); err != nil {
 			return true, "", "", err
 		}
 		return true, "RunningPreflightCheck", "Cleaning up preflight pod with stale configuration", nil
@@ -553,7 +566,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		}); err != nil {
 			return false, "", "", err
 		}
-		return false, "", "", c.deployer.Cleanup(ctx)
+		return false, "", "", c.cleanupDeployer(ctx)
 	}
 
 	// Scenario 3f: check failed. Keep pod for inspection; the admin will
@@ -570,6 +583,20 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		return false, "", "", fmt.Errorf("%w; also failed to write preflight result: %v", pe, writeErr)
 	}
 	return false, "", "", pe
+}
+
+// cleanupDeployer calls deployer.Cleanup only when dirtyDeployer is true, then clears
+// the flag on success. This avoids redundant Delete API calls on every sync in
+// steady state when no preflight resources exist.
+func (c *kmsPreflightController) cleanupDeployer(ctx context.Context) error {
+	if !c.dirtyDeployer {
+		return nil
+	}
+	if err := c.deployer.Cleanup(ctx); err != nil {
+		return err
+	}
+	c.dirtyDeployer = false
+	return nil
 }
 
 // ensurePreflightResult writes result to KMSEncryptionStatus.Preflight.Result
