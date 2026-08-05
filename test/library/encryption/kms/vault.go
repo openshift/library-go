@@ -53,23 +53,21 @@ func resolveVaultKMSPluginImage(t testing.TB) string {
 }
 
 const (
-	defaultVaultNamespace          = "vault-kms"
-	defaultVaultServiceName        = "vault"
-	defaultVaultPodName            = "vault-0"
-	defaultVaultCredentialsSecret  = "vault-credentials"
-	defaultVaultAppRoleSecretName  = "vault-approle-secret"
-	defaultVaultConfigMapName      = "vault-ca-bundle"
-	defaultFAKEVaultKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:958a2f8276037468aa47dc2137d3c30dfcd96489455eddb2fe655f8168a57622"
-	defaultVaultAddress            = "https://vault.vault-kms.svc:8200"
-	defaultVaultEnterpriseNS       = "admin"
-	defaultVaultKeyPath            = "transit/keys/kms-key"
-	defaultAppRoleTargetNamespace  = "openshift-config"
-	vaultCommandTimeout            = 30 * time.Second
+	defaultVaultNamespace         = "vault-kms"
+	defaultVaultServiceName       = "vault"
+	defaultVaultPodName           = "vault-0"
+	defaultVaultCredentialsSecret = "vault-credentials"
+	defaultVaultAppRoleSecretName = "vault-approle-secret"
+	defaultVaultConfigMapName     = "vault-ca-bundle"
+	defaultVaultAddress           = "https://vault.vault-kms.svc:8200"
+	defaultVaultEnterpriseNS      = "admin"
+	defaultVaultKeyPath           = "transit/keys/kms-key"
+	defaultAppRoleTargetNamespace = "openshift-config"
+	vaultCommandTimeout           = 30 * time.Second
 
 	// Secondary Vault instance constants for KMS-to-KMS migration testing.
 	secondaryVaultNamespace         = "vault-kms-secondary"
 	secondaryVaultServiceName       = "vault-secondary"
-	secondaryVaultPodName           = "vault-secondary-0"
 	secondaryVaultAppRoleSecretName = "vault-approle-secret-secondary"
 	secondaryVaultConfigMapName     = "vault-ca-bundle-secondary"
 	secondaryVaultAddress           = "https://vault-secondary.vault-kms-secondary.svc:8200"
@@ -89,11 +87,6 @@ func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.E
 		APIServerEncryption: cfg,
 		Setup:               ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName),
 	}
-}
-
-var DefaultFakeVaultEncryptionProvider = library.EncryptionProvider{
-	APIServerEncryption: DefaultFakeKMSPluginConfig,
-	Setup:               ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName),
 }
 
 // DefaultVaultKMSPluginConfig is the standard Vault KMS encryption config
@@ -118,28 +111,6 @@ var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{
 				},
 				ServerName: fmt.Sprintf("vault.%s.svc", defaultVaultNamespace),
 			},
-		},
-	},
-}
-
-// DefaultFakeKMSPluginConfig is a fake Vault KMS configuration used by unit tests.
-var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
-	Type: configv1.EncryptionTypeKMS,
-	KMS: configv1.KMSPluginConfig{
-		Type: configv1.VaultKMSProvider,
-		Vault: configv1.VaultKMSPluginConfig{
-			KMSPluginImage: defaultFAKEVaultKMSPluginImage,
-			VaultAddress:   "https://vault.example.com",
-			Authentication: configv1.VaultAuthentication{
-				Type: configv1.VaultAuthenticationTypeAppRole,
-				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: defaultVaultAppRoleSecretName},
-				},
-			},
-			TLS: configv1.VaultTLSConfig{
-				CABundle: configv1.VaultConfigMapReference{Name: defaultVaultConfigMapName},
-			},
-			VaultKeyPath: "transit/keys/test-transit-key",
 		},
 	},
 }
