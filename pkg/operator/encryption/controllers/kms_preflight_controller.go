@@ -23,7 +23,10 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
+	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -198,6 +201,7 @@ type KMSPreflightDeployer interface {
 
 type kmsPreflightController struct {
 	controllerInstanceName string
+	instanceName           string
 
 	operatorClient   operatorv1helpers.OperatorClient
 	apiServerClient  configv1client.APIServerInterface
@@ -214,7 +218,12 @@ type kmsPreflightController struct {
 	// An alternative would be to check a cached lister before issuing Delete
 	// calls, but the encryption controllers do not use informers and have no
 	// shared cache available.
-	dirtyDeployer            bool
+	dirtyDeployer bool
+	// encryptionDeployer is used to compute the exact encryption config secret that
+	// will be deployed once the key-controller creates the key this preflight is
+	// validating for. See computeEncryptionConfigSecret.
+	encryptionDeployer       statemachine.Deployer
+	encryptionSecretSelector metav1.ListOptions
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 	encryptionStatusProvider kms.EncryptionStatusProvider
@@ -295,20 +304,30 @@ func NewKMSPreflightController(
 	provider Provider,
 	preconditionsFulfilledFn preconditionsFulfilled,
 	deployer KMSPreflightDeployer,
+	// encryptionDeployer is the same statemachine.Deployer passed to the other
+	// encryption controllers (key, state, prune, migration). It is used to read the
+	// currently deployed encryption config secret when computing the exact config
+	// that will result from the key the key-controller is about to create.
+	encryptionDeployer statemachine.Deployer,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
+	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	// secretsClient and configMapsClient read referenced Secrets and ConfigMaps in
-	// openshift-config for hash computation. No informer is needed: the key-controller
-	// detects config changes and updates ObservedConfigHash, which triggers this
-	// controller via the operatorClient informer. The minute-based resync covers the rest.
+	// openshift-config for hash computation, and list key secrets in
+	// openshift-config-managed for encryption-config simulation. No openshift-config
+	// informer is needed: the key-controller detects config changes and updates
+	// ObservedConfigHash, which triggers this controller via the operatorClient
+	// informer. The minute-based resync covers the rest.
 	secretsClient corev1client.SecretsGetter,
 	configMapsClient corev1client.ConfigMapsGetter,
+	encryptionSecretSelector metav1.ListOptions,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &kmsPreflightController{
 		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
+		instanceName:           instanceName,
 
 		operatorClient:   operatorClient,
 		apiServerClient:  apiServerClient,
@@ -318,6 +337,8 @@ func NewKMSPreflightController(
 		deployer: deployer,
 		// assume resources may exist from a previous process run
 		dirtyDeployer:            true,
+		encryptionDeployer:       encryptionDeployer,
+		encryptionSecretSelector: encryptionSecretSelector,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		encryptionStatusProvider: encryptionStatusProvider,
@@ -329,6 +350,8 @@ func NewKMSPreflightController(
 		ResyncEvery(time.Minute).
 		WithInformers(
 			operatorClient.Informer(),
+			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+			encryptionDeployer,
 		).ToController(
 		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("encryption-kms-preflight-controller"),
@@ -502,8 +525,14 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 			}
 		}
 		c.dirtyDeployer = true
-		// TODO: compute the encryption configuration and pass it to the deployer
-		if err := c.deployer.Deploy(ctx, requiredHash, nil); err != nil {
+		requeueForConvergence, encryptionSecret, err := c.computeEncryptionConfigSecret(ctx)
+		if err != nil {
+			return false, "", "", fmt.Errorf("failed to compute encryption config for preflight: %w", err)
+		}
+		if requeueForConvergence {
+			return true, "RunningPreflightCheck", fmt.Sprintf("Waiting for encryption config to converge before deploying preflight pod for hash %s", requiredHash), nil
+		}
+		if err := c.deployer.Deploy(ctx, requiredHash, encryptionSecret); err != nil {
 			return true, "", "", err
 		}
 		return true, "RunningPreflightCheck", fmt.Sprintf("Deploying preflight pod for hash %s", requiredHash), nil
@@ -597,6 +626,77 @@ func (c *kmsPreflightController) cleanupDeployer(ctx context.Context) error {
 	}
 	c.dirtyDeployer = false
 	return nil
+}
+
+// computeEncryptionConfigSecret computes the encryption config secret consumed by the preflight pod for the next KMS key rollout.
+func (c *kmsPreflightController) computeEncryptionConfigSecret(ctx context.Context) (requeue bool, secret *corev1.Secret, err error) {
+	encryptedGRs := c.provider.EncryptedGRs()
+
+	// Step 1: load the currently deployed encryption config and existing key secrets
+	// via the same shared path used by the key/state controllers.
+	currentConfig, desiredStateBeforeNewKey, existingKeySecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(
+		ctx, c.encryptionDeployer, c.secretsClient, c.encryptionSecretSelector, encryptedGRs,
+	)
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to get encryption config and state: %w", err)
+	}
+	if len(transitioningReason) > 0 {
+		return true, nil, nil
+	}
+
+	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to get apiserver config: %w", err)
+	}
+	providerCfg, err := newKMSProviderConfig(apiServer.Spec.Encryption.KMS)
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to create KMS provider config: %w", err)
+	}
+
+	// Step 2: determine the next key using the same shared planning logic as the key controller.
+	// TODO: pass externalReason from UnsupportedConfigOverrides like the key controller does
+	keyPlan, err := planNextEncryptionKey(desiredStateBeforeNewKey, state.KMS, "", encryptedGRs, providerCfg)
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to plan next KMS key: %w", err)
+	}
+	if !keyPlan.needed {
+		return false, nil, fmt.Errorf("preflight required but no new KMS key is needed")
+	}
+
+	// Step 3: build the simulated key secret using the same shared helper as the key controller.
+	simulatedKeySecret, err := buildEncryptionKeySecret(
+		ctx,
+		c.instanceName,
+		keyPlan.keyID,
+		state.KMS,
+		apiServer.Spec.Encryption,
+		providerCfg,
+		c.secretsClient,
+		c.configMapsClient,
+		keyPlan.internalReason,
+		"",
+		"unix:///var/run/kmsplugin/kms.sock", // TODO: override the KMS endpoint for the preflight checker
+	)
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to create simulated key secret: %w", err)
+	}
+
+	// Step 4: run the state machine with the simulated key included, exactly as the state-controller will once the key-controller actually creates this key.
+	allKeySecrets := append(existingKeySecrets, simulatedKeySecret)
+	desiredState := statemachine.GetDesiredEncryptionState(currentConfig, allKeySecrets, encryptedGRs)
+
+	// Step 5: convert the desired state into the encryption config secret, exactly as the state-controller does.
+	cfg, err := encryptiondata.FromEncryptionState(desiredState)
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to build encryption config: %w", err)
+	}
+
+	secretName := fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName)
+	secret, err = encryptiondata.ToSecret("openshift-config-managed", secretName, cfg)
+	if err != nil {
+		return false, nil, err
+	}
+	return false, secret, nil
 }
 
 // ensurePreflightResult writes result to KMSEncryptionStatus.Preflight.Result
