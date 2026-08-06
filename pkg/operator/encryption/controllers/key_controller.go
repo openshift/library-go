@@ -183,47 +183,25 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 }
 
 func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	currentMode, externalReason, apiEncryptionConfiguration, err := getCurrentModeReasonAndEncryptionConfig(ctx, c.apiServerClient, c.operatorClient, c.unsupportedConfigPrefix)
+	planner := NewEncryptionPlanner(c.instanceName, c.unsupportedConfigPrefix, c.deployer, c.secretClient, c.configMapClient, c.apiServerClient, c.operatorClient, c.encryptionSecretSelector)
+	snap, err := planner.Load(ctx, encryptedGRs, LoadOptions{})
 	if err != nil {
 		return err
 	}
-
-	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
-	if err != nil {
-		return err
-	}
-	if len(isProgressingReason) > 0 {
+	if len(snap.State.ProgressingReason) > 0 {
 		syncContext.Queue().AddAfter(syncContext.QueueKey(), 2*time.Minute)
 		return nil
 	}
 
-	// avoid intended start of encryption
-	hasBeenOnBefore := currentConfig != nil || len(secrets) > 0
-	if currentMode == state.Identity && !hasBeenOnBefore {
-		return nil
-	}
-
-	// note here that desiredEncryptionState is never empty because getDesiredEncryptionState
-	// fills up the state with all resources and set identity write key if write key secrets
-	// are missing.
-
-	var desiredProviderCfg kmsProviderConfig = noopKMSProviderConfig{}
-	if currentMode == state.KMS {
-		var err error
-		desiredProviderCfg, err = newKMSProviderConfig(apiEncryptionConfiguration.KMS)
-		if err != nil {
-			return err
-		}
-	}
-
-	keyPlan, err := planNextEncryptionKey(desiredEncryptionState, currentMode, externalReason, encryptedGRs, desiredProviderCfg)
+	plan, err := planner.PlanNextKey(snap)
 	if err != nil {
 		return err
 	}
-	if !keyPlan.needed {
+	if !plan.Needed {
 		return nil
 	}
-	keySecret, preconditionMet, err := c.generateKeySecret(ctx, keyPlan.keyID, currentMode, apiEncryptionConfiguration, desiredProviderCfg, keyPlan.internalReason, externalReason)
+
+	keySecret, preconditionMet, err := c.generateKeySecret(ctx, plan.KeyID, snap.CurrentMode, snap.APIEncryption, snap.desiredProviderCfg, plan.InternalReason, snap.ExternalReason)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -231,16 +209,17 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		syncContext.Queue().AddAfter(syncContext.QueueKey(), 30*time.Second)
 		return nil
 	}
+
 	_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(ctx, keySecret, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(createErr) {
-		return c.validateExistingSecret(ctx, keySecret, keyPlan.keyID)
+		return c.validateExistingSecret(ctx, keySecret, plan.KeyID)
 	}
 	if createErr != nil {
 		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, createErr)
 		return createErr
 	}
 
-	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, keyPlan.reasons)
+	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, plan.Reasons)
 
 	return nil
 }
@@ -263,6 +242,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 
 	return nil // we made this key earlier
 }
+
 // generateKeySecret builds the key secret for the given key ID and mode.
 //
 // For KMS mode it also computes the config hash (from the referenced Secret and

@@ -54,6 +54,13 @@ func TestKeyController(t *testing.T) {
 		encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
 		encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
 	)
+	kmsPreflightFailedHash := kmsCreateKeyStatusProvider.status.Preflight.ObservedConfigHash
+	kmsPreflightFailedStatusProvider := &fakeKMSStatusProvider{}
+	kmsPreflightFailedStatusProvider.status.Preflight.ObservedConfigHash = kmsPreflightFailedHash
+	kmsPreflightFailedStatusProvider.status.Preflight.Result = operatorv1.KMSPreflightResult{
+		Status:     operatorv1.KMSPreflightResultFailed,
+		ConfigHash: kmsPreflightFailedHash,
+	}
 
 	scenarios := []struct {
 		name                     string
@@ -621,6 +628,32 @@ func TestKeyController(t *testing.T) {
 			expectedActions:          []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
+		},
+
+		{
+			name: "degraded when KMS preflight check failed",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", "test-ca-cert"),
+			},
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			targetNamespace:          "kms",
+			encryptionStatusProvider: kmsPreflightFailedStatusProvider,
+			expectedActions:          []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
+				expectedCondition := operatorv1.OperatorCondition{
+					Type:    "EncryptionKeyControllerDegraded",
+					Status:  "True",
+					Reason:  "Error",
+					Message: fmt.Sprintf("failed to create key: KMS preflight check failed for config hash %s; fix the KMS configuration to proceed", kmsPreflightFailedHash),
+				}
+				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
+			},
+			expectedError: fmt.Errorf("failed to create key: KMS preflight check failed for config hash %s; fix the KMS configuration to proceed", kmsPreflightFailedHash),
 		},
 
 		{
