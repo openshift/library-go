@@ -19,6 +19,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -369,6 +370,8 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	resourceSyncer *resourcesynccontroller.ResourceSyncController,
+	encryptionStatusProvider kms.EncryptionStatusProvider,
+	preflightDeployer controllers.KMSPreflightDeployer,
 ) *APIServerControllerSet {
 
 	cs.encryptionControllers = encryptionControllerBuilder{
@@ -385,6 +388,8 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 		secretsClient:              secretsClient,
 		configMapClient:            configMapClient,
 		resourceSyncer:             resourceSyncer,
+		encryptionStatusProvider:   encryptionStatusProvider,
+		preflightDeployer:          preflightDeployer,
 	}
 
 	return cs
@@ -492,6 +497,8 @@ type encryptionControllerBuilder struct {
 	apiServerInformer          configv1informers.APIServerInformer
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
 	resourceSyncer             *resourcesynccontroller.ResourceSyncController
+	encryptionStatusProvider   kms.EncryptionStatusProvider
+	preflightDeployer          controllers.KMSPreflightDeployer
 
 	unsupportedConfigPrefix []string
 }
@@ -515,6 +522,8 @@ func (e *encryptionControllerBuilder) build() []controllerWrapper {
 		e.configMapClient,
 		e.eventRecorder,
 		e.resourceSyncer,
+		e.encryptionStatusProvider,
+		e.preflightDeployer,
 	)
 	if err != nil {
 		e.creationError = err

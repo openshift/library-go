@@ -121,6 +121,9 @@ func (d *PodPreflightDeployer) Status(ctx context.Context) (corev1.PodStatus, er
 }
 
 func (d *PodPreflightDeployer) Cleanup(ctx context.Context) error {
+	// TODO: Cleanup is called on every controller sync, including syncs where
+	// Deploy was never called. Track whether resources were deployed and make
+	// this a no-op when there is nothing to remove.
 	// See Deploy: preflight RBAC is intentionally not deleted here.
 	var errs []error
 

@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -37,6 +38,8 @@ func NewControllers(
 	configMapClient corev1.ConfigMapsGetter,
 	eventRecorder events.Recorder,
 	resourceSyncer *resourcesynccontroller.ResourceSyncController,
+	encryptionStatusProvider kms.EncryptionStatusProvider,
+	preflightDeployer controllers.KMSPreflightDeployer,
 ) (Controllers, error) {
 	// avoid using the CachedSecretGetter as we need strong guarantees that our encryptionSecretSelector works
 	// otherwise we could see secrets from a different component (which will break our keyID invariants)
@@ -60,7 +63,7 @@ func NewControllers(
 		}
 	}
 
-	return []factory.Controller{
+	encryptionControllers := []factory.Controller{
 		controllers.NewKeyController(
 			component,
 			unsupportedConfigPrefix,
@@ -75,6 +78,7 @@ func NewControllers(
 			configMapClient,
 			encryptionSecretSelector,
 			eventRecorder,
+			encryptionStatusProvider,
 		),
 		controllers.NewStateController(
 			component,
@@ -125,7 +129,23 @@ func NewControllers(
 			encryptionSecretSelector,
 			eventRecorder,
 		),
-	}, nil
+	}
+
+	encryptionControllers = append(encryptionControllers, controllers.NewKMSPreflightController(
+		component,
+		provider,
+		encryptionEnabledChecker.PreconditionFulfilled,
+		preflightDeployer,
+		operatorClient,
+		apiServerClient,
+		apiServerInformer,
+		secretsClient,
+		configMapClient,
+		encryptionStatusProvider,
+		eventRecorder,
+	))
+
+	return encryptionControllers, nil
 }
 
 type Controllers []factory.Controller
