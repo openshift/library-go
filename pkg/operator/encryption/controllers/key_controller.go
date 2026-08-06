@@ -18,7 +18,6 @@ import (
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -204,12 +203,6 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
-	var (
-		newKeyRequired bool
-		newKeyID       uint64
-		reasons        []string
-	)
-
 	// note here that desiredEncryptionState is never empty because getDesiredEncryptionState
 	// fills up the state with all resources and set identity write key if write key secrets
 	// are missing.
@@ -223,40 +216,14 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		}
 	}
 
-	var commonReason *string
-	for gr, grKeys := range desiredEncryptionState {
-		latestKeyID, internalReason, needed, err := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs, desiredProviderCfg)
-		if err != nil {
-			return err
-		}
-		if !needed {
-			continue
-		}
-
-		if commonReason == nil {
-			commonReason = &internalReason
-		} else if *commonReason != internalReason {
-			commonReason = ptr.To("") // this means we have no common reason
-		}
-
-		newKeyRequired = true
-		nextKeyID := latestKeyID + 1
-		if newKeyID < nextKeyID {
-			newKeyID = nextKeyID
-		}
-		reasons = append(reasons, fmt.Sprintf("%s-%s", gr.Resource, internalReason))
+	keyPlan, err := planNextEncryptionKey(desiredEncryptionState, currentMode, externalReason, encryptedGRs, desiredProviderCfg)
+	if err != nil {
+		return err
 	}
-	if !newKeyRequired {
+	if !keyPlan.needed {
 		return nil
 	}
-
-	if commonReason != nil && len(*commonReason) > 0 && len(reasons) > 1 {
-		reasons = []string{*commonReason} // don't repeat reasons
-	}
-
-	sort.Sort(sort.StringSlice(reasons))
-	internalReason := strings.Join(reasons, ", ")
-	keySecret, preconditionMet, err := c.generateKeySecret(ctx, newKeyID, currentMode, apiEncryptionConfiguration, desiredProviderCfg, internalReason, externalReason)
+	keySecret, preconditionMet, err := c.generateKeySecret(ctx, keyPlan.keyID, currentMode, apiEncryptionConfiguration, desiredProviderCfg, keyPlan.internalReason, externalReason)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -266,14 +233,14 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	}
 	_, createErr := c.secretClient.Secrets("openshift-config-managed").Create(ctx, keySecret, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(createErr) {
-		return c.validateExistingSecret(ctx, keySecret, newKeyID)
+		return c.validateExistingSecret(ctx, keySecret, keyPlan.keyID)
 	}
 	if createErr != nil {
 		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, err)
 		return createErr
 	}
 
-	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, reasons)
+	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, keyPlan.reasons)
 
 	return nil
 }
@@ -299,14 +266,73 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 
 // generateKeySecret builds the key secret for the given key ID and mode.
 //
-// For KMS mode it also computes the config hash (from the referenced Secret and
-// ConfigMap it already reads) and gates on the KMS preflight check. The boolean
-// return value signals the outcome:
+// For KMS mode it also computes the config hash (from credentials embedded in the
+// key state) and gates on the KMS preflight check. The boolean return value signals
+// the outcome:
 //
 //   - (secret, true,  nil) — preflight passed; caller should persist the key.
 //   - (nil,   false, nil) — preflight still in progress; caller should back off.
 //   - (nil,   false, err) — preflight failed or transient error; caller should surface it.
 func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, desiredProviderCfg kmsProviderConfig, internalReason, externalReason string) (*corev1.Secret, bool, error) {
+	secret, err := buildEncryptionKeySecret(
+		ctx,
+		c.instanceName,
+		keyID,
+		currentMode,
+		apiServerEncryption,
+		desiredProviderCfg,
+		c.secretClient,
+		c.configMapClient,
+		internalReason,
+		externalReason,
+		"",
+	)
+	if err != nil {
+		return nil, false, err
+	}
+	if currentMode != state.KMS {
+		return secret, true, nil
+	}
+
+	ks, err := secrets.ToKeyState(secret)
+	if err != nil {
+		return nil, false, err
+	}
+	refSecret, refCM, err := referencedResourcesFromKeyState(ks, desiredProviderCfg)
+	if err != nil {
+		return nil, false, err
+	}
+	resources := &prefetchedKMSConfigHasherResourceProvider{secret: refSecret, configMap: refCM}
+	hasher, err := newKMSConfigHasher(desiredProviderCfg, resources, openshiftConfigNS)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to create KMS config hasher: %w", err)
+	}
+	configHash, err := hasher.hash(ctx)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to compute KMS config hash: %w", err)
+	}
+	preflightPassed, err := c.ensureKMSPreflightPassed(ctx, configHash)
+	if err != nil {
+		return nil, false, err
+	}
+	if !preflightPassed {
+		return nil, false, nil
+	}
+	return secret, true, nil
+}
+
+func buildEncryptionKeyState(
+	ctx context.Context,
+	keyID uint64,
+	currentMode state.Mode,
+	apiServerEncryption configv1.APIServerEncryption,
+	desiredProviderCfg kmsProviderConfig,
+	secretClient corev1client.SecretsGetter,
+	configMapClient corev1client.ConfigMapsGetter,
+	internalReason string,
+	externalReason string,
+	kmsEndpointOverride string,
+) (state.KeyState, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -317,81 +343,135 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		InternalReason: internalReason,
 		ExternalReason: externalReason,
 	}
-	if currentMode == state.KMS {
-		ks.KMS = &state.KMSState{
-			Encryption: &apiserverv1.KMSConfiguration{
-				APIVersion: "v2",
-				Name:       fmt.Sprintf("%d", keyID),
-				Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
-				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
-			},
-			Plugin: apiServerEncryption.KMS,
-		}
 
-		// Fetch the referenced Secret and ConfigMap, copying their data into the
-		// key state. The fetched objects are reused by prefetchedKMSConfigHasherResourceProvider
-		// to compute the config hash without a second API round-trip.
-		var refSecret *corev1.Secret
-		if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
-			return nil, false, err
-		} else if len(secretName) > 0 {
-			refSecret, err = c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
-			if err != nil {
-				return nil, false, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
-			}
-			for _, key := range expectedKeys {
-				v, ok := refSecret.Data[key]
-				if !ok {
-					return nil, false, fmt.Errorf("secret %s in %s is missing required key %q", secretName, openshiftConfigNS, key)
-				}
-				if err := ks.KMS.PluginSecretData.Set(secretName, key, v); err != nil {
-					return nil, false, err
-				}
-			}
-		}
+	if currentMode != state.KMS {
+		return ks, nil
+	}
 
-		var refCM *corev1.ConfigMap
-		if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
-			return nil, false, err
-		} else if len(cmName) > 0 {
-			refCM, err = c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
-			if err != nil {
-				return nil, false, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, openshiftConfigNS, err)
-			}
-			for _, key := range expectedKeys {
-				v, ok := refCM.Data[key]
-				if !ok {
-					return nil, false, fmt.Errorf("configmap %s in %s is missing required key %q", cmName, openshiftConfigNS, key)
-				}
-				if err := ks.KMS.PluginConfigMapData.Set(cmName, key, []byte(v)); err != nil {
-					return nil, false, err
-				}
-			}
-		}
+	endpoint := kmsEndpointOverride
+	if len(endpoint) == 0 {
+		endpoint = fmt.Sprintf(kmsEndpointFormat, keyID)
+	}
+	ks.KMS = &state.KMSState{
+		Encryption: &apiserverv1.KMSConfiguration{
+			APIVersion: "v2",
+			Name:       fmt.Sprintf("%d", keyID),
+			Endpoint:   endpoint,
+			Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
+		},
+		Plugin: apiServerEncryption.KMS,
+	}
 
-		resources := &prefetchedKMSConfigHasherResourceProvider{secret: refSecret, configMap: refCM}
-		hasher, err := newKMSConfigHasher(desiredProviderCfg, resources, openshiftConfigNS)
+	if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
+		return state.KeyState{}, err
+	} else if len(secretName) > 0 {
+		refSecret, err := secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
 		if err != nil {
-			return nil, false, fmt.Errorf("failed to create KMS config hasher: %w", err)
+			return state.KeyState{}, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
 		}
-		configHash, err := hasher.hash(ctx)
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to compute KMS config hash: %w", err)
-		}
-		preflightPassed, err := c.ensureKMSPreflightPassed(ctx, configHash)
-		if err != nil {
-			return nil, false, err
-		}
-		if !preflightPassed {
-			return nil, false, nil
+		for _, key := range expectedKeys {
+			v, ok := refSecret.Data[key]
+			if !ok {
+				return state.KeyState{}, fmt.Errorf("secret %s in %s is missing required key %q", secretName, openshiftConfigNS, key)
+			}
+			if err := ks.KMS.PluginSecretData.Set(secretName, key, v); err != nil {
+				return state.KeyState{}, err
+			}
 		}
 	}
 
-	secret, err := secrets.FromKeyState(c.instanceName, ks)
+	if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
+		return state.KeyState{}, err
+	} else if len(cmName) > 0 {
+		refCM, err := configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
+		if err != nil {
+			return state.KeyState{}, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, openshiftConfigNS, err)
+		}
+		for _, key := range expectedKeys {
+			v, ok := refCM.Data[key]
+			if !ok {
+				return state.KeyState{}, fmt.Errorf("configmap %s in %s is missing required key %q", cmName, openshiftConfigNS, key)
+			}
+			if err := ks.KMS.PluginConfigMapData.Set(cmName, key, []byte(v)); err != nil {
+				return state.KeyState{}, err
+			}
+		}
+	}
+
+	return ks, nil
+}
+
+func buildEncryptionKeySecret(
+	ctx context.Context,
+	instanceName string,
+	keyID uint64,
+	currentMode state.Mode,
+	apiServerEncryption configv1.APIServerEncryption,
+	desiredProviderCfg kmsProviderConfig,
+	secretClient corev1client.SecretsGetter,
+	configMapClient corev1client.ConfigMapsGetter,
+	internalReason string,
+	externalReason string,
+	kmsEndpointOverride string,
+) (*corev1.Secret, error) {
+	ks, err := buildEncryptionKeyState(
+		ctx,
+		keyID,
+		currentMode,
+		apiServerEncryption,
+		desiredProviderCfg,
+		secretClient,
+		configMapClient,
+		internalReason,
+		externalReason,
+		kmsEndpointOverride,
+	)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	return secret, true, nil
+	return secrets.FromKeyState(instanceName, ks)
+}
+
+// referencedResourcesFromKeyState rebuilds the Secret/ConfigMap objects the hasher
+// expects from credentials already embedded in the planned key state.
+func referencedResourcesFromKeyState(ks state.KeyState, desiredProviderCfg kmsProviderConfig) (*corev1.Secret, *corev1.ConfigMap, error) {
+	var refSecret *corev1.Secret
+	if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
+		return nil, nil, err
+	} else if len(secretName) > 0 {
+		data := map[string][]byte{}
+		for _, key := range expectedKeys {
+			v, ok := ks.KMS.PluginSecretData.Get(secretName, key)
+			if !ok {
+				return nil, nil, fmt.Errorf("planned key secret is missing embedded data for secret %s key %q", secretName, key)
+			}
+			data[key] = v
+		}
+		refSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: openshiftConfigNS},
+			Data:       data,
+		}
+	}
+
+	var refCM *corev1.ConfigMap
+	if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
+		return nil, nil, err
+	} else if len(cmName) > 0 {
+		data := map[string]string{}
+		for _, key := range expectedKeys {
+			v, ok := ks.KMS.PluginConfigMapData.Get(cmName, key)
+			if !ok {
+				return nil, nil, fmt.Errorf("planned key secret is missing embedded data for configmap %s key %q", cmName, key)
+			}
+			data[key] = string(v)
+		}
+		refCM = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: cmName, Namespace: openshiftConfigNS},
+			Data:       data,
+		}
+	}
+
+	return refSecret, refCM, nil
 }
 
 // getCurrentModeReasonAndEncryptionConfig the active encryption mode, any external rotation reason from unsupported config overrides, and the full encryption spec.
@@ -495,6 +575,66 @@ func (c *keyController) ensureKMSPreflightPassed(ctx context.Context, configHash
 	}
 	// Scenario 4: back off: preflight check is still in progress.
 	return false, nil
+}
+
+type encryptionKeyPlan struct {
+	needed         bool
+	keyID          uint64
+	reasons        []string
+	internalReason string
+}
+
+func planNextEncryptionKey(
+	desiredEncryptionState map[schema.GroupResource]state.GroupResourceState,
+	currentMode state.Mode,
+	externalReason string,
+	encryptedGRs []schema.GroupResource,
+	desiredProviderCfg kmsProviderConfig,
+) (*encryptionKeyPlan, error) {
+	plan := &encryptionKeyPlan{}
+	reasons := []string{}
+
+	var (
+		commonReason        string
+		hasCommonReason     bool
+		commonReasonDiffers bool
+	)
+
+	for gr, grKeys := range desiredEncryptionState {
+		latestKeyID, internalReason, needed, err := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs, desiredProviderCfg)
+		if err != nil {
+			return nil, err
+		}
+		if !needed {
+			continue
+		}
+
+		if !hasCommonReason {
+			commonReason = internalReason
+			hasCommonReason = true
+		} else if commonReason != internalReason {
+			commonReasonDiffers = true
+		}
+
+		plan.needed = true
+		nextKeyID := latestKeyID + 1
+		if plan.keyID < nextKeyID {
+			plan.keyID = nextKeyID
+		}
+		reasons = append(reasons, fmt.Sprintf("%s-%s", gr.Resource, internalReason))
+	}
+
+	if !plan.needed {
+		return plan, nil
+	}
+	if hasCommonReason && !commonReasonDiffers && len(reasons) > 1 {
+		reasons = []string{commonReason}
+	}
+
+	sort.Strings(reasons)
+	plan.reasons = reasons
+	plan.internalReason = strings.Join(reasons, ", ")
+	return plan, nil
 }
 
 // needsNewKey checks whether a new key must be created for the given resource. If true, it also returns the latest
