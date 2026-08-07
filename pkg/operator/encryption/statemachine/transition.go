@@ -56,12 +56,12 @@ func GetEncryptionConfigAndState(
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
-	desiredEncryptionState := getDesiredEncryptionState(secretData, encryptionSecrets, encryptedGRs)
+	desiredEncryptionState := GetDesiredEncryptionState(secretData, encryptionSecrets, encryptedGRs)
 
 	return secretData, desiredEncryptionState, encryptionSecrets, "", nil
 }
 
-// getDesiredEncryptionState returns the desired state of encryption for all resources.
+// GetDesiredEncryptionState returns the desired state of encryption for all resources.
 // To do this it compares the current state against the available secrets and to-be-encrypted resources.
 // oldEncryptionConfig can be nil if there is no config yet.
 // If there are no secrets, the identity is set for all resources as write key.
@@ -73,7 +73,7 @@ func GetEncryptionConfigAndState(
 // 2. every GR must have all the read-keys (existing as secrets) since last complete migration.
 // 3. if (2) is the case, the write-key must be the most recent key.
 // 4. if (2) and (3) are the case, all non-write keys should be removed.
-func getDesiredEncryptionState(oldSecretData *encryptiondata.Config, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) map[schema.GroupResource]state.GroupResourceState {
+func GetDesiredEncryptionState(oldSecretData *encryptiondata.Config, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) map[schema.GroupResource]state.GroupResourceState {
 	//
 	// STEP 0: start with old encryption config, and alter it towards the desired state in the following STEPs.
 	//
