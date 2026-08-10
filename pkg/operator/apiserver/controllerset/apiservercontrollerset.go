@@ -372,24 +372,26 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 	resourceSyncer *resourcesynccontroller.ResourceSyncController,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	preflightDeployer controllers.KMSPreflightDeployer,
+	encryptionConfigurationComputer controllers.EncryptionConfigurationComputer,
 ) *APIServerControllerSet {
 
 	cs.encryptionControllers = encryptionControllerBuilder{
 		operatorClient: cs.operatorClient,
 		eventRecorder:  cs.eventRecorder,
 
-		component:                  component,
-		provider:                   provider,
-		deployer:                   deployer,
-		migrator:                   migrator,
-		apiServerClient:            apiServerClient,
-		apiServerInformer:          apiServerInformer,
-		kubeInformersForNamespaces: kubeInformersForNamespaces,
-		secretsClient:              secretsClient,
-		configMapClient:            configMapClient,
-		resourceSyncer:             resourceSyncer,
-		encryptionStatusProvider:   encryptionStatusProvider,
-		preflightDeployer:          preflightDeployer,
+		component:                       component,
+		provider:                        provider,
+		deployer:                        deployer,
+		migrator:                        migrator,
+		apiServerClient:                 apiServerClient,
+		apiServerInformer:               apiServerInformer,
+		kubeInformersForNamespaces:      kubeInformersForNamespaces,
+		secretsClient:                   secretsClient,
+		configMapClient:                 configMapClient,
+		resourceSyncer:                  resourceSyncer,
+		encryptionStatusProvider:        encryptionStatusProvider,
+		preflightDeployer:               preflightDeployer,
+		encryptionConfigurationComputer: encryptionConfigurationComputer,
 	}
 
 	return cs
@@ -497,8 +499,9 @@ type encryptionControllerBuilder struct {
 	apiServerInformer          configv1informers.APIServerInformer
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
 	resourceSyncer             *resourcesynccontroller.ResourceSyncController
-	encryptionStatusProvider   kms.EncryptionStatusProvider
-	preflightDeployer          controllers.KMSPreflightDeployer
+	encryptionStatusProvider        kms.EncryptionStatusProvider
+	preflightDeployer               controllers.KMSPreflightDeployer
+	encryptionConfigurationComputer controllers.EncryptionConfigurationComputer
 
 	unsupportedConfigPrefix []string
 }
@@ -524,6 +527,7 @@ func (e *encryptionControllerBuilder) build() []controllerWrapper {
 		e.resourceSyncer,
 		e.encryptionStatusProvider,
 		e.preflightDeployer,
+		e.encryptionConfigurationComputer,
 	)
 	if err != nil {
 		e.creationError = err
