@@ -394,6 +394,47 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 	return secret, true, nil
 }
 
+// referencedResourcesFromKeyState rebuilds the Secret/ConfigMap objects the hasher expects from credentials already embedded in the planned key state.
+func referencedResourcesFromKeyState(ks state.KeyState, desiredProviderCfg kmsProviderConfig) (*corev1.Secret, *corev1.ConfigMap, error) {
+	var refSecret *corev1.Secret
+	if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
+		return nil, nil, err
+	} else if len(secretName) > 0 {
+		data := map[string][]byte{}
+		for _, key := range expectedKeys {
+			v, ok := ks.KMS.PluginSecretData.Get(secretName, key)
+			if !ok {
+				return nil, nil, fmt.Errorf("planned key secret is missing embedded data for secret %s key %q", secretName, key)
+			}
+			data[key] = v
+		}
+		refSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: openshiftConfigNS},
+			Data:       data,
+		}
+	}
+
+	var refCM *corev1.ConfigMap
+	if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
+		return nil, nil, err
+	} else if len(cmName) > 0 {
+		data := map[string]string{}
+		for _, key := range expectedKeys {
+			v, ok := ks.KMS.PluginConfigMapData.Get(cmName, key)
+			if !ok {
+				return nil, nil, fmt.Errorf("planned key secret is missing embedded data for configmap %s key %q", cmName, key)
+			}
+			data[key] = string(v)
+		}
+		refCM = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: cmName, Namespace: openshiftConfigNS},
+			Data:       data,
+		}
+	}
+
+	return refSecret, refCM, nil
+}
+
 // getCurrentModeReasonAndEncryptionConfig the active encryption mode, any external rotation reason from unsupported config overrides, and the full encryption spec.
 func getCurrentModeReasonAndEncryptionConfig(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
 	apiServer, err := apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})

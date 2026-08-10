@@ -33,6 +33,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -1477,4 +1478,34 @@ func TestSameProviderInstance(t *testing.T) {
 			require.Equal(t, tt.expected, got)
 		})
 	}
+}
+
+func TestReferencedResourcesFromKeyState(t *testing.T) {
+	vaultConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
+
+	providerCfg, err := newKMSProviderConfig(*vaultConfig)
+	require.NoError(t, err)
+
+	ks := state.KeyState{
+		KMS: &state.KMSState{
+			Plugin: *vaultConfig,
+		},
+	}
+	require.NoError(t, ks.KMS.PluginSecretData.Set("vault-approle-secret", "role-id", []byte("my-role")))
+	require.NoError(t, ks.KMS.PluginSecretData.Set("vault-approle-secret", "secret-id", []byte("my-secret")))
+	require.NoError(t, ks.KMS.PluginConfigMapData.Set("vault-ca-bundle", "ca-bundle.crt", []byte("pem-data")))
+
+	sec, cm, err := referencedResourcesFromKeyState(ks, providerCfg)
+	require.NoError(t, err)
+
+	require.NotNil(t, sec)
+	require.Equal(t, "vault-approle-secret", sec.Name)
+	require.Equal(t, openshiftConfigNS, sec.Namespace)
+	require.Equal(t, []byte("my-role"), sec.Data["role-id"])
+	require.Equal(t, []byte("my-secret"), sec.Data["secret-id"])
+
+	require.NotNil(t, cm)
+	require.Equal(t, "vault-ca-bundle", cm.Name)
+	require.Equal(t, openshiftConfigNS, cm.Namespace)
+	require.Equal(t, "pem-data", cm.Data["ca-bundle.crt"])
 }
