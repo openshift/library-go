@@ -19,7 +19,6 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -27,6 +26,22 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
+
+// EncryptionConfigurationComputer computes the encryption configuration secret
+// passed to the preflight deployer right before it creates a new deployment.
+type EncryptionConfigurationComputer interface {
+	ComputeEncryptionConfiguration(ctx context.Context) (*corev1.Secret, error)
+}
+
+// NoopEncryptionConfigurationComputer is a placeholder EncryptionConfigurationComputer
+// that returns nil until a real implementation is available.
+type NoopEncryptionConfigurationComputer struct{}
+
+var _ EncryptionConfigurationComputer = NoopEncryptionConfigurationComputer{}
+
+func (NoopEncryptionConfigurationComputer) ComputeEncryptionConfiguration(_ context.Context) (*corev1.Secret, error) {
+	return nil, nil
+}
 
 // kmsConfigHasherResourceProvider abstracts fetching the Secret and ConfigMap referenced
 // by a KMS provider config.
@@ -205,6 +220,9 @@ type kmsPreflightController struct {
 	configMapsClient corev1client.ConfigMapsGetter
 
 	deployer KMSPreflightDeployer
+	// encryptionConfigurationComputer is called right before Deploy to produce the
+	// encryption configuration secret passed to the deployer.
+	encryptionConfigurationComputer EncryptionConfigurationComputer
 	// dirtyDeployer is true when preflight resources may exist in the cluster.
 	// Set to true after each Deploy and cleared to false after a successful Cleanup,
 	// so that repeated Cleanup calls in steady state issue no API requests.
@@ -295,9 +313,9 @@ func NewKMSPreflightController(
 	provider Provider,
 	preconditionsFulfilledFn preconditionsFulfilled,
 	deployer KMSPreflightDeployer,
+	encryptionConfigurationComputer EncryptionConfigurationComputer,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
-	apiServerInformer configv1informers.APIServerInformer,
 	// secretsClient and configMapsClient read referenced Secrets and ConfigMaps in
 	// openshift-config for hash computation. No informer is needed: the key-controller
 	// detects config changes and updates ObservedConfigHash, which triggers this
@@ -315,7 +333,8 @@ func NewKMSPreflightController(
 		secretsClient:    secretsClient,
 		configMapsClient: configMapsClient,
 
-		deployer: deployer,
+		deployer:                        deployer,
+		encryptionConfigurationComputer: encryptionConfigurationComputer,
 		// assume resources may exist from a previous process run
 		dirtyDeployer:            true,
 		provider:                 provider,
@@ -501,9 +520,12 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 				message: fmt.Sprintf("preflight check failed for hash %s: pod was removed but failure is recorded in status", requiredHash),
 			}
 		}
+		encryptionConfig, err := c.encryptionConfigurationComputer.ComputeEncryptionConfiguration(ctx)
+		if err != nil {
+			return true, "", "", fmt.Errorf("failed to compute encryption configuration: %w", err)
+		}
 		c.dirtyDeployer = true
-		// TODO: compute the encryption configuration and pass it to the deployer
-		if err := c.deployer.Deploy(ctx, requiredHash, nil); err != nil {
+		if err := c.deployer.Deploy(ctx, requiredHash, encryptionConfig); err != nil {
 			return true, "", "", err
 		}
 		return true, "RunningPreflightCheck", fmt.Sprintf("Deploying preflight pod for hash %s", requiredHash), nil
@@ -750,8 +772,8 @@ func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string,
 	}
 
 	// No requeue needed: the key-controller will update ObservedConfigHash when it
-	// picks up the config change (via apiServerInformer), which triggers us through
-	// operatorClient.Informer(). The minute-based resync is a backstop.
+	// picks up the config change, which triggers us through operatorClient.Informer().
+	// The minute-based resync is a backstop.
 	if currentHash != requiredHash {
 		klog.V(4).Infof("KMS config hash changed: required=%s, current=%s; waiting for the key-controller to update ObservedConfigHash", requiredHash, currentHash)
 		return "", nil, nil
