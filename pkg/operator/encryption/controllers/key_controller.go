@@ -184,7 +184,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 }
 
 func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	currentMode, externalReason, apiEncryptionConfiguration, err := c.getCurrentModeReasonAndEncryptionConfig(ctx)
+	currentMode, externalReason, apiEncryptionConfiguration, err := getCurrentModeReasonAndEncryptionConfig(ctx, c.apiServerClient, c.operatorClient, c.unsupportedConfigPrefix)
 	if err != nil {
 		return err
 	}
@@ -394,18 +394,19 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 	return secret, true, nil
 }
 
-func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, configv1.APIServerEncryption, error) {
-	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
+// getCurrentModeReasonAndEncryptionConfig the active encryption mode, any external rotation reason from unsupported config overrides, and the full encryption spec.
+func getCurrentModeReasonAndEncryptionConfig(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
+	apiServer, err := apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}
 
-	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
+	operatorSpec, _, _, err := operatorClient.GetOperatorState()
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}
 
-	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, c.unsupportedConfigPrefix)
+	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, unsupportedConfigPrefix)
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}
