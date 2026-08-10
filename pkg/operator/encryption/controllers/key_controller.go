@@ -328,14 +328,11 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			Plugin: apiServerEncryption.KMS,
 		}
 
-		// Fetch the referenced Secret and ConfigMap, copying their data into the
-		// key state. The fetched objects are reused by prefetchedKMSConfigHasherResourceProvider
-		// to compute the config hash without a second API round-trip.
-		var refSecret *corev1.Secret
+		// Fetch the referenced Secret and ConfigMap, copying their data into the key state.
 		if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
 			return nil, false, err
 		} else if len(secretName) > 0 {
-			refSecret, err = c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
+			refSecret, err := c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
 			if err != nil {
 				return nil, false, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
 			}
@@ -350,11 +347,10 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			}
 		}
 
-		var refCM *corev1.ConfigMap
 		if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
 			return nil, false, err
 		} else if len(cmName) > 0 {
-			refCM, err = c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
+			refCM, err := c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
 			if err != nil {
 				return nil, false, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, openshiftConfigNS, err)
 			}
@@ -369,14 +365,9 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			}
 		}
 
-		resources := &prefetchedKMSConfigHasherResourceProvider{secret: refSecret, configMap: refCM}
-		hasher, err := newKMSConfigHasher(desiredProviderCfg, resources, openshiftConfigNS)
+		configHash, err := kmsConfigHashFromKeyState(ctx, ks, desiredProviderCfg)
 		if err != nil {
-			return nil, false, fmt.Errorf("failed to create KMS config hasher: %w", err)
-		}
-		configHash, err := hasher.hash(ctx)
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to compute KMS config hash: %w", err)
+			return nil, false, err
 		}
 		preflightPassed, err := c.ensureKMSPreflightPassed(ctx, configHash)
 		if err != nil {
@@ -392,6 +383,66 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		return nil, false, err
 	}
 	return secret, true, nil
+}
+
+// kmsConfigHashFromKeyState rebuilds hasher Secret/ConfigMap inputs from credentials
+// already embedded in ks and returns the KMS config hash.
+func kmsConfigHashFromKeyState(ctx context.Context, ks state.KeyState, desiredProviderCfg kmsProviderConfig) (string, error) {
+	refSecret, refCM, err := referencedResourcesFromKeyState(ks, desiredProviderCfg)
+	if err != nil {
+		return "", err
+	}
+	resources := &prefetchedKMSConfigHasherResourceProvider{secret: refSecret, configMap: refCM}
+	hasher, err := newKMSConfigHasher(desiredProviderCfg, resources, openshiftConfigNS)
+	if err != nil {
+		return "", fmt.Errorf("failed to create KMS config hasher: %w", err)
+	}
+	configHash, err := hasher.hash(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute KMS config hash: %w", err)
+	}
+	return configHash, nil
+}
+
+// referencedResourcesFromKeyState rebuilds the Secret/ConfigMap objects the hasher expects from credentials already embedded in the planned key state.
+func referencedResourcesFromKeyState(ks state.KeyState, desiredProviderCfg kmsProviderConfig) (*corev1.Secret, *corev1.ConfigMap, error) {
+	var refSecret *corev1.Secret
+	if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
+		return nil, nil, err
+	} else if len(secretName) > 0 {
+		data := map[string][]byte{}
+		for _, key := range expectedKeys {
+			v, ok := ks.KMS.PluginSecretData.Get(secretName, key)
+			if !ok {
+				return nil, nil, fmt.Errorf("planned key secret is missing embedded data for secret %s key %q", secretName, key)
+			}
+			data[key] = v
+		}
+		refSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: openshiftConfigNS},
+			Data:       data,
+		}
+	}
+
+	var refCM *corev1.ConfigMap
+	if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
+		return nil, nil, err
+	} else if len(cmName) > 0 {
+		data := map[string]string{}
+		for _, key := range expectedKeys {
+			v, ok := ks.KMS.PluginConfigMapData.Get(cmName, key)
+			if !ok {
+				return nil, nil, fmt.Errorf("planned key secret is missing embedded data for configmap %s key %q", cmName, key)
+			}
+			data[key] = string(v)
+		}
+		refCM = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: cmName, Namespace: openshiftConfigNS},
+			Data:       data,
+		}
+	}
+
+	return refSecret, refCM, nil
 }
 
 // getCurrentModeReasonAndEncryptionConfig the active encryption mode, any external rotation reason from unsupported config overrides, and the full encryption spec.
