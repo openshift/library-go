@@ -331,39 +331,28 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		// Fetch the referenced Secret and ConfigMap, copying their data into the
 		// key state. The fetched objects are reused by prefetchedKMSConfigHasherResourceProvider
 		// to compute the config hash without a second API round-trip.
-		var refSecret *corev1.Secret
-		if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
+		refSecret, refCM, err := fetchReferencedResources(ctx, desiredProviderCfg, c.secretClient, c.configMapClient, openshiftConfigNS)
+		if err != nil {
 			return nil, false, err
-		} else if len(secretName) > 0 {
-			refSecret, err = c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
+		}
+		if refSecret != nil {
+			secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName()
 			if err != nil {
-				return nil, false, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
+				return nil, false, err
 			}
 			for _, key := range expectedKeys {
-				v, ok := refSecret.Data[key]
-				if !ok {
-					return nil, false, fmt.Errorf("secret %s in %s is missing required key %q", secretName, openshiftConfigNS, key)
-				}
-				if err := ks.KMS.PluginSecretData.Set(secretName, key, v); err != nil {
+				if err := ks.KMS.PluginSecretData.Set(secretName, key, refSecret.Data[key]); err != nil {
 					return nil, false, err
 				}
 			}
 		}
-
-		var refCM *corev1.ConfigMap
-		if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
-			return nil, false, err
-		} else if len(cmName) > 0 {
-			refCM, err = c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
+		if refCM != nil {
+			cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName()
 			if err != nil {
-				return nil, false, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, openshiftConfigNS, err)
+				return nil, false, err
 			}
 			for _, key := range expectedKeys {
-				v, ok := refCM.Data[key]
-				if !ok {
-					return nil, false, fmt.Errorf("configmap %s in %s is missing required key %q", cmName, openshiftConfigNS, key)
-				}
-				if err := ks.KMS.PluginConfigMapData.Set(cmName, key, []byte(v)); err != nil {
+				if err := ks.KMS.PluginConfigMapData.Set(cmName, key, []byte(refCM.Data[key])); err != nil {
 					return nil, false, err
 				}
 			}
@@ -392,6 +381,41 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		return nil, false, err
 	}
 	return secret, true, nil
+}
+
+// fetchReferencedResources loads the Secret and ConfigMap referenced by providerCfg from namespace, validating that every expected key is present. Either return value may be nil when the provider does not reference that resource type.
+func fetchReferencedResources(ctx context.Context, providerCfg kmsProviderConfig, secretClient corev1client.SecretsGetter, configMapClient corev1client.ConfigMapsGetter, namespace string) (*corev1.Secret, *corev1.ConfigMap, error) {
+	var refSecret *corev1.Secret
+	if secretName, expectedKeys, err := providerCfg.referencedSecretName(); err != nil {
+		return nil, nil, err
+	} else if len(secretName) > 0 {
+		refSecret, err = secretClient.Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get secret %s in %s: %w", secretName, namespace, err)
+		}
+		for _, key := range expectedKeys {
+			if _, ok := refSecret.Data[key]; !ok {
+				return nil, nil, fmt.Errorf("secret %s in %s is missing required key %q", secretName, namespace, key)
+			}
+		}
+	}
+
+	var refCM *corev1.ConfigMap
+	if cmName, expectedKeys, err := providerCfg.referencedConfigMapName(); err != nil {
+		return nil, nil, err
+	} else if len(cmName) > 0 {
+		refCM, err = configMapClient.ConfigMaps(namespace).Get(ctx, cmName, metav1.GetOptions{})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, namespace, err)
+		}
+		for _, key := range expectedKeys {
+			if _, ok := refCM.Data[key]; !ok {
+				return nil, nil, fmt.Errorf("configmap %s in %s is missing required key %q", cmName, namespace, key)
+			}
+		}
+	}
+
+	return refSecret, refCM, nil
 }
 
 // getCurrentModeReasonAndEncryptionConfig the active encryption mode, any external rotation reason from unsupported config overrides, and the full encryption spec.
