@@ -269,7 +269,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return c.validateExistingSecret(ctx, keySecret, newKeyID)
 	}
 	if createErr != nil {
-		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, err)
+		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, createErr)
 		return createErr
 	}
 
