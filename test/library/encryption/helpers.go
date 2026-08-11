@@ -126,9 +126,24 @@ func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider Enc
 	// KMS-to-KMS migration: when both old and new are KMS but the config differs,
 	// the key controller creates a new key. We must wait for the next migrated key
 	// rather than asserting no new key is created.
-	if needsUpdate && provider.Type == configv1.EncryptionTypeKMS && previousEncryption.Type == configv1.EncryptionTypeKMS {
-		WaitForNextMigratedKey(t, clientSet.Kube, lastMigratedKeyMeta, defaultTargetGRs, namespace, labelSelector)
-		return clientSet
+	// Multi-operator parallel KMS-to-KMS: another goroutine already applied the
+	// KMS config change (needsUpdate=false), but the operator will still create a
+	// new key because the KMS provider config changed. Use targetGRs to determine
+	// if we captured the old key or the new key.
+	if provider.Type == configv1.EncryptionTypeKMS {
+		if needsUpdate {
+			if previousEncryption.Type == configv1.EncryptionTypeKMS {
+				WaitForNextMigratedKey(t, clientSet.Kube, lastMigratedKeyMeta, defaultTargetGRs, namespace, labelSelector)
+				return clientSet
+			}
+		} else if lastMigratedKeyMeta.Mode == string(configv1.EncryptionTypeKMS) {
+			if len(lastMigratedKeyMeta.Name) > 0 && !allTargetGRsMigrated(lastMigratedKeyMeta, defaultTargetGRs) {
+				WaitForCurrentKeyMigrated(t, clientSet.Kube, lastMigratedKeyMeta, defaultTargetGRs, namespace, labelSelector)
+			} else {
+				WaitForNextMigratedKey(t, clientSet.Kube, lastMigratedKeyMeta, defaultTargetGRs, namespace, labelSelector)
+			}
+			return clientSet
+		}
 	}
 
 	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, provider.Type, defaultTargetGRs, namespace, labelSelector)
@@ -699,4 +714,13 @@ func GetRawWellKnownTokenOfLife(t testing.TB, clientSet ClientSet) string {
 	require.Len(t, resp.Kvs, 1, "expected exactly one key from etcd for token-of-life")
 
 	return string(resp.Kvs[0].Value)
+}
+
+func allTargetGRsMigrated(keyMeta EncryptionKeyMeta, targetGRs []schema.GroupResource) bool {
+	for _, gr := range targetGRs {
+		if !hasResource(gr, keyMeta.Migrated) {
+			return false
+		}
+	}
+	return true
 }
