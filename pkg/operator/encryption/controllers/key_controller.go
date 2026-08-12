@@ -478,9 +478,7 @@ func (c *keyController) ensureKMSPreflightPassed(ctx context.Context, configHash
 	if encryptionStatus.Preflight.ObservedConfigHash != configHash {
 		if err := c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
 			s.Preflight.ObservedConfigHash = configHash
-		}); errors.IsConflict(err) {
-			return false, nil
-		} else if err != nil {
+		}); err != nil {
 			return false, fmt.Errorf("failed to write preflight observed config hash: %w", err)
 		}
 		// Scenario 1: back off: wait for the preflight controller to pick up the new hash.

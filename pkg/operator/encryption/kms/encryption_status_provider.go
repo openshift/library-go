@@ -17,7 +17,7 @@ type EncryptionStatusProvider interface {
 	ApplyKMSEncryptionStatus(ctx context.Context, fieldManager string, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error
 
 	// UpdateKMSEncryptionStatus reads the current status, applies the mutation,
-	// and writes it back. A conflict (409) is returned as-is.
+	// and writes it back. Implementations must retry on conflict (409).
 	//
 	// Note: use this instead of ApplyKMSEncryptionStatus when the controller is
 	// the sole owner of a field. Apply requires re-sending every owned field on

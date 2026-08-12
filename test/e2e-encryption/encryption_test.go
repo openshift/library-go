@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/clock"
 	"sigs.k8s.io/yaml"
 
@@ -1090,20 +1091,22 @@ func (p *dynamicKMSEncryptionStatusProvider) ApplyKMSEncryptionStatus(_ context.
 }
 
 func (p *dynamicKMSEncryptionStatusProvider) UpdateKMSEncryptionStatus(ctx context.Context, mutateFn func(*operatorv1.KMSEncryptionStatus)) error {
-	obj, status, err := p.get(ctx)
-	if err != nil {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		obj, status, err := p.get(ctx)
+		if err != nil {
+			return err
+		}
+		mutateFn(status)
+		rawNew, err := runtime.DefaultUnstructuredConverter.ToUnstructured(status)
+		if err != nil {
+			return err
+		}
+		if err := unstructured.SetNestedField(obj.Object, rawNew, "status", kmsStatusField); err != nil {
+			return err
+		}
+		_, err = p.client.Update(ctx, obj, metav1.UpdateOptions{}, "status")
 		return err
-	}
-	mutateFn(status)
-	rawNew, err := runtime.DefaultUnstructuredConverter.ToUnstructured(status)
-	if err != nil {
-		return err
-	}
-	if err := unstructured.SetNestedField(obj.Object, rawNew, "status", kmsStatusField); err != nil {
-		return err
-	}
-	_, err = p.client.Update(ctx, obj, metav1.UpdateOptions{}, "status")
-	return err
+	})
 }
 
 var _ kms.EncryptionStatusProvider = &dynamicKMSEncryptionStatusProvider{}

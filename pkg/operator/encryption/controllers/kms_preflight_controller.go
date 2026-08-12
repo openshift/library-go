@@ -563,9 +563,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 			Status:      operatorv1.KMSPreflightResultSucceeded,
 			ConfigHash:  requiredHash,
 			RemoteKeyID: remoteKeyID,
-		}); apierrors.IsConflict(err) {
-			return true, "", "", nil
-		} else if err != nil {
+		}); err != nil {
 			return false, "", "", err
 		}
 		return false, "", "", c.cleanupDeployer(ctx)
@@ -581,9 +579,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		Status:      operatorv1.KMSPreflightResultFailed,
 		ConfigHash:  requiredHash,
 		RemoteKeyID: remoteKeyID,
-	}); apierrors.IsConflict(writeErr) {
-		return true, "", "", nil
-	} else if writeErr != nil {
+	}); writeErr != nil {
 		return false, "", "", fmt.Errorf("%w; also failed to write preflight result: %v", pe, writeErr)
 	}
 	return false, "", "", pe
