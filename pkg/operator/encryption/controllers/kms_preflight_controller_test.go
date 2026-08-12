@@ -483,8 +483,8 @@ func TestKMSPreflightController(t *testing.T) {
 		},
 		{
 			// Scenario 2b: deploying — progressing.
-			name:                      "hashes match, no pod exists, deploys and returns",
-			deployer:                  &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
+			name:     "hashes match, no pod exists, deploys and returns",
+			deployer: &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
 			encryptionConfigurationComputer: &fakeEncryptionConfigurationComputer{secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "enc-config", Namespace: "test"},
 			}},
@@ -501,16 +501,16 @@ func TestKMSPreflightController(t *testing.T) {
 		},
 		{
 			// Scenario 2b: computer fails before deploy.
-			name:                     "encryption configuration computer fails, reports error",
-			deployer:                 &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
+			name:                            "encryption configuration computer fails, reports error",
+			deployer:                        &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
 			encryptionConfigurationComputer: &fakeEncryptionConfigurationComputer{err: fmt.Errorf("vault unreachable")},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
-			apiServerObjects:         []runtime.Object{apiServerWithKMS},
-			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			initialDirtyDeployer:     true,
-			preconditionsMet:         true,
-			expectedComputerCallCount: 1,
-			expectedError:            "failed to compute encryption configuration: vault unreachable",
+			encryptionStatusProvider:        &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
+			apiServerObjects:                []runtime.Object{apiServerWithKMS},
+			coreObjects:                     []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:            true,
+			preconditionsMet:                true,
+			expectedComputerCallCount:       1,
+			expectedError:                   "failed to compute encryption configuration: vault unreachable",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "failed to compute encryption configuration: vault unreachable"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
