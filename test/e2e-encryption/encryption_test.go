@@ -173,6 +173,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		nil, // resourceSyncer
 		&dynamicKMSEncryptionStatusProvider{client: dynamicClient.Resource(operatorGVR)},
 		kmsPreflightDeployer,
+		controllers.NoopEncryptionConfigurationComputer{},
 	)
 	if err != nil {
 		t.Fatalf("failed to initialize controllers: %v", err)

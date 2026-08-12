@@ -40,6 +40,7 @@ func NewControllers(
 	resourceSyncer *resourcesynccontroller.ResourceSyncController,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	preflightDeployer controllers.KMSPreflightDeployer,
+	encryptionConfigurationComputer controllers.EncryptionConfigurationComputer,
 ) (Controllers, error) {
 	// avoid using the CachedSecretGetter as we need strong guarantees that our encryptionSecretSelector works
 	// otherwise we could see secrets from a different component (which will break our keyID invariants)
@@ -136,9 +137,9 @@ func NewControllers(
 		provider,
 		encryptionEnabledChecker.PreconditionFulfilled,
 		preflightDeployer,
+		encryptionConfigurationComputer,
 		operatorClient,
 		apiServerClient,
-		apiServerInformer,
 		secretsClient,
 		configMapClient,
 		encryptionStatusProvider,
