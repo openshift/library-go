@@ -26,6 +26,10 @@ func watchForMigrationControllerProgressingCondition(t testing.TB, getOperatorCo
 	err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
 		conditions, err := getOperatorConditionsFn(t)
 		if err != nil {
+			if transientAPIError(err) {
+				t.Logf("failed to get operator conditions, will retry: %v", err)
+				return false, nil
+			}
 			return false, err
 		}
 		for _, cond := range conditions {
