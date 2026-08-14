@@ -46,7 +46,7 @@ func transientAPIError(err error) bool {
 	switch {
 	case err == nil:
 		return false
-	case errors.IsServerTimeout(err), errors.IsTooManyRequests(err), net.IsProbableEOF(err), net.IsConnectionReset(err), net.IsNoRoutesError(err), isConnectionRefusedError(err), isGolangNetTimeout(err):
+	case errors.IsServiceUnavailable(err), errors.IsServerTimeout(err), errors.IsTooManyRequests(err), net.IsProbableEOF(err), net.IsConnectionReset(err), net.IsNoRoutesError(err), isConnectionRefusedError(err), isGolangNetTimeout(err):
 		return true
 	default:
 		return false
