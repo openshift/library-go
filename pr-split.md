@@ -38,36 +38,42 @@ Based on PR 1.
 
 ## PR 3: Rework of the degraded condition
 
-Based on PR 2.
+Based on PR 2. Branch: `pr3-degraded-rework`.
 
-### New function in `pkg/apps/deployment/`
-- `DeploymentDegradedCondition(deployment, pods []*corev1.Pod) → operatorv1.OperatorCondition`
-  - Computes the Degraded condition from deployment status and pod state
-  - Internally uses unexported helpers: `hasFailingPods`, `findPodReadyCondition`
+### New helpers in `pkg/apps/deployment/degraded.go`
+- `DeploymentDegradedCondition(deployment *appsv1.Deployment, podsLister, now) → (operatorv1.OperatorCondition, error)`
+  - `ProgressDeadlineExceeded` → `True/ProgressDeadlineExceeded`
+  - Progressed + unavailable + failing pods → `True/UnavailablePod`
+  - Otherwise → `False/AsExpected`
+- `HasFailingPods(deployment, podsLister, now) (bool, error)` (exported): lists pods by `Spec.Selector`, skips terminating pods, applies `ProgressDeadlineSeconds` deadline and MinReadySeconds-based flapping detection
+- `findPodReadyCondition` (unexported)
 
-### Source changes in `pkg/operator/apiserver/controller/workload/`
-- Call the new helper instead of computing the degraded condition inline
-- When `workload == nil`, also set `WorkloadDegraded`
-- Use `defer` to apply SyncError to `workloadDegradedCondition`
-- When `ProgressDeadlineExceeded`, also report `DeploymentDegraded`
-- Degraded only when pods are actually failing, not during normal rollouts
+Note: `progressing.go` from PR 2 is retained — not rolled back. `pkg/apps/deployment` becomes a coherent library of deployment→operator-condition mappings.
+
+### Source changes in `pkg/operator/apiserver/controller/workload/workload.go`
+- Call `DeploymentDegradedCondition` instead of inline switch
+- Add `defer` for SyncError so errors appended during degraded computation surface on `WorkloadDegraded`
+- When `workload == nil`, also set `WorkloadDegraded=True/NoDeployment`
+- `ProgressDeadlineExceeded` now also reports `DeploymentDegraded=True`
+- Degraded only when pods are actually failing past `ProgressDeadlineSeconds`, not during normal rollouts
 - Remove trailing period from "no pods available on any node" message
+- Add `errMessage` helper; add `"time"` import; remove `"strings"` import
 
 ### Test infrastructure (carried with this PR)
-- Add `podListErr` field to test struct and wire through `fakePodLister`
+- Add `podListErr` field to scenario struct and wire through `fakePodLister`
+- Add `previousConditions` field to seed prior operator status
+- Unit tests for helpers in `pkg/apps/deployment/degraded_test.go`
 
 ### Test scenarios added/updated
-- "unavailable workload that previously progressed successfully"
-- "partially available during active rollout, pods starting"
-- "workload recovering from progress deadline exceeded"
-- "partially available workload with failing pod"
-- "partially available during scale-up, new pods failing"
+- "unavailable workload that previously progressed successfully" (replaces old "incomplete workload")
+- "partially available workload with failing pod" (replaces old "zero available after successful rollout")
 - "zero available replicas, no pods exist"
 - "pod list error"
 - "terminating pod past deadline is not reported as failing"
 - "pod with flapping Ready condition detected as failing"
 - "pod with flapping Ready within combined deadline not flagged"
 - "stably ready pod past combined deadline not flagged as flapping"
+- "workload recovering from progress deadline exceeded"
 
 ---
 
