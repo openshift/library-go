@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
@@ -72,6 +74,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, false, err
 	}
+
 	signingCertKeyPairSecret := originalSigningCertKeyPairSecret.DeepCopy()
 	if apierrors.IsNotFound(err) {
 		// create an empty one
@@ -116,7 +119,14 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 		if err != nil {
 			return nil, false, err
 		}
-		klog.V(2).Infof("Created secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
+
+		if klog.V(2).Enabled() {
+			klog.V(2).Infof("Created secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
+			if diff := cmp.Diff(nil, actualSigningCertKeyPairSecret.Annotations); len(diff) > 0 {
+				klog.V(2).Infof("Secret %s/%s annotations diff: %s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name, diff)
+			}
+		}
+
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	} else if updateRequired {
 		actualSigningCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, signingCertKeyPairSecret, metav1.UpdateOptions{})
@@ -128,7 +138,14 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 		if err != nil {
 			return nil, false, err
 		}
-		klog.V(2).Infof("Updated secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
+
+		if klog.V(2).Enabled() {
+			klog.V(2).Infof("Updated secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
+			if diff := cmp.Diff(originalSigningCertKeyPairSecret.Annotations, actualSigningCertKeyPairSecret.Annotations); len(diff) > 0 {
+				klog.V(2).Infof("Secret %s/%s annotations diff: %s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name, diff)
+			}
+		}
+
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	}
 
