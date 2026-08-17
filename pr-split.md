@@ -16,9 +16,9 @@ https://github.com/openshift/library-go/pull/2197
 Based on PR 1.
 
 ### New function in `pkg/apps/deployment/`
-- `DeploymentProgressingCondition(deployment, pods []*corev1.Pod) → operatorv1.OperatorCondition`
-  - Computes the Progressing condition from deployment status and pod state
-  - Internally uses unexported helpers: `hasDeploymentProgressed`, `hasDeploymentTimedOutProgressing`
+- `DeploymentProgressingCondition(deployment *appsv1.Deployment) → operatorv1.OperatorCondition`
+  - Computes the Progressing condition from deployment status and replica counts
+  - Uses exported helpers: `HasDeploymentProgressed`, `HasDeploymentTimedOutProgressing`
 
 ### Source changes in `pkg/operator/apiserver/controller/workload/`
 - Call the new helper instead of computing the progressing condition inline
@@ -27,17 +27,12 @@ Based on PR 1.
 - Add `ProgressDeadlineExceeded` as a new Progressing=False reason
 - Change wording "latest generation" → "latest revision" in PodsUpdating message
 
-### Test infrastructure (carried with this PR)
-- Add `podListErr` field to test struct and wire through `fakePodLister`
-
 ### Test scenarios added/updated
 - "unavailable workload with progress deadline exceeded" (was "updated for too long")
 - "unavailable workload progressing normally" (was "updated for a short time")
-- "partially available during active rollout, pods starting"
 - "all pods updated but not all available yet"
 - "available workload with progress deadline exceeded"
 - "workload rollout with maxSurge"
-- "workload recovering from progress deadline exceeded"
 
 ---
 
@@ -58,8 +53,13 @@ Based on PR 2.
 - Degraded only when pods are actually failing, not during normal rollouts
 - Remove trailing period from "no pods available on any node" message
 
+### Test infrastructure (carried with this PR)
+- Add `podListErr` field to test struct and wire through `fakePodLister`
+
 ### Test scenarios added/updated
 - "unavailable workload that previously progressed successfully"
+- "partially available during active rollout, pods starting"
+- "workload recovering from progress deadline exceeded"
 - "partially available workload with failing pod"
 - "partially available during scale-up, new pods failing"
 - "zero available replicas, no pods exist"
@@ -98,4 +98,4 @@ PR 1 (cleanup, MERGED) → PR 2 (progressing) → PR 3 (degraded)
                                              → PR 4 (version)
 ```
 
-PR 1 is merged. PR 2 builds on PR 1. PRs 3 and 4 both build on PR 2 and are independent of each other. Test infrastructure additions (podListErr, version recorder, targetOperandVersion) are carried with PR 2 since they are first needed there.
+PR 1 is merged. PR 2 builds on PR 1. PRs 3 and 4 both build on PR 2 and are independent of each other. `podListErr` test infra is carried with PR 3 (first needed there); `versionRecorder` and `targetOperandVersion` are carried with PR 4.
