@@ -3,6 +3,7 @@
 package v1alpha1
 
 import (
+	resource "k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
@@ -11,9 +12,14 @@ import (
 type EtcdBackupStatusApplyConfiguration struct {
 	// conditions provide details on the status of the etcd backup job.
 	Conditions []v1.ConditionApplyConfiguration `json:"conditions,omitempty"`
-	// backupJob is the reference to the Job that executes the backup.
-	// Optional
-	BackupJob *BackupJobReferenceApplyConfiguration `json:"backupJob,omitempty"`
+	// job is a reference to the Job created for the backup.
+	Job *EtcdBackupJobApplyConfiguration `json:"job,omitempty"`
+	// nodeName is the master node where the backup snapshot was taken.
+	NodeName *string `json:"nodeName,omitempty"`
+	// filePath is the absolute path to the backup file on the storage backend.
+	FilePath *string `json:"filePath,omitempty"`
+	// fileSize is the size of the backup file on the storage backend.
+	FileSize *resource.Quantity `json:"fileSize,omitempty"`
 }
 
 // EtcdBackupStatusApplyConfiguration constructs a declarative configuration of the EtcdBackupStatus type for use with
@@ -35,10 +41,34 @@ func (b *EtcdBackupStatusApplyConfiguration) WithConditions(values ...*v1.Condit
 	return b
 }
 
-// WithBackupJob sets the BackupJob field in the declarative configuration to the given value
+// WithJob sets the Job field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the BackupJob field is set to the value of the last call.
-func (b *EtcdBackupStatusApplyConfiguration) WithBackupJob(value *BackupJobReferenceApplyConfiguration) *EtcdBackupStatusApplyConfiguration {
-	b.BackupJob = value
+// If called multiple times, the Job field is set to the value of the last call.
+func (b *EtcdBackupStatusApplyConfiguration) WithJob(value *EtcdBackupJobApplyConfiguration) *EtcdBackupStatusApplyConfiguration {
+	b.Job = value
+	return b
+}
+
+// WithNodeName sets the NodeName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the NodeName field is set to the value of the last call.
+func (b *EtcdBackupStatusApplyConfiguration) WithNodeName(value string) *EtcdBackupStatusApplyConfiguration {
+	b.NodeName = &value
+	return b
+}
+
+// WithFilePath sets the FilePath field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the FilePath field is set to the value of the last call.
+func (b *EtcdBackupStatusApplyConfiguration) WithFilePath(value string) *EtcdBackupStatusApplyConfiguration {
+	b.FilePath = &value
+	return b
+}
+
+// WithFileSize sets the FileSize field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the FileSize field is set to the value of the last call.
+func (b *EtcdBackupStatusApplyConfiguration) WithFileSize(value resource.Quantity) *EtcdBackupStatusApplyConfiguration {
+	b.FileSize = &value
 	return b
 }

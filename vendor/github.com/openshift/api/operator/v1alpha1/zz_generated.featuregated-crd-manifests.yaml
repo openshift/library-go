@@ -47,7 +47,7 @@ clusterversionoperators.operator.openshift.io:
 
 etcdbackups.operator.openshift.io:
   Annotations: {}
-  ApprovedPRNumber: https://github.com/openshift/api/pull/1482
+  ApprovedPRNumber: https://github.com/openshift/api/pull/2952
   CRDName: etcdbackups.operator.openshift.io
   Capability: ""
   Category: ""
@@ -61,6 +61,29 @@ etcdbackups.operator.openshift.io:
   KindName: EtcdBackup
   Labels: {}
   PluralName: etcdbackups
+  PrinterColumns: []
+  Scope: Cluster
+  ShortNames: null
+  TopLevelFeatureGates:
+  - AutomatedEtcdBackup
+  Version: v1alpha1
+
+etcdbackuppolicies.operator.openshift.io:
+  Annotations: {}
+  ApprovedPRNumber: https://github.com/openshift/api/pull/2952
+  CRDName: etcdbackuppolicies.operator.openshift.io
+  Capability: ""
+  Category: ""
+  FeatureGates:
+  - AutomatedEtcdBackup
+  FilenameOperatorName: etcd
+  FilenameOperatorOrdering: "01"
+  FilenameRunLevel: "0000_10"
+  GroupName: operator.openshift.io
+  HasStatus: true
+  KindName: EtcdBackupPolicy
+  Labels: {}
+  PluralName: etcdbackuppolicies
   PrinterColumns: []
   Scope: Cluster
   ShortNames: null
