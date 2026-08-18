@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +26,8 @@ type KMSPluginBuilder struct {
 	staticPod                  bool
 	errorIfNotFound            bool
 
-	healthReporter *healthReporter
+	healthReporter   *healthReporter
+	preflightChecker bool
 }
 
 // NewKMSPluginBuilder creates a builder that defaults to deployment mode.
@@ -61,6 +63,13 @@ func (b *KMSPluginBuilder) WithDiskSecretName(name string) *KMSPluginBuilder {
 // callers like the preflight checker that expect the Secret to be present.
 func (b *KMSPluginBuilder) WithSecretRequired() *KMSPluginBuilder {
 	b.errorIfNotFound = true
+	return b
+}
+
+// WithPreflightChecker enables running the preflight binary that validates
+// KMS plugin readiness before encryption keys are created.
+func (b *KMSPluginBuilder) WithPreflightChecker() *KMSPluginBuilder {
+	b.preflightChecker = true
 	return b
 }
 
@@ -195,7 +204,29 @@ func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, c
 		return err
 	}
 
+	if err := b.applyPreflightChecker(podSpec.Containers, containerName, sockets); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// applyPreflightChecker injects --kms-sockets into the checker container's args.
+func (b *KMSPluginBuilder) applyPreflightChecker(containers []corev1.Container, containerName string, sockets []string) error {
+	if !b.preflightChecker {
+		return nil
+	}
+
+	for i, c := range containers {
+		if c.Name != containerName {
+			continue
+		}
+		containers[i].Args = append(c.Args,
+			fmt.Sprintf("--kms-sockets=%s", strings.Join(sockets, ",")),
+		)
+		return nil
+	}
+	return fmt.Errorf("container %s not found for preflight socket flag injection", containerName)
 }
 
 func fetchEncryptionConfig(ctx context.Context, encryptionConfigNamespace, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, errorIfNotFound bool) (*encryptiondata.Config, error) {

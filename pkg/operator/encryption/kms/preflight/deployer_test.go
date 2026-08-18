@@ -97,6 +97,7 @@ spec:
         - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
+        - --kms-sockets=unix:///var/run/kmsplugin/kms.sock
       env:
       - name: POD_NAME
         valueFrom:
@@ -188,6 +189,7 @@ spec:
         - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
+        - --kms-sockets=unix:///var/run/kmsplugin/kms.sock
       env:
       - name: POD_NAME
         valueFrom:
@@ -283,7 +285,7 @@ func testPreflightEncryptionConfigFromData(
 					KMS: &apiserverconfigv1.KMSConfiguration{
 						APIVersion: "v2",
 						Name:       "1_secrets",
-						Endpoint:   kmsSocketEndpoint,
+						Endpoint:   "unix:///var/run/kmsplugin/kms.sock",
 						Timeout:    &metav1.Duration{Duration: testDeployerTimeout},
 					},
 				}, {
