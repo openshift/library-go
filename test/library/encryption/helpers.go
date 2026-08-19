@@ -102,7 +102,7 @@ func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider Enc
 
 	var previousEncryption configv1.APIServerEncryption
 	var needsUpdate bool
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = onErrorWithTimeout(waitPollTimeout, retry.DefaultBackoff, orError(errors.IsConflict, transientAPIError), func() error {
 		apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -200,7 +200,7 @@ func WaitForNoNewEncryptionKey(t testing.TB, kubeClient kubernetes.Interface, pr
 	if err := wait.Poll(waitNoKeyPollInterval, waitNoKeyPollTimeout, func() (bool, error) {
 		currentKeyMeta, err := GetLastKeyMeta(t, kubeClient, namespace, labelSelector)
 		if err != nil {
-			return false, err
+			return false, nil
 		}
 
 		if currentKeyMeta.Name != prevKeyMeta.Name {
@@ -241,7 +241,7 @@ func WaitForNextMigratedKey(t testing.TB, kubeClient kubernetes.Interface, prevK
 	if err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
 		currentKeyMeta, err := GetLastKeyMeta(t, kubeClient, namespace, labelSelector)
 		if err != nil {
-			return false, err
+			return false, nil
 		}
 
 		if currentKeyMeta.Name != observedKeyName {
@@ -483,7 +483,7 @@ func WaitForCurrentKeyMigrated(t testing.TB, kubeClient kubernetes.Interface, pr
 	if err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
 		currentKeyMeta, err := GetLastKeyMeta(t, kubeClient, namespace, labelSelector)
 		if err != nil {
-			return false, err
+			return false, nil
 		}
 		if currentKeyMeta.Name != prevKeyMeta.Name {
 			return false, fmt.Errorf("unexpected key observed %q, expected no new key", currentKeyMeta.Name)
