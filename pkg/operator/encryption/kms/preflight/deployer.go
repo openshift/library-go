@@ -89,6 +89,7 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 
 	err = pluginlifecycle.NewKMSPluginBuilder().
 		WithSecretRequired().
+		WithPreflightChecker().
 		FromEncryptionConfigSecret(d.namespace, EncryptionConfigSecretName, d.coreClient).
 		Apply(ctx, &pod.Spec, CheckContainerName)
 	if err != nil {

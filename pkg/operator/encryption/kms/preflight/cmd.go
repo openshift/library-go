@@ -4,20 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 )
 
-const kmsSocketEndpoint = "unix:///var/run/kmsplugin/kms.sock"
+// kmsSocketPattern matches the socket path each co-located KMSv2 plugin is
+// mounted at, e.g. unix:///var/run/kmsplugin/kms-1.sock.
+var kmsSocketPattern = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
 type options struct {
+	kmsSockets     []string
 	kmsCallTimeout time.Duration
 	podName        string
 	podNamespace   string
@@ -45,6 +50,7 @@ func NewCommand(ctx context.Context) *cobra.Command {
 }
 
 func (o *options) addFlags(fs *pflag.FlagSet) {
+	fs.StringSliceVar(&o.kmsSockets, "kms-sockets", nil, "KMS plugin endpoints in unix:// URI format (e.g. unix:///var/run/kmsplugin/kms-1.sock); the first socket receives full verification (Status + Encrypt + Decrypt), remaining sockets are checked for reachability (Status only)")
 	fs.DurationVar(&o.kmsCallTimeout, "kms-call-timeout", 0, "timeout for each gRPC call to the KMS plugin")
 	fs.StringVar(&o.configHash, "config-hash", o.configHash, "hash of config to use for encryption")
 	fs.StringVar(&o.podName, "pod-name", o.podName, "name of pod to use to report checker status")
@@ -53,6 +59,19 @@ func (o *options) addFlags(fs *pflag.FlagSet) {
 }
 
 func (o *options) validate() error {
+	if len(o.kmsSockets) == 0 {
+		return fmt.Errorf("--kms-sockets is required, at least one")
+	}
+	socketSet := sets.New[string]()
+	for _, s := range o.kmsSockets {
+		if !kmsSocketPattern.MatchString(s) {
+			return fmt.Errorf("--kms-sockets entry %q must match %s", s, kmsSocketPattern)
+		}
+		if socketSet.Has(s) {
+			return fmt.Errorf("--kms-sockets entry %q is duplicated", s)
+		}
+		socketSet.Insert(s)
+	}
 	if o.kmsCallTimeout <= 0 {
 		return fmt.Errorf("--kms-call-timeout must be greater than 0")
 	}
@@ -70,13 +89,27 @@ func (o *options) validate() error {
 }
 
 func (o *options) run(ctx context.Context) error {
-	klog.Infof("Running KMS preflight check at %s", kmsSocketEndpoint)
+	// First socket gets full verification, remaining sockets get status-only checks.
+	socketToVerify := o.kmsSockets[0]
+	for _, socket := range o.kmsSockets[1:] {
+		// k8senvelopekmsv2.NewGRPCService is not a public API and may change.
+		// If it breaks, we can inline a minimal gRPC client using k8s.io/kms directly.
+		klog.Infof("Checking reachability of KMS plugin at %s", socket)
+		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, "preflight", o.kmsCallTimeout)
+		if err != nil {
+			return fmt.Errorf("failed to create KMS gRPC client for %s: %w", socket, err)
+		}
+		c := newChecker(service)
+		if _, err := c.checkStatus(ctx); err != nil {
+			return fmt.Errorf("KMS plugin at %s is not reachable: %w", socket, err)
+		}
+		klog.Infof("KMS plugin at %s is reachable", socket)
+	}
 
-	// k8senvelopekmsv2.NewGRPCService is not a public API and may change.
-	// If it breaks, we can inline a minimal gRPC client using k8s.io/kms directly.
-	service, err := k8senvelopekmsv2.NewGRPCService(ctx, kmsSocketEndpoint, "preflight", o.kmsCallTimeout)
+	klog.Infof("Running full KMS preflight check at %s", socketToVerify)
+	service, err := k8senvelopekmsv2.NewGRPCService(ctx, socketToVerify, "preflight", o.kmsCallTimeout)
 	if err != nil {
-		return fmt.Errorf("failed to create KMS gRPC client: %w", err)
+		return fmt.Errorf("failed to create KMS gRPC client for %s: %w", socketToVerify, err)
 	}
 
 	kubeConfig, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)

@@ -2,6 +2,8 @@ package preflight
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -60,7 +62,7 @@ spec:
     - name: vault-kms-plugin-1
       image: registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
       args:
-        - -listen-address=unix:///var/run/kmsplugin/kms.sock
+        - -listen-address=unix:///var/run/kmsplugin/kms-1.sock
         - -vault-address=https://vault.example.com
         - -vault-key-path=transit/keys/test-transit-key
         - -approle-role-id=test-role-id
@@ -97,6 +99,7 @@ spec:
         - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
+        - --kms-sockets=unix:///var/run/kmsplugin/kms-1.sock
       env:
       - name: POD_NAME
         valueFrom:
@@ -151,7 +154,7 @@ spec:
     - name: vault-kms-plugin-1
       image: registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
       args:
-        - -listen-address=unix:///var/run/kmsplugin/kms.sock
+        - -listen-address=unix:///var/run/kmsplugin/kms-1.sock
         - -vault-address=https://vault.example.com
         - -vault-key-path=transit/keys/test-transit-key
         - -approle-role-id=test-role-id
@@ -188,6 +191,129 @@ spec:
         - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
+        - --kms-sockets=unix:///var/run/kmsplugin/kms-1.sock
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: CONFIG_HASH
+        value: abc123
+      resources:
+        requests:
+          memory: 50Mi
+          cpu: 5m
+      volumeMounts:
+        - name: kms-plugin-socket
+          mountPath: /var/run/kmsplugin
+  volumes:
+    - name: kms-plugin-socket
+      emptyDir: {}
+    - name: kms-plugins-data
+      secret:
+        secretName: kms-preflight-encryption-config
+`
+
+var expectedDeployMultiSocketPodYAML = `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kms-preflight
+  namespace: openshift-kube-apiserver
+  labels:
+    app: openshift-kms-preflight
+  annotations:
+    encryption.apiserver.operator.openshift.io/kms-preflight-config-hash: abc123
+spec:
+  restartPolicy: Never
+  serviceAccountName: kms-preflight
+  priorityClassName: system-cluster-critical
+  nodeSelector:
+    node-role.kubernetes.io/master: ""
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoExecute
+  initContainers:
+    - name: vault-kms-plugin-2
+      image: registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+      args:
+        - -listen-address=unix:///var/run/kmsplugin/kms-2.sock
+        - -vault-address=https://vault.example.com
+        - -vault-key-path=transit/keys/test-transit-key
+        - -approle-role-id=test-role-id
+        - -approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-secret_secret-id-2
+        - -tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-2
+        - -metrics-port=0
+      imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+      terminationMessagePolicy: FallbackToLogsOnError
+      resources:
+        requests:
+          memory: 64Mi
+          cpu: 10m
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
+      volumeMounts:
+        - name: kms-plugin-socket
+          mountPath: /var/run/kmsplugin
+        - name: kms-plugins-data
+          mountPath: /var/run/secrets/kms-plugin
+          readOnly: true
+    - name: vault-kms-plugin-1
+      image: registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+      args:
+        - -listen-address=unix:///var/run/kmsplugin/kms-1.sock
+        - -vault-address=https://vault.example.com
+        - -vault-key-path=transit/keys/test-transit-key
+        - -approle-role-id=test-role-id
+        - -approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-secret_secret-id-1
+        - -tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-1
+        - -metrics-port=0
+      imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+      terminationMessagePolicy: FallbackToLogsOnError
+      resources:
+        requests:
+          memory: 64Mi
+          cpu: 10m
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
+      volumeMounts:
+        - name: kms-plugin-socket
+          mountPath: /var/run/kmsplugin
+        - name: kms-plugins-data
+          mountPath: /var/run/secrets/kms-plugin
+          readOnly: true
+  containers:
+    - name: kms-preflight-check
+      image: quay.io/openshift-release-dev/ocp-v5.0-art-dev@sha256:test
+      command: ["cluster-kube-apiserver-operator","kms-preflight"]
+      args:
+        - --kms-call-timeout=10s
+        - --config-hash=$(CONFIG_HASH)
+        - --pod-name=$(POD_NAME)
+        - --pod-namespace=$(POD_NAMESPACE)
+        - --kms-sockets=unix:///var/run/kmsplugin/kms-2.sock,unix:///var/run/kmsplugin/kms-1.sock
       env:
       - name: POD_NAME
         valueFrom:
@@ -240,23 +366,32 @@ func testReferenceDataObjects(t *testing.T) []runtime.Object {
 	}
 }
 
-func testPreflightEncryptionConfigSecret(t *testing.T) *corev1.Secret {
+// testPreflightEncryptionConfigSecret builds the encryption-config secret consumed by the
+// deployer, with a KMS provider (and matching reference data) per keyID. When no keyIDs are
+// given it defaults to a single keyID 1, matching the expected single-socket pod YAMLs.
+func testPreflightEncryptionConfigSecret(t *testing.T, keyIDs ...int) *corev1.Secret {
 	t.Helper()
 
+	if len(keyIDs) == 0 {
+		keyIDs = []int{1}
+	}
+
 	var secretData encryptiondata.KMSPluginsReferenceData
-	if err := secretData.SetFromRawKey("1", "vault-approle-secret_role-id", []byte("test-role-id")); err != nil {
-		t.Fatalf("failed to set secret reference data: %v", err)
-	}
-	if err := secretData.SetFromRawKey("1", "vault-approle-secret_secret-id", []byte("test-secret-id")); err != nil {
-		t.Fatalf("failed to set secret reference data: %v", err)
-	}
-
 	var configMapData encryptiondata.KMSPluginsReferenceData
-	if err := configMapData.SetFromRawKey("1", "vault-ca-bundle_ca-bundle.crt", []byte("test-ca-cert")); err != nil {
-		t.Fatalf("failed to set configmap reference data: %v", err)
+	for _, keyID := range keyIDs {
+		id := strconv.Itoa(keyID)
+		if err := secretData.SetFromRawKey(id, "vault-approle-secret_role-id", []byte("test-role-id")); err != nil {
+			t.Fatalf("failed to set secret reference data: %v", err)
+		}
+		if err := secretData.SetFromRawKey(id, "vault-approle-secret_secret-id", []byte("test-secret-id")); err != nil {
+			t.Fatalf("failed to set secret reference data: %v", err)
+		}
+		if err := configMapData.SetFromRawKey(id, "vault-ca-bundle_ca-bundle.crt", []byte("test-ca-cert")); err != nil {
+			t.Fatalf("failed to set configmap reference data: %v", err)
+		}
 	}
 
-	config := testPreflightEncryptionConfigFromData(t, secretData, configMapData)
+	config := testPreflightEncryptionConfigFromData(t, secretData, configMapData, keyIDs...)
 	secret, err := encryptiondata.ToSecret(testNamespace, EncryptionConfigSecretName, config)
 	if err != nil {
 		t.Fatalf("failed to build encryption config secret: %v", err)
@@ -264,12 +399,37 @@ func testPreflightEncryptionConfigSecret(t *testing.T) *corev1.Secret {
 	return secret
 }
 
+// testPreflightEncryptionConfigFromData builds a Config with a KMS provider per keyID (endpoint
+// unix:///var/run/kmsplugin/kms-<keyID>.sock) followed by an identity provider. When no keyIDs
+// are given it defaults to a single keyID 1.
 func testPreflightEncryptionConfigFromData(
 	t *testing.T,
 	secretData encryptiondata.KMSPluginsReferenceData,
 	configMapData encryptiondata.KMSPluginsReferenceData,
+	keyIDs ...int,
 ) *encryptiondata.Config {
 	t.Helper()
+
+	if len(keyIDs) == 0 {
+		keyIDs = []int{1}
+	}
+
+	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(keyIDs)+1)
+	plugins := map[string]configv1.KMSPluginConfig{}
+	for _, keyID := range keyIDs {
+		providers = append(providers, apiserverconfigv1.ProviderConfiguration{
+			KMS: &apiserverconfigv1.KMSConfiguration{
+				APIVersion: "v2",
+				Name:       fmt.Sprintf("%d_secrets", keyID),
+				Endpoint:   fmt.Sprintf("unix:///var/run/kmsplugin/kms-%d.sock", keyID),
+				Timeout:    &metav1.Duration{Duration: testDeployerTimeout},
+			},
+		})
+		plugins[strconv.Itoa(keyID)] = encryptiontesting.DefaultKMSPluginConfig
+	}
+	providers = append(providers, apiserverconfigv1.ProviderConfiguration{
+		Identity: &apiserverconfigv1.IdentityConfiguration{},
+	})
 
 	return &encryptiondata.Config{
 		Encryption: &apiserverconfigv1.EncryptionConfiguration{
@@ -279,21 +439,10 @@ func testPreflightEncryptionConfigFromData(
 			},
 			Resources: []apiserverconfigv1.ResourceConfiguration{{
 				Resources: []string{"secrets"},
-				Providers: []apiserverconfigv1.ProviderConfiguration{{
-					KMS: &apiserverconfigv1.KMSConfiguration{
-						APIVersion: "v2",
-						Name:       "1_secrets",
-						Endpoint:   kmsSocketEndpoint,
-						Timeout:    &metav1.Duration{Duration: testDeployerTimeout},
-					},
-				}, {
-					Identity: &apiserverconfigv1.IdentityConfiguration{},
-				}},
+				Providers: providers,
 			}},
 		},
-		KMSPlugins: map[string]configv1.KMSPluginConfig{
-			"1": encryptiontesting.DefaultKMSPluginConfig,
-		},
+		KMSPlugins:              plugins,
 		KMSPluginsSecretData:    secretData,
 		KMSPluginsConfigMapData: configMapData,
 	}
@@ -345,8 +494,11 @@ func assertNoActionMatching(t *testing.T, actions []clienttesting.Action, verb, 
 
 func TestPodPreflightDeployer_Deploy(t *testing.T) {
 	tests := []struct {
-		name            string
-		newDeployer     func(*testing.T, ...runtime.Object) (*PodPreflightDeployer, *fake.Clientset)
+		name        string
+		newDeployer func(*testing.T, ...runtime.Object) (*PodPreflightDeployer, *fake.Clientset)
+		// keyIDs configures the KMS providers in the encryption config; empty defaults
+		// to a single keyID 1.
+		keyIDs          []int
 		expectedPodYAML string
 	}{
 		{
@@ -359,13 +511,21 @@ func TestPodPreflightDeployer_Deploy(t *testing.T) {
 			newDeployer:     newTestStaticPodDeployer,
 			expectedPodYAML: expectedDeployStaticPodYAML,
 		},
+		{
+			// keyIDs ascending on purpose: the checker must receive them descending
+			// (kms-2 before kms-1), and one sidecar is injected per plugin.
+			name:            "multiple sockets sorted by keyID descending",
+			newDeployer:     newTestDeployer,
+			keyIDs:          []int{1, 2},
+			expectedPodYAML: expectedDeployMultiSocketPodYAML,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			deployer, kubeClient := tt.newDeployer(t)
-			encryptionConfigSecret := testPreflightEncryptionConfigSecret(t)
+			encryptionConfigSecret := testPreflightEncryptionConfigSecret(t, tt.keyIDs...)
 
 			expectedPod, err := resourceread.ReadPodV1([]byte(tt.expectedPodYAML))
 			if err != nil {
