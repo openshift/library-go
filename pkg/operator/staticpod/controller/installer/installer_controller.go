@@ -107,8 +107,7 @@ type InstallerController struct {
 	installerPodMutationFns []InstallerPodMutationFunc
 
 	// installerPrecondition, when set, is consulted immediately before an installer pod is created for a node.
-	// When it returns false the installer controller emits an InstallerPreconditionNotMet event and requeues
-	// instead of creating the installer pod (which would restart the operand static pod on that node).
+	// A positive duration delays pod creation by that amount.
 	installerPrecondition InstallerPreconditionFunc
 
 	startupMonitorEnabled func() (bool, error)
@@ -138,14 +137,10 @@ func (c *InstallerController) WithMinReadyDuration(minReadyDuration time.Duratio
 	return c
 }
 
-// installerPreconditionRequeueDuration is how long the installer controller waits before rechecking
-// an unmet installer precondition.
-const installerPreconditionRequeueDuration = 15 * time.Second
-
-// InstallerPreconditionFunc returns true when it is safe to create an installer pod (which will
-// restart the operand static pod) on the given node.  When it returns false with a reason, the
-// installer controller requeues and retries later.  An error makes the sync fail.
-type InstallerPreconditionFunc func(ctx context.Context, nodeName string) (safe bool, reason string, err error)
+// InstallerPreconditionFunc returns how long the installer controller should delay creating an
+// installer pod (which will restart the operand static pod) on the given node. A positive duration
+// requeues the controller to retry later; zero allows the pod to be created. An error makes the sync fail.
+type InstallerPreconditionFunc func(ctx context.Context, nodeName string) (delay time.Duration, reason string, err error)
 
 // WithInstallerPrecondition sets a precondition consulted immediately before creating an installer
 // pod for a node.  Operators can use it to delay operand restarts when doing so would be unsafe,
@@ -537,14 +532,14 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 				}
 
 				if c.installerPrecondition != nil {
-					safe, reason, err := c.installerPrecondition(ctx, currNodeState.NodeName)
+					delay, reason, err := c.installerPrecondition(ctx, currNodeState.NodeName)
 					if err != nil {
 						return true, 0, nil, nil, err
 					}
-					if !safe {
+					if delay > 0 {
 						c.eventRecorder.Warningf("InstallerPreconditionNotMet", "Delaying installer pod for revision %d on node %q: %s",
 							currNodeState.TargetRevision, currNodeState.NodeName, reason)
-						return true, installerPreconditionRequeueDuration, nil, nil, nil
+						return true, delay, nil, nil, nil
 					}
 				}
 
