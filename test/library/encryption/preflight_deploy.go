@@ -22,7 +22,7 @@ const (
 	preflightDeployConfigHash = "e2e-preflight-drift"
 	// PreflightDeployCallTimeout is the KMS gRPC call timeout used by preflight e2e Deploy.
 	PreflightDeployCallTimeout  = 10 * time.Second
-	preflightKMSSocketEndpoint  = "unix:///var/run/kmsplugin/kms.sock"
+	preflightKMSSocketEndpoint  = "unix:///var/run/kmsplugin/kms-1.sock"
 	preflightStatusPollInterval = 5 * time.Second
 	preflightStatusPollTimeout  = 5 * time.Minute
 	openshiftConfigNS           = "openshift-config"
