@@ -23,6 +23,8 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
+	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -212,14 +214,18 @@ type KMSPreflightDeployer interface {
 }
 
 type kmsPreflightController struct {
-	controllerInstanceName string
+	controllerInstanceName   string
+	instanceName             string
+	unsupportedConfigPrefix  []string
+	encryptionSecretSelector metav1.ListOptions
 
 	operatorClient   operatorv1helpers.OperatorClient
 	apiServerClient  configv1client.APIServerInterface
 	secretsClient    corev1client.SecretsGetter
 	configMapsClient corev1client.ConfigMapsGetter
 
-	deployer KMSPreflightDeployer
+	deployer           KMSPreflightDeployer
+	encryptionDeployer statemachine.Deployer
 	// encryptionConfigurationComputer is called right before Deploy to produce the
 	// encryption configuration secret passed to the deployer.
 	encryptionConfigurationComputer EncryptionConfigurationComputer
@@ -324,9 +330,15 @@ func NewKMSPreflightController(
 	configMapsClient corev1client.ConfigMapsGetter,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
+	unsupportedConfigPrefix []string,
+	encryptionDeployer statemachine.Deployer,
+	encryptionSecretSelector metav1.ListOptions,
 ) factory.Controller {
 	c := &kmsPreflightController{
-		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
+		controllerInstanceName:   factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
+		instanceName:             instanceName,
+		unsupportedConfigPrefix:  unsupportedConfigPrefix,
+		encryptionSecretSelector: encryptionSecretSelector,
 
 		operatorClient:   operatorClient,
 		apiServerClient:  apiServerClient,
@@ -334,6 +346,7 @@ func NewKMSPreflightController(
 		configMapsClient: configMapsClient,
 
 		deployer:                        deployer,
+		encryptionDeployer:              encryptionDeployer,
 		encryptionConfigurationComputer: encryptionConfigurationComputer,
 		// assume resources may exist from a previous process run
 		dirtyDeployer:            true,
@@ -352,6 +365,47 @@ func NewKMSPreflightController(
 		c.controllerInstanceName,
 		eventRecorder.WithComponentSuffix("encryption-kms-preflight-controller"),
 	)
+}
+
+func (c *kmsPreflightController) computeEncryptionConfiguration(ctx context.Context) (*corev1.Secret, error) {
+	// TODO: remove this fallback once EncryptionConfigurationComputer is deleted.
+	if c.encryptionConfigurationComputer != nil {
+		return c.encryptionConfigurationComputer.ComputeEncryptionConfiguration(ctx)
+	}
+
+	// ListKeysWhileProgressing=true so preflight can still list keys and compute a plan even when there
+	// is no convergence yet. The key controller sets this to false to avoid extra Lists during rollout.
+	planner := NewEncryptionPlanner(c.instanceName, c.unsupportedConfigPrefix, c.encryptionDeployer, c.secretsClient, c.configMapsClient, c.apiServerClient, c.operatorClient, c.encryptionSecretSelector)
+	snap, err := planner.Load(ctx, c.provider.EncryptedGRs(), LoadOptions{ListKeysWhileProgressing: true})
+	if err != nil {
+		return nil, err
+	}
+	if snap.CurrentMode != "" && snap.CurrentMode != state.KMS {
+		return nil, fmt.Errorf("preflight encryption config computation requires KMS mode, got %q", snap.CurrentMode)
+	}
+
+	plan, err := planner.PlanNextKey(snap)
+	if err != nil {
+		return nil, err
+	}
+
+	var plannedKey *PlannedEncryptionKey
+	if plan.Needed {
+		plannedKey, err = planner.MaterializeKey(ctx, snap, plan)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	result, err := planner.ComputeConfig(&snap.State, plannedKey)
+	if err != nil {
+		return nil, err
+	}
+	if result.EncryptionSecret == nil {
+		return nil, fmt.Errorf("no encryption key secrets available to compute preflight encryption config")
+	}
+
+	return result.EncryptionSecret, nil
 }
 
 func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
@@ -520,7 +574,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 				message: fmt.Sprintf("preflight check failed for hash %s: pod was removed but failure is recorded in status", requiredHash),
 			}
 		}
-		encryptionConfig, err := c.encryptionConfigurationComputer.ComputeEncryptionConfiguration(ctx)
+		encryptionConfig, err := c.computeEncryptionConfiguration(ctx)
 		if err != nil {
 			return true, "", "", fmt.Errorf("failed to compute encryption configuration: %w", err)
 		}
