@@ -3,6 +3,7 @@ package encryption
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -16,13 +17,14 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
 const (
 	preflightDeployConfigHash = "e2e-preflight-drift"
 	// PreflightDeployCallTimeout is the KMS gRPC call timeout used by preflight e2e Deploy.
 	PreflightDeployCallTimeout  = 10 * time.Second
-	preflightKMSSocketEndpoint  = "unix:///var/run/kmsplugin/kms-1.sock"
 	preflightStatusPollInterval = 5 * time.Second
 	preflightStatusPollTimeout  = 5 * time.Minute
 	openshiftConfigNS           = "openshift-config"
@@ -146,11 +148,33 @@ func OperatorImageFromDeployment(ctx context.Context, t testing.TB, namespace, d
 	return ""
 }
 
+// NextAvailableKeyID returns the next available key ID by inspecting existing
+// encryption key secrets in openshift-config-managed for the given component.
+// Returns 1 if no keys exist.
+func NextAvailableKeyID(ctx context.Context, t testing.TB, clientSet ClientSet, component string) int {
+	t.Helper()
+	selector := fmt.Sprintf("%s=%s", secrets.EncryptionKeySecretsLabel, component)
+	secretList, err := clientSet.Kube.CoreV1().Secrets("openshift-config-managed").List(ctx, metav1.ListOptions{LabelSelector: selector})
+	require.NoError(t, err, "listing encryption key secrets for component %s", component)
+
+	var maxKeyID uint64
+	for _, s := range secretList.Items {
+		keyID, ok := state.NameToKeyID(s.Name)
+		if ok && keyID > maxKeyID {
+			maxKeyID = keyID
+		}
+	}
+	return int(maxKeyID) + 1
+}
+
 // TODO(thomas): this should go away once we have an official mapping function between plugin config and transient encryption config
 func VaultPreflightEncryptionConfigSecret(ctx context.Context, t testing.TB, clientSet ClientSet, namespace string, plugin configv1.KMSPluginConfig) *corev1.Secret {
 	t.Helper()
 	require.Equal(t, configv1.VaultKMSProvider, plugin.Type, "preflight deploy e2e currently supports Vault only")
 	require.Equal(t, configv1.VaultAuthenticationTypeAppRole, plugin.Vault.Authentication.Type)
+
+	keyID := NextAvailableKeyID(ctx, t, clientSet, namespace)
+	keyIDStr := strconv.Itoa(keyID)
 
 	secretName := plugin.Vault.Authentication.AppRole.Secret.Name
 	require.NotEmpty(t, secretName, "Vault AppRole secret name")
@@ -161,7 +185,7 @@ func VaultPreflightEncryptionConfigSecret(ctx context.Context, t testing.TB, cli
 	for _, key := range []string{"role-id", "secret-id"} {
 		v, ok := refSecret.Data[key]
 		require.True(t, ok, "secret %s/%s missing key %q", openshiftConfigNS, secretName, key)
-		require.NoError(t, secretData.SetFromRawKey("1", secretName+"_"+key, v))
+		require.NoError(t, secretData.SetFromRawKey(keyIDStr, secretName+"_"+key, v))
 	}
 
 	var configMapData encryptiondata.KMSPluginsReferenceData
@@ -170,7 +194,7 @@ func VaultPreflightEncryptionConfigSecret(ctx context.Context, t testing.TB, cli
 		require.NoError(t, err, "referenced CA ConfigMap %s/%s", openshiftConfigNS, cmName)
 		v, ok := refCM.Data["ca-bundle.crt"]
 		require.True(t, ok, "configmap %s/%s missing key ca-bundle.crt", openshiftConfigNS, cmName)
-		require.NoError(t, configMapData.SetFromRawKey("1", cmName+"_ca-bundle.crt", []byte(v)))
+		require.NoError(t, configMapData.SetFromRawKey(keyIDStr, cmName+"_ca-bundle.crt", []byte(v)))
 	}
 
 	config := &encryptiondata.Config{
@@ -181,8 +205,8 @@ func VaultPreflightEncryptionConfigSecret(ctx context.Context, t testing.TB, cli
 				Providers: []apiserverconfigv1.ProviderConfiguration{
 					{KMS: &apiserverconfigv1.KMSConfiguration{
 						APIVersion: "v2",
-						Name:       "1_secrets",
-						Endpoint:   preflightKMSSocketEndpoint,
+						Name:       fmt.Sprintf("%s_secrets", keyIDStr),
+						Endpoint:   fmt.Sprintf("unix:///var/run/kmsplugin/kms-%d.sock", keyID),
 						Timeout:    &metav1.Duration{Duration: PreflightDeployCallTimeout},
 					}},
 					{Identity: &apiserverconfigv1.IdentityConfiguration{}},
@@ -190,7 +214,7 @@ func VaultPreflightEncryptionConfigSecret(ctx context.Context, t testing.TB, cli
 			}},
 		},
 		KMSPlugins: map[string]configv1.KMSPluginConfig{
-			"1": plugin,
+			keyIDStr: plugin,
 		},
 		KMSPluginsSecretData:    secretData,
 		KMSPluginsConfigMapData: configMapData,
