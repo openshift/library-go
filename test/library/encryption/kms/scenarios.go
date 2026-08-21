@@ -7,7 +7,10 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/clock"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
+	"github.com/openshift/library-go/pkg/operator/events"
 	library "github.com/openshift/library-go/test/library/encryption"
 )
 
@@ -61,6 +64,50 @@ func EncryptionProvidersMigrationScenarios(ctx context.Context, t testing.TB) []
 		kasProvidersMigrationScenario(providers),
 		authProvidersMigrationScenario(ctx),
 		oasProvidersMigrationScenario(ctx),
+	}
+}
+
+// EncryptionKMSToKMSMigrationScenarios returns ready-to-use KAS/Auth/OAS migration scenarios
+// that migrate between two distinct KMS providers (default and secondary Vault instances).
+//
+// Provider handling matches EncryptionProvidersMigrationScenarios: only the KAS scenario sets
+// EncryptionProviders. Each operator verifies its well-known resource is encrypted and that the
+// active KMS write key prefix matches the last-migrated key in the encryption config.
+func EncryptionKMSToKMSMigrationScenarios(ctx context.Context, t testing.TB) []library.ProvidersMigrationScenario {
+	providers := library.ShuffleEncryptionProviders([]library.EncryptionProvider{
+		DefaultVaultEncryptionProvider(ctx, t),
+		SecondaryVaultEncryptionProvider(ctx, t),
+	})
+	return []library.ProvidersMigrationScenario{
+		kasKMSToKMSMigrationScenario(providers),
+		authKMSToKMSMigrationScenario(ctx),
+		oasKMSToKMSMigrationScenario(ctx),
+	}
+}
+
+// PreflightDeployScenario returns a ready-to-use KAS preflight deploy scenario that runs the
+// cluster-kube-apiserver-operator kms-preflight command against a live kube-apiserver operand.
+func PreflightDeployScenario(ctx context.Context, t testing.TB) library.PreflightDeployScenario {
+	return library.PreflightDeployScenario{
+		BasicScenario: library.BasicScenario{
+			// Preflight deploys into the operand namespace because the scenario validates the
+			// actual workload pod wiring there, unlike migration scenarios that operate on the
+			// rendered encryption config.
+			Namespace:     kubeAPIServerComponent,
+			LabelSelector: "apiserver=true",
+		},
+		CreateDeployerFunc: func(ctx context.Context, t testing.TB, cs library.ClientSet) *preflight.PodPreflightDeployer {
+			image := library.OperatorImageFromDeployment(ctx, t,
+				kubeAPIServerOperatorNamespace, "kube-apiserver-operator", "kube-apiserver-operator")
+			recorder := events.NewInMemoryRecorder("kms-preflight-e2e", clock.RealClock{})
+			return preflight.NewStaticPodPreflightDeployer(
+				kubeAPIServerComponent, cs.Kube.CoreV1(), cs.Kube.RbacV1(),
+				recorder, image, []string{"cluster-kube-apiserver-operator", "kms-preflight"}, library.PreflightDeployCallTimeout,
+			)
+		},
+		CreateEncryptionConfigFunc: library.VaultPreflightEncryptionConfigSecret,
+		AssertDeployFunc:           library.AssertPreflightDeploy,
+		EncryptionProvider:         DefaultVaultEncryptionProvider(ctx, t),
 	}
 }
 
@@ -192,4 +239,40 @@ func oasProvidersMigrationScenario(ctx context.Context) library.ProvidersMigrati
 		ResourceFunc:                   library.WellKnownRouteOfLife,
 		ResourceName:                   "RouteOfLife",
 	}
+}
+
+func kasKMSToKMSMigrationScenario(providers []library.EncryptionProvider) library.ProvidersMigrationScenario {
+	scenario := kasProvidersMigrationScenario(providers)
+	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
+		library.AssertWellKnownSecretOfLifeEncrypted(t, clientSet, resource)
+		library.AssertWellKnownSecretOfLifeEncryptedWithKMS(t, clientSet,
+			globalMachineSpecifiedConfigNamespace,
+			encryptionComponentLabelSelector(kubeAPIServerComponent),
+			resource)
+	}
+	return scenario
+}
+
+func authKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
+	scenario := authProvidersMigrationScenario(ctx)
+	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
+		library.AssertWellKnownTokenOfLifeEncrypted(t, clientSet, resource)
+		library.AssertWellKnownTokenOfLifeEncryptedWithKMS(t, clientSet,
+			globalMachineSpecifiedConfigNamespace,
+			encryptionComponentLabelSelector(oauthAPIServerComponent),
+			resource)
+	}
+	return scenario
+}
+
+func oasKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
+	scenario := oasProvidersMigrationScenario(ctx)
+	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
+		library.AssertWellKnownRouteOfLifeEncrypted(t, clientSet, resource)
+		library.AssertWellKnownRouteOfLifeEncryptedWithKMS(t, clientSet,
+			globalMachineSpecifiedConfigNamespace,
+			encryptionComponentLabelSelector(openshiftAPIServerComponent),
+			resource)
+	}
+	return scenario
 }
