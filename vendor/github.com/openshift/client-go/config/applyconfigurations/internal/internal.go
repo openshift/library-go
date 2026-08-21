@@ -5015,6 +5015,10 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         namedType: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorEthtoolConfig
       default: {}
+    - name: interrupts
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorInterruptsConfig
+      default: {}
     - name: ksmd
       type:
         namedType: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorKSMDConfig
@@ -5030,6 +5034,10 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: netDev
       type:
         namedType: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorNetDevConfig
+      default: {}
+    - name: nvmExpressSubsystem
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorNVMExpressSubsystemConfig
       default: {}
     - name: processes
       type:
@@ -5069,6 +5077,30 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: collectionPolicy
       type:
         scalar: string
+- name: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorInterruptsCollectConfig
+  map:
+    fields:
+    - name: include
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+- name: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorInterruptsConfig
+  map:
+    fields:
+    - name: collect
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorInterruptsCollectConfig
+      default: {}
+    - name: collectionPolicy
+      type:
+        scalar: string
+    unions:
+    - discriminator: collectionPolicy
+      fields:
+      - fieldName: collect
+        discriminatorValue: Collect
 - name: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorKSMDConfig
   map:
     fields:
@@ -5076,6 +5108,12 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
 - name: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorMountStatsConfig
+  map:
+    fields:
+    - name: collectionPolicy
+      type:
+        scalar: string
+- name: com.github.openshift.api.config.v1alpha1.NodeExporterCollectorNVMExpressSubsystemConfig
   map:
     fields:
     - name: collectionPolicy
@@ -6153,6 +6191,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: currentVolumeAttributesClassName
       type:
         scalar: string
+    - name: healthStatus
+      type:
+        namedType: io.k8s.api.core.v1.VolumeHealthStatus
     - name: modifyVolumeStatus
       type:
         namedType: io.k8s.api.core.v1.ModifyVolumeStatus
@@ -6302,6 +6343,35 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: namespace
       type:
         scalar: string
+- name: io.k8s.api.core.v1.VolumeHealthCondition
+  map:
+    fields:
+    - name: message
+      type:
+        scalar: string
+    - name: reason
+      type:
+        scalar: string
+      default: ""
+    - name: status
+      type:
+        scalar: string
+      default: ""
+- name: io.k8s.api.core.v1.VolumeHealthStatus
+  map:
+    fields:
+    - name: healthConditions
+      type:
+        list:
+          elementType:
+            namedType: io.k8s.api.core.v1.VolumeHealthCondition
+          elementRelationship: associative
+          keys:
+          - status
+          - reason
+    - name: lastTransitionTime
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
 - name: io.k8s.api.core.v1.VolumeResourceRequirements
   map:
     fields:
