@@ -3,10 +3,11 @@ package factory
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"sync"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	v1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -187,8 +188,9 @@ func testControllerWithInformer(t *testing.T, once bool) {
 	}
 
 	controllerSynced := make(chan struct{})
+	var closeOnce sync.Once
 	controller := factory.WithSync(func(ctx context.Context, syncContext SyncContext) error {
-		defer close(controllerSynced)
+		defer closeOnce.Do(func() { close(controllerSynced) })
 		if syncContext.Queue() == nil {
 			t.Errorf("expected queue to be initialized, it is not")
 		}
