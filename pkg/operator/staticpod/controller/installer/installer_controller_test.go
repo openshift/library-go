@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/workqueue"
 	clocktesting "k8s.io/utils/clock/testing"
 )
 
@@ -2768,4 +2769,153 @@ func TestWaitToObserveWrites(t *testing.T) {
 	if want := 2; nApplies != want {
 		t.Fatalf("expected %d status apply, got %d", want, nApplies)
 	}
+}
+
+type addAfterCall struct {
+	item  interface{}
+	delay time.Duration
+}
+
+type recordingRateLimitingQueue struct {
+	workqueue.RateLimitingInterface
+	addAfterCalls []addAfterCall
+}
+
+func (q *recordingRateLimitingQueue) AddAfter(item interface{}, delay time.Duration) {
+	q.addAfterCalls = append(q.addAfterCalls, addAfterCall{item: item, delay: delay})
+}
+
+type recordingSyncContext struct {
+	recorder events.Recorder
+	queue    workqueue.RateLimitingInterface
+	queueKey string
+}
+
+func (c recordingSyncContext) Recorder() events.Recorder {
+	return c.recorder
+}
+
+func (c recordingSyncContext) Queue() workqueue.RateLimitingInterface {
+	return c.queue
+}
+
+func (c recordingSyncContext) QueueKey() string {
+	return c.queueKey
+}
+
+func TestCreateInstallerPodPrecondition(t *testing.T) {
+	newController := func(precondition InstallerPreconditionFunc) (*InstallerController, events.InMemoryRecorder, func() *corev1.Pod) {
+		kubeClient := fake.NewSimpleClientset(
+			&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
+			&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
+			&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 1)}},
+			&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 1)}},
+		)
+		var installerPod *corev1.Pod
+		kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			installerPod = action.(ktesting.CreateAction).GetObject().(*corev1.Pod)
+			return false, nil, nil
+		})
+		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
+		fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+			&operatorv1.StaticPodOperatorSpec{OperatorSpec: operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}},
+			&operatorv1.StaticPodOperatorStatus{
+				OperatorStatus: operatorv1.OperatorStatus{LatestAvailableRevision: 1},
+				NodeStatuses:   []operatorv1.NodeStatus{{NodeName: "test-node-1"}},
+			},
+			nil, nil,
+		)
+		eventRecorder := events.NewInMemoryRecorder("test-operator", clocktesting.NewFakePassiveClock(time.Now()))
+		c := NewInstallerController(
+			"unit-test", "test", "test-pod",
+			[]revision.RevisionResource{{Name: "test-config"}},
+			[]revision.RevisionResource{{Name: "test-secret"}},
+			[]string{"/bin/true"},
+			kubeInformers,
+			fakeStaticPodOperatorClient,
+			kubeClient.CoreV1(),
+			kubeClient.CoreV1(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		).WithInstallerPrecondition(precondition)
+		c.ownerRefsFn = func(ctx context.Context, revision int32) ([]metav1.OwnerReference, error) {
+			return []metav1.OwnerReference{}, nil
+		}
+		c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
+		return c, eventRecorder, func() *corev1.Pod { return installerPod }
+	}
+
+	t.Run("positive delay postpones installer pod", func(t *testing.T) {
+		const requestedDelay = 37 * time.Second
+		checkedNode := ""
+		c, eventRecorder, getPod := newController(func(ctx context.Context, nodeName string) (time.Duration, string, error) {
+			checkedNode = nodeName
+			return requestedDelay, "another master is rebooting", nil
+		})
+		queue := &recordingRateLimitingQueue{RateLimitingInterface: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())}
+		defer queue.ShutDown()
+		syncCtx := recordingSyncContext{recorder: eventRecorder, queue: queue, queueKey: "test-key"}
+		for i := 0; i < 3 && len(queue.addAfterCalls) == 0; i++ {
+			if err := c.Sync(context.TODO(), syncCtx); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if getPod() != nil {
+			t.Fatalf("expected no installer pod while the precondition requests a delay")
+		}
+		if checkedNode != "test-node-1" {
+			t.Fatalf("expected precondition to be consulted for test-node-1, got %q", checkedNode)
+		}
+		if len(queue.addAfterCalls) != 1 {
+			t.Fatalf("expected one delayed requeue, got %d", len(queue.addAfterCalls))
+		}
+		if got := queue.addAfterCalls[0]; got.item != "test-key" || got.delay != requestedDelay {
+			t.Fatalf("expected test-key to be requeued after %s, got item %q after %s", requestedDelay, got.item, got.delay)
+		}
+		var preconditionEvent *corev1.Event
+		for _, event := range eventRecorder.Events() {
+			if event.Reason == "InstallerPreconditionNotMet" {
+				preconditionEvent = event
+				break
+			}
+		}
+		if preconditionEvent == nil {
+			t.Fatal("expected InstallerPreconditionNotMet event")
+		}
+		if preconditionEvent.Type != corev1.EventTypeWarning {
+			t.Fatalf("expected warning event, got type %q", preconditionEvent.Type)
+		}
+	})
+
+	t.Run("zero delay allows installer pod", func(t *testing.T) {
+		c, eventRecorder, getPod := newController(func(ctx context.Context, nodeName string) (time.Duration, string, error) {
+			return 0, "", nil
+		})
+		for i := 0; i < 3; i++ {
+			if err := c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if getPod() == nil {
+			t.Fatalf("expected installer pod to be created when the precondition requests no delay")
+		}
+	})
+
+	t.Run("precondition error fails sync", func(t *testing.T) {
+		c, eventRecorder, getPod := newController(func(ctx context.Context, nodeName string) (time.Duration, string, error) {
+			return 0, "", fmt.Errorf("boom")
+		})
+		var syncErr error
+		for i := 0; i < 3; i++ {
+			if syncErr = c.Sync(context.TODO(), factory.NewSyncContext("InstallerController", eventRecorder)); syncErr != nil {
+				break
+			}
+		}
+		if syncErr == nil {
+			t.Fatalf("expected sync error from precondition")
+		}
+		if getPod() != nil {
+			t.Fatalf("expected no installer pod on precondition error")
+		}
+	})
 }
