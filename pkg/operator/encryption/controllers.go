@@ -132,6 +132,7 @@ func NewControllers(
 		),
 	}
 
+	// TODO: drop EncryptionConfigurationComputer once operators stop passing NoopEncryptionConfigurationComputer.
 	encryptionControllers = append(encryptionControllers, controllers.NewKMSPreflightController(
 		component,
 		provider,
@@ -144,6 +145,9 @@ func NewControllers(
 		configMapClient,
 		encryptionStatusProvider,
 		eventRecorder,
+		unsupportedConfigPrefix,
+		deployer,
+		encryptionSecretSelector,
 	))
 
 	return encryptionControllers, nil
