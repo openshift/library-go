@@ -3,7 +3,6 @@ package status
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"regexp"
 	"strings"
@@ -25,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/tools/cache"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 func TestDegraded(t *testing.T) {
@@ -361,6 +361,146 @@ func TestDegraded(t *testing.T) {
 			}
 
 			actual := v1helpers.FindStatusCondition(result.Status.Conditions, tc.expectedType)
+			if !reflect.DeepEqual(expectedCondition, actual) {
+				t.Error(diff.Diff(expectedCondition, actual))
+			}
+		})
+	}
+}
+
+func TestAvailableInertia(t *testing.T) {
+	const availableInertiaDuration = 2 * time.Minute
+
+	// withinInertia is recent enough to be held back by the inertia window.
+	// beyondInertia has been unavailable long enough that inertia no longer suppresses it.
+	now := time.Now()
+	withinInertia := metav1.NewTime(now.Add(-availableInertiaDuration / 4))
+	beyondInertia := metav1.NewTime(now.Add(-availableInertiaDuration * 3 / 2))
+	yesterday := metav1.NewTime(now.Add(-24 * time.Hour))
+
+	testCases := []struct {
+		name             string
+		inertia          Inertia
+		conditions       []operatorv1.OperatorCondition
+		expectedStatus   configv1.ConditionStatus
+		expectedMessages []string
+		expectedReason   string
+	}{
+		{
+			// Without inertia the condition propagates immediately regardless of age.
+			name: "no inertia/immediate propagation",
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: withinInertia, Message: "a message from type a"},
+			},
+			expectedStatus:   configv1.ConditionFalse,
+			expectedReason:   "TypeA",
+			expectedMessages: []string{"TypeAAvailable: a message from type a"},
+		},
+		{
+			name:    "one unavailable/within inertia",
+			inertia: MustNewInertia(availableInertiaDuration).Inertia,
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: withinInertia, Message: "a message from type a"},
+			},
+			expectedStatus:   configv1.ConditionTrue,
+			expectedReason:   "AsExpected",
+			expectedMessages: []string{"TypeAAvailable: a message from type a"},
+		},
+		{
+			name:    "one unavailable/beyond inertia",
+			inertia: MustNewInertia(availableInertiaDuration).Inertia,
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: beyondInertia, Message: "a message from type a"},
+			},
+			expectedStatus:   configv1.ConditionFalse,
+			expectedReason:   "TypeA",
+			expectedMessages: []string{"TypeAAvailable: a message from type a"},
+		},
+		{
+			name:    "two present/one unavailable/within inertia",
+			inertia: MustNewInertia(availableInertiaDuration).Inertia,
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: withinInertia, Message: "a message from type a"},
+				{Type: "TypeBAvailable", Status: operatorv1.ConditionTrue, LastTransitionTime: yesterday},
+			},
+			expectedStatus:   configv1.ConditionTrue,
+			expectedReason:   "AsExpected",
+			expectedMessages: []string{"TypeAAvailable: a message from type a"},
+		},
+		{
+			name:    "three present/two unavailable/beyond inertia",
+			inertia: MustNewInertia(availableInertiaDuration).Inertia,
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: beyondInertia, Message: "a message from type a"},
+				{Type: "TypeBAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: beyondInertia, Message: "a message from type b"},
+				{Type: "TypeCAvailable", Status: operatorv1.ConditionTrue, LastTransitionTime: yesterday},
+			},
+			expectedStatus: configv1.ConditionFalse,
+			expectedReason: "TypeA::TypeB",
+			expectedMessages: []string{
+				"TypeAAvailable: a message from type a",
+				"TypeBAvailable: a message from type b",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, condition := range tc.conditions {
+				if condition.LastTransitionTime == (metav1.Time{}) {
+					t.Fatal("LastTransitionTime not set.")
+				}
+			}
+
+			clusterOperator := &configv1.ClusterOperator{
+				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME", ResourceVersion: "12"},
+			}
+			clusterOperatorClient := fake.NewSimpleClientset(clusterOperator)
+
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			if err := indexer.Add(clusterOperator); err != nil {
+				t.Fatal(err)
+			}
+
+			fakeClock := clocktesting.NewFakePassiveClock(now)
+			statusClient := &statusClient{
+				t: t,
+				status: operatorv1.OperatorStatus{
+					Conditions: tc.conditions,
+				},
+			}
+			controller := &StatusSyncer{
+				clusterOperatorName:   "OPERATOR_NAME",
+				clusterOperatorClient: clusterOperatorClient.ConfigV1(),
+				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
+				operatorClient:        statusClient,
+				versionGetter:         NewVersionGetter(),
+				clock:                 fakeClock,
+			}
+			if tc.inertia != nil {
+				controller = controller.WithAvailableInertia(tc.inertia)
+			}
+
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status", fakeClock))); err != nil {
+				t.Fatalf("unexpected sync error: %v", err)
+			}
+
+			result, err := clusterOperatorClient.ConfigV1().ClusterOperators().Get(context.TODO(), "OPERATOR_NAME", metav1.GetOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedCondition := &configv1.ClusterOperatorStatusCondition{
+				Type:    configv1.OperatorAvailable,
+				Status:  tc.expectedStatus,
+				Message: strings.Join(tc.expectedMessages, "\n"),
+				Reason:  tc.expectedReason,
+			}
+
+			for i := range result.Status.Conditions {
+				result.Status.Conditions[i].LastTransitionTime = metav1.Time{}
+			}
+
+			actual := v1helpers.FindStatusCondition(result.Status.Conditions, configv1.OperatorAvailable)
 			if !reflect.DeepEqual(expectedCondition, actual) {
 				t.Error(diff.Diff(expectedCondition, actual))
 			}
