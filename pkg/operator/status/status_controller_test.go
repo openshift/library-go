@@ -3,12 +3,13 @@ package status
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/stretchr/testify/assert"
 
@@ -361,6 +362,157 @@ func TestDegraded(t *testing.T) {
 			}
 
 			actual := v1helpers.FindStatusCondition(result.Status.Conditions, tc.expectedType)
+			if !reflect.DeepEqual(expectedCondition, actual) {
+				t.Error(diff.Diff(expectedCondition, actual))
+			}
+		})
+	}
+}
+
+func TestAvailableInertia(t *testing.T) {
+	fakeClock := clocktesting.NewFakePassiveClock(time.Now())
+	threeMinutesAgo := metav1.NewTime(fakeClock.Now().Add(-3 * time.Minute))
+	fiveSecondsAgo := metav1.NewTime(fakeClock.Now().Add(-2 * time.Second))
+	yesterday := metav1.NewTime(fakeClock.Now().Add(-24 * time.Hour))
+
+	testCases := []struct {
+		name             string
+		conditions       []operatorv1.OperatorCondition
+		expectedStatus   configv1.ConditionStatus
+		expectedMessages []string
+		expectedReason   string
+	}{
+		{
+			name: "one unavailable/within threshold",
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: fiveSecondsAgo, Message: "a message from type a"},
+			},
+			expectedStatus: configv1.ConditionTrue,
+			expectedReason: "AsExpected",
+			expectedMessages: []string{
+				"TypeAAvailable: a message from type a",
+			},
+		},
+		{
+			name: "one unavailable/beyond threshold",
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, Message: "a message from type a", LastTransitionTime: threeMinutesAgo},
+			},
+			expectedStatus: configv1.ConditionFalse,
+			expectedReason: "TypeA",
+			expectedMessages: []string{
+				"TypeAAvailable: a message from type a",
+			},
+		},
+		{
+			name: "two present/one unavailable/beyond threshold",
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: threeMinutesAgo, Message: "a message from type a"},
+				{Type: "TypeBAvailable", Status: operatorv1.ConditionTrue, LastTransitionTime: yesterday},
+			},
+			expectedStatus: configv1.ConditionFalse,
+			expectedReason: "TypeA",
+			expectedMessages: []string{
+				"TypeAAvailable: a message from type a",
+			},
+		},
+		{
+			name: "two present/one unavailable/within threshold",
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeAAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: fiveSecondsAgo, Message: "a message from type a"},
+				{Type: "TypeBAvailable", Status: operatorv1.ConditionTrue, LastTransitionTime: yesterday},
+			},
+			expectedStatus: configv1.ConditionTrue,
+			expectedReason: "AsExpected",
+			expectedMessages: []string{
+				"TypeAAvailable: a message from type a",
+			},
+		},
+		{
+			name: "custom per-condition duration/within custom threshold",
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeCAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: threeMinutesAgo, Message: "a message from type c"},
+			},
+			expectedStatus: configv1.ConditionTrue,
+			expectedReason: "AsExpected",
+			expectedMessages: []string{
+				"TypeCAvailable: a message from type c",
+			},
+		},
+		{
+			name: "custom per-condition duration/beyond custom threshold",
+			conditions: []operatorv1.OperatorCondition{
+				{Type: "TypeDAvailable", Status: operatorv1.ConditionFalse, LastTransitionTime: threeMinutesAgo, Message: "a message from type d"},
+			},
+			expectedStatus: configv1.ConditionFalse,
+			expectedReason: "TypeD",
+			expectedMessages: []string{
+				"TypeDAvailable: a message from type d",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, condition := range tc.conditions {
+				if condition.LastTransitionTime == (metav1.Time{}) {
+					t.Fatal("LastTransitionTime not set.")
+				}
+			}
+			clusterOperator := &configv1.ClusterOperator{
+				ObjectMeta: metav1.ObjectMeta{Name: "OPERATOR_NAME", ResourceVersion: "12"},
+			}
+			clusterOperatorClient := fake.NewSimpleClientset(clusterOperator)
+
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			indexer.Add(clusterOperator)
+
+			statusClient := &statusClient{
+				t: t,
+				status: operatorv1.OperatorStatus{
+					Conditions: tc.conditions,
+				},
+			}
+			controller := &StatusSyncer{
+				clusterOperatorName:   "OPERATOR_NAME",
+				clusterOperatorClient: clusterOperatorClient.ConfigV1(),
+				clusterOperatorLister: configv1listers.NewClusterOperatorLister(indexer),
+				operatorClient:        statusClient,
+				versionGetter:         NewVersionGetter(),
+				clock:                 fakeClock,
+			}
+			controller = controller.WithAvailableInertia(MustNewInertia(
+				2*time.Minute,
+				InertiaCondition{
+					ConditionTypeMatcher: regexp.MustCompile("^TypeCAvailable$"),
+					Duration:             5 * time.Minute,
+				},
+				InertiaCondition{
+					ConditionTypeMatcher: regexp.MustCompile("^TypeDAvailable$"),
+					Duration:             time.Minute,
+				},
+			).Inertia)
+			if err := controller.Sync(context.TODO(), factory.NewSyncContext("test", events.NewInMemoryRecorder("status", clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
+				t.Errorf("unexpected sync error: %v", err)
+				return
+			}
+			result, _ := clusterOperatorClient.ConfigV1().ClusterOperators().Get(context.TODO(), "OPERATOR_NAME", metav1.GetOptions{})
+
+			expectedCondition := &configv1.ClusterOperatorStatusCondition{
+				Type:   configv1.OperatorAvailable,
+				Status: tc.expectedStatus,
+			}
+			if len(tc.expectedMessages) > 0 {
+				expectedCondition.Message = strings.Join(tc.expectedMessages, "\n")
+			}
+			if len(tc.expectedReason) > 0 {
+				expectedCondition.Reason = tc.expectedReason
+			}
+
+			for i := range result.Status.Conditions {
+				result.Status.Conditions[i].LastTransitionTime = metav1.Time{}
+			}
+
+			actual := v1helpers.FindStatusCondition(result.Status.Conditions, configv1.OperatorAvailable)
 			if !reflect.DeepEqual(expectedCondition, actual) {
 				t.Error(diff.Diff(expectedCondition, actual))
 			}
