@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
 const (
@@ -189,8 +190,8 @@ func VaultPreflightEncryptionConfigSecret(ctx context.Context, t testing.TB, cli
 				},
 			}},
 		},
-		KMSPlugins: map[string]configv1.KMSPluginConfig{
-			"1": plugin,
+		KMSPlugins: map[string]state.InternalKMSPluginConfig{
+			"1": {Plugin: plugin, KMSPluginImage: plugin.Vault.KMSPluginImage},
 		},
 		KMSPluginsSecretData:    secretData,
 		KMSPluginsConfigMapData: configMapData,

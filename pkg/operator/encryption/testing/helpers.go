@@ -116,8 +116,13 @@ var DefaultKMSPluginConfig = configv1.KMSPluginConfig{
 	},
 }
 
+var DefaultInternalKMSPluginConfig = state.InternalKMSPluginConfig{
+	Plugin:         DefaultKMSPluginConfig,
+	KMSPluginImage: DefaultKMSPluginConfig.Vault.KMSPluginImage,
+}
+
 func CreateEncryptionKeySecretWithKMSPluginConfig(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
-	return CreateEncryptionKeySecretWithCustomKMSPluginConfig(targetNS, grs, keyID, DefaultKMSPluginConfig)
+	return CreateEncryptionKeySecretWithCustomKMSPluginConfig(targetNS, grs, keyID, DefaultInternalKMSPluginConfig)
 }
 
 func CreateMigratedEncryptionKeySecretWithKMSPluginConfig(targetNS string, grs []schema.GroupResource, keyID uint64, ts time.Time) *corev1.Secret {
@@ -130,7 +135,7 @@ func CreateExpiredMigratedEncryptionKeySecretWithKMSPluginConfig(targetNS string
 	return CreateMigratedEncryptionKeySecretWithKMSPluginConfig(targetNS, grs, keyID, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
-func CreateEncryptionKeySecretWithCustomKMSPluginConfig(targetNS string, grs []schema.GroupResource, keyID uint64, pluginConfig configv1.KMSPluginConfig) *corev1.Secret {
+func CreateEncryptionKeySecretWithCustomKMSPluginConfig(targetNS string, grs []schema.GroupResource, keyID uint64, pluginConfig state.InternalKMSPluginConfig) *corev1.Secret {
 	emptyKey := make([]byte, 16)
 	secret := CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, emptyKey, "KMS")
 	kmsConfig := &apiserverconfigv1.KMSConfiguration{
@@ -144,7 +149,7 @@ func CreateEncryptionKeySecretWithCustomKMSPluginConfig(targetNS string, grs []s
 		panic(fmt.Sprintf("failed to encode KMS encryption config: %v", err))
 	}
 	secret.Data[encryptionSecretKMSEncryptionConfigForTest] = encData
-	pluginData, err := encoding.EncodeKMSPluginConfig(pluginConfig)
+	pluginData, err := encoding.EncodeInternalKMSPluginConfig(pluginConfig)
 	if err != nil {
 		panic(fmt.Sprintf("failed to encode KMS plugin config: %v", err))
 	}

@@ -11,7 +11,7 @@ import (
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin data.
 // It assumes the input data has been already been validated.
-func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, refData *referenceDataResolver) (*vault, error) {
+func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, pluginImage string, refData *referenceDataResolver) (*vault, error) {
 	secretName := vaultConfig.Authentication.AppRole.Secret.Name
 	if secretName == "" {
 		return nil, fmt.Errorf("vault AppRole authentication secret name cannot be empty")
@@ -48,6 +48,7 @@ func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.V
 		keyID:        keyID,
 		udsPath:      udsPath,
 		config:       vaultConfig,
+		pluginImage:  pluginImage,
 		roleID:       roleID,
 		secretIDPath: secretIDPath,
 		caBundlePath: caBundlePath,
@@ -60,6 +61,7 @@ type vault struct {
 	keyID        string
 	udsPath      string
 	config       configv1.VaultKMSPluginConfig
+	pluginImage  string
 	roleID       string
 	secretIDPath string
 	caBundlePath string
@@ -106,7 +108,7 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 
 	return corev1.Container{
 		Name:            v.Name(),
-		Image:           v.config.KMSPluginImage,
+		Image:           v.pluginImage,
 		Args:            args,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		// We place the container in InitContainers with RestartPolicyAlways so the kubelet starts it before

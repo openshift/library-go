@@ -11,8 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
-	configv1 "github.com/openshift/api/config/v1"
-
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
@@ -63,7 +61,7 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	var kmsPlugins map[string]configv1.KMSPluginConfig
+	var kmsPlugins map[string]state.InternalKMSPluginConfig
 	for key, value := range encryptionConfigSecret.Data {
 		// Not all data keys are plugin configs — the Secret also contains the
 		// encryption-config entry, so skip keys that don't match the pattern.
@@ -74,17 +72,17 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 		if !found {
 			continue
 		}
-		pluginConfig, err := encoding.DecodeKMSPluginConfig(value)
+		internalConfig, err := encoding.DecodeInternalKMSPluginConfig(value)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode KMS plugin config for key %s: %w", keyID, err)
 		}
 		if kmsPlugins == nil {
-			kmsPlugins = map[string]configv1.KMSPluginConfig{}
+			kmsPlugins = map[string]state.InternalKMSPluginConfig{}
 		}
 		if _, exists := kmsPlugins[keyID]; exists {
 			return nil, fmt.Errorf("duplicate KMS plugin config for keyID %s", keyID)
 		}
-		kmsPlugins[keyID] = pluginConfig
+		kmsPlugins[keyID] = internalConfig
 	}
 
 	// Extract secret data entries from the encryption-config Secret.
@@ -155,7 +153,7 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 	}
 
 	for keyID, pluginConfig := range secretData.KMSPlugins {
-		encodedPlugin, err := encoding.EncodeKMSPluginConfig(pluginConfig)
+		encodedPlugin, err := encoding.EncodeInternalKMSPluginConfig(pluginConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode KMS plugin config for key %s: %w", keyID, err)
 		}

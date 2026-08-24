@@ -325,7 +325,10 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 				Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			},
-			Plugin: apiServerEncryption.KMS,
+			Plugin: state.InternalKMSPluginConfig{
+				Plugin:         apiServerEncryption.KMS,
+				KMSPluginImage: apiServerEncryption.KMS.Vault.KMSPluginImage,
+			},
 		}
 
 		// Fetch the referenced Secret and ConfigMap, copying their data into the
@@ -573,7 +576,7 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		if latestKey.KMS == nil {
 			return 0, "", false, fmt.Errorf("KMS-mode key %q has nil KMS state, possibly corrupted key secret", latestKey.Key.Name)
 		}
-		same, err := desiredProviderCfg.sameProviderInstance(latestKey.KMS.Plugin)
+		same, err := desiredProviderCfg.sameProviderInstance(latestKey.KMS.Plugin.Plugin)
 		if err != nil {
 			return 0, "", false, fmt.Errorf("failed to check KMS provider instance: %w", err)
 		}

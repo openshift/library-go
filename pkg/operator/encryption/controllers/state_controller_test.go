@@ -745,7 +745,7 @@ func TestStateController(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{"1": encryptiontesting.DefaultKMSPluginConfig},
+				KMSPlugins: map[string]state.InternalKMSPluginConfig{"1": encryptiontesting.DefaultInternalKMSPluginConfig},
 			},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *encryptiondata.Config) {
 				wasSecretValidated := false
@@ -817,7 +817,7 @@ func TestStateController(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{"1": encryptiontesting.DefaultKMSPluginConfig},
+				KMSPlugins: map[string]state.InternalKMSPluginConfig{"1": encryptiontesting.DefaultInternalKMSPluginConfig},
 			},
 			expectedActions: []string{
 				"list:pods:kms",
@@ -875,7 +875,7 @@ func TestStateController(t *testing.T) {
 								}},
 							}},
 						},
-						KMSPlugins: map[string]configv1.KMSPluginConfig{"1": encryptiontesting.DefaultKMSPluginConfig},
+						KMSPlugins: map[string]state.InternalKMSPluginConfig{"1": encryptiontesting.DefaultInternalKMSPluginConfig},
 					}
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
@@ -897,7 +897,7 @@ func TestStateController(t *testing.T) {
 								}},
 							}},
 						},
-						KMSPlugins: map[string]configv1.KMSPluginConfig{"1": encryptiontesting.DefaultKMSPluginConfig},
+						KMSPlugins: map[string]state.InternalKMSPluginConfig{"1": encryptiontesting.DefaultInternalKMSPluginConfig},
 					}
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kms"
@@ -917,22 +917,25 @@ func TestStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1),
-				encryptiontesting.CreateEncryptionKeySecretWithCustomKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2, configv1.KMSPluginConfig{
-					Type: configv1.VaultKMSProvider,
-					Vault: configv1.VaultKMSPluginConfig{
-						KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-						VaultAddress:   "https://vault2.example.com",
-						Authentication: configv1.VaultAuthentication{
-							Type: configv1.VaultAuthenticationTypeAppRole,
-							AppRole: configv1.VaultAppRoleAuthentication{
-								Secret: configv1.VaultSecretReference{Name: "vault-approle-secret-2"},
+				encryptiontesting.CreateEncryptionKeySecretWithCustomKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 2, state.InternalKMSPluginConfig{
+					Plugin: configv1.KMSPluginConfig{
+						Type: configv1.VaultKMSProvider,
+						Vault: configv1.VaultKMSPluginConfig{
+							KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+							VaultAddress:   "https://vault2.example.com",
+							Authentication: configv1.VaultAuthentication{
+								Type: configv1.VaultAuthenticationTypeAppRole,
+								AppRole: configv1.VaultAppRoleAuthentication{
+									Secret: configv1.VaultSecretReference{Name: "vault-approle-secret-2"},
+								},
 							},
+							TLS: configv1.VaultTLSConfig{
+								CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
+							},
+							VaultKeyPath: "transit/keys/test-transit-key-2",
 						},
-						TLS: configv1.VaultTLSConfig{
-							CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
-						},
-						VaultKeyPath: "transit/keys/test-transit-key-2",
 					},
+					KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 				}),
 				func() *corev1.Secret { // encryption config in kms namespace
 					ec := &encryptiondata.Config{Encryption: &apiserverconfigv1.EncryptionConfiguration{
@@ -1015,24 +1018,27 @@ func TestStateController(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{
-					"1": encryptiontesting.DefaultKMSPluginConfig,
+				KMSPlugins: map[string]state.InternalKMSPluginConfig{
+					"1": encryptiontesting.DefaultInternalKMSPluginConfig,
 					"2": {
-						Type: configv1.VaultKMSProvider,
-						Vault: configv1.VaultKMSPluginConfig{
-							KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-							VaultAddress:   "https://vault2.example.com",
-							Authentication: configv1.VaultAuthentication{
-								Type: configv1.VaultAuthenticationTypeAppRole,
-								AppRole: configv1.VaultAppRoleAuthentication{
-									Secret: configv1.VaultSecretReference{Name: "vault-approle-secret-2"},
+						Plugin: configv1.KMSPluginConfig{
+							Type: configv1.VaultKMSProvider,
+							Vault: configv1.VaultKMSPluginConfig{
+								KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+								VaultAddress:   "https://vault2.example.com",
+								Authentication: configv1.VaultAuthentication{
+									Type: configv1.VaultAuthenticationTypeAppRole,
+									AppRole: configv1.VaultAppRoleAuthentication{
+										Secret: configv1.VaultSecretReference{Name: "vault-approle-secret-2"},
+									},
 								},
+								TLS: configv1.VaultTLSConfig{
+									CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
+								},
+								VaultKeyPath: "transit/keys/test-transit-key-2",
 							},
-							TLS: configv1.VaultTLSConfig{
-								CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
-							},
-							VaultKeyPath: "transit/keys/test-transit-key-2",
 						},
+						KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 					},
 				},
 			},
@@ -1133,22 +1139,25 @@ func TestStateController(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{"2": {
-					Type: configv1.VaultKMSProvider,
-					Vault: configv1.VaultKMSPluginConfig{
-						KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-						VaultAddress:   "https://vault.example.com",
-						TLS: configv1.VaultTLSConfig{
-							CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
-						},
-						Authentication: configv1.VaultAuthentication{
-							Type: configv1.VaultAuthenticationTypeAppRole,
-							AppRole: configv1.VaultAppRoleAuthentication{
-								Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+				KMSPlugins: map[string]state.InternalKMSPluginConfig{"2": {
+					Plugin: configv1.KMSPluginConfig{
+						Type: configv1.VaultKMSProvider,
+						Vault: configv1.VaultKMSPluginConfig{
+							KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+							VaultAddress:   "https://vault.example.com",
+							TLS: configv1.VaultTLSConfig{
+								CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
 							},
+							Authentication: configv1.VaultAuthentication{
+								Type: configv1.VaultAuthenticationTypeAppRole,
+								AppRole: configv1.VaultAppRoleAuthentication{
+									Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+								},
+							},
+							VaultKeyPath: "transit/keys/test-transit-key",
 						},
-						VaultKeyPath: "transit/keys/test-transit-key",
 					},
+					KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 				}},
 			},
 			expectedActions: []string{

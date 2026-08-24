@@ -386,7 +386,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS plugin config content
 						kmsPluginConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"]
-						expectedPluginConfig, err := encoding.EncodeKMSPluginConfig(encryptiontesting.DefaultKMSPluginConfig)
+						expectedPluginConfig, err := encoding.EncodeInternalKMSPluginConfig(encryptiontesting.DefaultInternalKMSPluginConfig)
 						if err != nil {
 							ts.Fatalf("failed to encode KMS config: %v", err)
 						}
@@ -480,7 +480,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS plugin config content
 						kmsPluginConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"]
-						expectedPluginConfig, err := encoding.EncodeKMSPluginConfig(encryptiontesting.DefaultKMSPluginConfig)
+						expectedPluginConfig, err := encoding.EncodeInternalKMSPluginConfig(encryptiontesting.DefaultInternalKMSPluginConfig)
 						if err != nil {
 							ts.Fatalf("failed to encode KMS config: %v", err)
 						}
@@ -577,7 +577,7 @@ func TestKeyController(t *testing.T) {
 
 						// Verify KMS plugin config content
 						kmsPluginConfigData := actualSecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"]
-						expectedPluginConfig, err := encoding.EncodeKMSPluginConfig(encryptiontesting.DefaultKMSPluginConfig)
+						expectedPluginConfig, err := encoding.EncodeInternalKMSPluginConfig(encryptiontesting.DefaultInternalKMSPluginConfig)
 						if err != nil {
 							ts.Fatalf("failed to encode KMS config: %v", err)
 						}

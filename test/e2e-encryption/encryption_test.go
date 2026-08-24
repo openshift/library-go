@@ -302,7 +302,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 			require.NoError(t, err)
 			keyPluginData := keySecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"]
 			require.NotEmpty(t, keyPluginData, "key secret %s missing kms-plugin-config data", keyID)
-			keyPluginConfig, err := encoding.DecodeKMSPluginConfig(keyPluginData)
+			keyPluginConfig, err := encoding.DecodeInternalKMSPluginConfig(keyPluginData)
 			require.NoError(t, err)
 			require.Equal(t, keyPluginConfig, pluginConfig, "kms-plugin-config for keyID %s in encryption-config secret does not match key secret", keyID)
 		}
@@ -573,11 +573,11 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NoError(t, err)
 	kmsPluginConfigData := kmsKeySecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"]
 	require.NotEmpty(t, kmsPluginConfigData, "expected kms-plugin-config data to be present in key secret")
-	pluginConfig, err := encoding.DecodeKMSPluginConfig(kmsPluginConfigData)
+	pluginConfig, err := encoding.DecodeInternalKMSPluginConfig(kmsPluginConfigData)
 	require.NoError(t, err)
-	require.Equal(t, configv1.VaultKMSProvider, pluginConfig.Type)
-	require.Equal(t, "https://vault.example.com", pluginConfig.Vault.VaultAddress)
-	require.Equal(t, "transit/keys/test-transit-key", pluginConfig.Vault.VaultKeyPath)
+	require.Equal(t, configv1.VaultKMSProvider, pluginConfig.Plugin.Type)
+	require.Equal(t, "https://vault.example.com", pluginConfig.Plugin.Vault.VaultAddress)
+	require.Equal(t, "transit/keys/test-transit-key", pluginConfig.Plugin.Vault.VaultKeyPath)
 
 	t.Logf("Switch back to aescbc from KMS")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc","kms":null}}}`), metav1.PatchOptions{})
@@ -660,10 +660,10 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NoError(t, err)
 	kmsPluginConfigData13 := kmsKeySecret13.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"]
 	require.NotEmpty(t, kmsPluginConfigData13)
-	pluginConfig13, err := encoding.DecodeKMSPluginConfig(kmsPluginConfigData13)
+	pluginConfig13, err := encoding.DecodeInternalKMSPluginConfig(kmsPluginConfigData13)
 	require.NoError(t, err)
-	require.Equal(t, "https://vault-new.example.com", pluginConfig13.Vault.VaultAddress)
-	require.Equal(t, "transit/keys/test-transit-key", pluginConfig13.Vault.VaultKeyPath)
+	require.Equal(t, "https://vault-new.example.com", pluginConfig13.Plugin.Vault.VaultAddress)
+	require.Equal(t, "transit/keys/test-transit-key", pluginConfig13.Plugin.Vault.VaultKeyPath)
 
 	t.Logf("KMS non-migration change: only KMSPluginImage changes (no new key expected)")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-new.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})

@@ -723,7 +723,7 @@ func TestFromEncryptionStateKMSPluginConfigValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							Plugin:     encryptiontesting.DefaultInternalKMSPluginConfig,
 						},
 					}},
 				},
@@ -733,7 +733,7 @@ func TestFromEncryptionStateKMSPluginConfigValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							Plugin:     encryptiontesting.DefaultInternalKMSPluginConfig,
 						},
 					}},
 				},
@@ -748,13 +748,13 @@ func TestFromEncryptionStateKMSPluginConfigValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin: configv1.KMSPluginConfig{
+							Plugin: state.InternalKMSPluginConfig{Plugin: configv1.KMSPluginConfig{
 								Type: configv1.VaultKMSProvider,
 								Vault: configv1.VaultKMSPluginConfig{
 									VaultAddress: "https://vault-a.example.com",
 									VaultKeyPath: "transit/keys/key-a",
 								},
-							},
+							}},
 						},
 					}},
 				},
@@ -764,13 +764,13 @@ func TestFromEncryptionStateKMSPluginConfigValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin: configv1.KMSPluginConfig{
+							Plugin: state.InternalKMSPluginConfig{Plugin: configv1.KMSPluginConfig{
 								Type: configv1.VaultKMSProvider,
 								Vault: configv1.VaultKMSPluginConfig{
 									VaultAddress: "https://vault-b.example.com",
 									VaultKeyPath: "transit/keys/key-b",
 								},
-							},
+							}},
 						},
 					}},
 				},
@@ -814,7 +814,7 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							Plugin:     encryptiontesting.DefaultInternalKMSPluginConfig,
 							PluginSecretData: func() state.KMSReferenceData {
 								var sd state.KMSReferenceData
 								sd.Set("vault-approle-secret", "role-id", []byte("test-role-id"))
@@ -830,7 +830,7 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							Plugin:     encryptiontesting.DefaultInternalKMSPluginConfig,
 							PluginSecretData: func() state.KMSReferenceData {
 								var sd state.KMSReferenceData
 								sd.Set("vault-approle-secret", "role-id", []byte("test-role-id"))
@@ -857,7 +857,7 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							Plugin:     encryptiontesting.DefaultInternalKMSPluginConfig,
 							PluginSecretData: func() state.KMSReferenceData {
 								var sd state.KMSReferenceData
 								sd.Set("vault-approle-secret", "role-id", []byte("role-id-a"))
@@ -872,7 +872,7 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							Plugin:     encryptiontesting.DefaultInternalKMSPluginConfig,
 							PluginSecretData: func() state.KMSReferenceData {
 								var sd state.KMSReferenceData
 								sd.Set("vault-approle-secret", "role-id", []byte("role-id-b"))
@@ -893,7 +893,7 @@ func TestFromEncryptionStateKMSSecretDataValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin:     encryptiontesting.DefaultKMSPluginConfig,
+							Plugin:     encryptiontesting.DefaultInternalKMSPluginConfig,
 						},
 					}},
 				},
@@ -972,8 +972,8 @@ func TestSecretRoundtrip(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{
-					"1": encryptiontesting.DefaultKMSPluginConfig,
+				KMSPlugins: map[string]state.InternalKMSPluginConfig{
+					"1": encryptiontesting.DefaultInternalKMSPluginConfig,
 				},
 			},
 		},
@@ -999,8 +999,8 @@ func TestSecretRoundtrip(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{
-					"1": encryptiontesting.DefaultKMSPluginConfig,
+				KMSPlugins: map[string]state.InternalKMSPluginConfig{
+					"1": encryptiontesting.DefaultInternalKMSPluginConfig,
 				},
 				KMSPluginsSecretData: func() encryptiondata.KMSPluginsReferenceData {
 					var sd encryptiondata.KMSPluginsReferenceData
@@ -1039,9 +1039,9 @@ func TestSecretRoundtrip(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{
-					"1": encryptiontesting.DefaultKMSPluginConfig,
-					"2": encryptiontesting.DefaultKMSPluginConfig,
+				KMSPlugins: map[string]state.InternalKMSPluginConfig{
+					"1": encryptiontesting.DefaultInternalKMSPluginConfig,
+					"2": encryptiontesting.DefaultInternalKMSPluginConfig,
 				},
 				KMSPluginsSecretData: func() encryptiondata.KMSPluginsReferenceData {
 					var sd encryptiondata.KMSPluginsReferenceData
@@ -1082,9 +1082,9 @@ func TestSecretRoundtrip(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{
-					"1": encryptiontesting.DefaultKMSPluginConfig,
-					"2": encryptiontesting.DefaultKMSPluginConfig,
+				KMSPlugins: map[string]state.InternalKMSPluginConfig{
+					"1": encryptiontesting.DefaultInternalKMSPluginConfig,
+					"2": encryptiontesting.DefaultInternalKMSPluginConfig,
 				},
 			},
 		},
@@ -1120,8 +1120,8 @@ func TestToSecretSecretDataEdgeCases(t *testing.T) {
 				},
 			}},
 		},
-		KMSPlugins: map[string]configv1.KMSPluginConfig{
-			"1": encryptiontesting.DefaultKMSPluginConfig,
+		KMSPlugins: map[string]state.InternalKMSPluginConfig{
+			"1": encryptiontesting.DefaultInternalKMSPluginConfig,
 		},
 	}
 
@@ -1208,8 +1208,8 @@ func TestFromSecretSecretData(t *testing.T) {
 				},
 			}},
 		},
-		KMSPlugins: map[string]configv1.KMSPluginConfig{
-			"1": encryptiontesting.DefaultKMSPluginConfig,
+		KMSPlugins: map[string]state.InternalKMSPluginConfig{
+			"1": encryptiontesting.DefaultInternalKMSPluginConfig,
 		},
 	}
 

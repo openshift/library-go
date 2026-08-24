@@ -57,7 +57,7 @@ func (k *KeyState) HasKMSEncryption() bool {
 }
 
 func (k *KeyState) HasKMSPlugin() bool {
-	return k != nil && k.KMS != nil && k.KMS.Plugin != (configv1.KMSPluginConfig{})
+	return k != nil && k.KMS != nil && k.KMS.Plugin.Plugin != (configv1.KMSPluginConfig{})
 }
 
 func (k *KeyState) HasKMSSecretData() bool {
@@ -68,13 +68,22 @@ func (k *KeyState) HasKMSConfigMapData() bool {
 	return k != nil && k.KMS != nil && len(k.KMS.PluginConfigMapData.entries) > 0
 }
 
+// InternalKMSPluginConfig wraps the API KMSPluginConfig type with additional
+// fields that are not part of the public API but are needed internally by
+// the encryption controllers (e.g. the plugin image, which will move from
+// the API to a ConfigMap).
+type InternalKMSPluginConfig struct {
+	Plugin         configv1.KMSPluginConfig `json:"plugin"`
+	KMSPluginImage string                   `json:"kmsPluginImage,omitempty"`
+}
+
 // KMSState stores all KMS encryption mode related configurations
 type KMSState struct {
 	// Encoded EncryptionConfig that stores the KMS related fields
 	Encryption *apiserverconfigv1.KMSConfiguration
 
 	// Plugin stores KMS plugin specific configurations
-	Plugin configv1.KMSPluginConfig
+	Plugin InternalKMSPluginConfig
 
 	// PluginSecretData stores data key-value pairs fetched from referenced secrets.
 	PluginSecretData KMSReferenceData

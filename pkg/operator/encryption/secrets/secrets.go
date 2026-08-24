@@ -78,11 +78,11 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig)
 		}
 		if v, ok := s.Data[encryptionSecretKMSPluginConfig]; ok && len(v) > 0 {
-			kmsConfig, err := encoding.DecodeKMSPluginConfig(v)
+			internalConfig, err := encoding.DecodeInternalKMSPluginConfig(v)
 			if err != nil {
 				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, encryptionSecretKMSPluginConfig, err)
 			}
-			key.KMS.Plugin = kmsConfig
+			key.KMS.Plugin = internalConfig
 		} else {
 			// encryption.apiserver.operator.openshift.io-kms-plugin-config data field is required for KMS
 			// encryption mode.
@@ -171,7 +171,7 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	}
 
 	if ks.HasKMSPlugin() {
-		pluginData, err := encoding.EncodeKMSPluginConfig(ks.KMS.Plugin)
+		pluginData, err := encoding.EncodeInternalKMSPluginConfig(ks.KMS.Plugin)
 		if err != nil {
 			return nil, err
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -51,7 +52,10 @@ func newSidecarTestFixtures(t *testing.T) sidecarTestFixtures {
 			},
 		},
 	}
-	pluginConfigBytes, err := encoding.EncodeKMSPluginConfig(*vaultConfig)
+	pluginConfigBytes, err := encoding.EncodeInternalKMSPluginConfig(state.InternalKMSPluginConfig{
+		Plugin:         *vaultConfig,
+		KMSPluginImage: vaultConfig.Vault.KMSPluginImage,
+	})
 	require.NoError(t, err)
 
 	encryptionConfig := &apiserverv1.EncryptionConfiguration{
@@ -335,7 +339,10 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						},
 					},
 				}
-				pluginConfig2Bytes, err := encoding.EncodeKMSPluginConfig(*vaultConfig2)
+				pluginConfig2Bytes, err := encoding.EncodeInternalKMSPluginConfig(state.InternalKMSPluginConfig{
+					Plugin:         *vaultConfig2,
+					KMSPluginImage: vaultConfig2.Vault.KMSPluginImage,
+				})
 				require.NoError(t, err)
 
 				pluginConfigKey2 := "kms-plugin-config-777"

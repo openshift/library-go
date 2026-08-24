@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
@@ -415,7 +415,7 @@ func testPreflightEncryptionConfigFromData(
 	}
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(keyIDs)+1)
-	plugins := map[string]configv1.KMSPluginConfig{}
+	plugins := map[string]state.InternalKMSPluginConfig{}
 	for _, keyID := range keyIDs {
 		providers = append(providers, apiserverconfigv1.ProviderConfiguration{
 			KMS: &apiserverconfigv1.KMSConfiguration{
@@ -425,7 +425,7 @@ func testPreflightEncryptionConfigFromData(
 				Timeout:    &metav1.Duration{Duration: testDeployerTimeout},
 			},
 		})
-		plugins[strconv.Itoa(keyID)] = encryptiontesting.DefaultKMSPluginConfig
+		plugins[strconv.Itoa(keyID)] = encryptiontesting.DefaultInternalKMSPluginConfig
 	}
 	providers = append(providers, apiserverconfigv1.ProviderConfiguration{
 		Identity: &apiserverconfigv1.IdentityConfiguration{},

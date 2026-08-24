@@ -31,6 +31,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 	tests := []struct {
 		name               string
 		vaultConfig        configv1.VaultKMSPluginConfig
+		pluginImage        string
 		secretData         state.KMSReferenceData
 		configMapData      state.KMSReferenceData
 		referenceDataDir   string
@@ -42,7 +43,8 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		expectErr          string
 	}{
 		{
-			name: "builds container with correct args",
+			name:        "builds container with correct args",
+			pluginImage: "quay.io/test/vault:v2",
 			vaultConfig: configv1.VaultKMSPluginConfig{
 				KMSPluginImage:     "quay.io/test/vault:v2",
 				VaultAddress:       "https://vault.example.com:8200",
@@ -101,7 +103,8 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 			},
 		},
 		{
-			name: "appends to existing containers",
+			name:        "appends to existing containers",
+			pluginImage: "quay.io/test/vault:v2",
 			vaultConfig: configv1.VaultKMSPluginConfig{
 				KMSPluginImage: "quay.io/test/vault:v2",
 				VaultAddress:   "https://vault.example.com:8200",
@@ -165,7 +168,8 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 			},
 		},
 		{
-			name: "empty optional fields",
+			name:        "empty optional fields",
+			pluginImage: "quay.io/test/vault:v2",
 			vaultConfig: configv1.VaultKMSPluginConfig{
 				KMSPluginImage: "quay.io/test/vault:v2",
 				VaultAddress:   "https://vault.example.com:8200",
@@ -250,7 +254,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 				keyID:                tt.keyID,
 			}
 
-			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, refData)
+			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, tt.pluginImage, refData)
 			if tt.expectErr != "" {
 				require.EqualError(t, err, tt.expectErr)
 				return

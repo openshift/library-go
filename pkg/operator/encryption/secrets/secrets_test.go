@@ -33,6 +33,11 @@ var defaultKMSPluginConfig = configv1.KMSPluginConfig{
 	},
 }
 
+var defaultInternalKMSPluginConfig = state.InternalKMSPluginConfig{
+	Plugin:         defaultKMSPluginConfig,
+	KMSPluginImage: defaultKMSPluginConfig.Vault.KMSPluginImage,
+}
+
 func TestRoundtrip(t *testing.T) {
 	now, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
@@ -150,7 +155,7 @@ func TestRoundtrip(t *testing.T) {
 						Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 						Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 					},
-					Plugin: defaultKMSPluginConfig,
+					Plugin: defaultInternalKMSPluginConfig,
 				},
 				Migrated: state.MigrationState{
 					Timestamp: now,
@@ -181,7 +186,7 @@ func TestRoundtrip(t *testing.T) {
 						Endpoint:   "unix:///var/run/kmsplugin/kms-2.sock",
 						Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 					},
-					Plugin: defaultKMSPluginConfig,
+					Plugin: defaultInternalKMSPluginConfig,
 				},
 			},
 		},
@@ -202,7 +207,7 @@ func TestRoundtrip(t *testing.T) {
 						Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 						Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 					},
-					Plugin: defaultKMSPluginConfig,
+					Plugin: defaultInternalKMSPluginConfig,
 					PluginSecretData: func() state.KMSReferenceData {
 						var sd state.KMSReferenceData
 						sd.Set("vault-approle-secret", "role-id", []byte("test-role-id"))

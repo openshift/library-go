@@ -4,11 +4,32 @@ import (
 	"fmt"
 
 	configv1 "github.com/openshift/api/config/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
+
+var internalKMSPluginConfigGV = schema.GroupVersion{Group: "encryption.operator.openshift.io", Version: "v1"}
+
+// internalKMSPluginConfigEnvelope is an envelope type used to serialize
+// InternalKMSPluginConfig through the Kubernetes codec infrastructure.
+type internalKMSPluginConfigEnvelope struct {
+	metav1.TypeMeta `json:",inline"`
+	Plugin          configv1.KMSPluginConfig `json:"plugin"`
+	KMSPluginImage  string                   `json:"kmsPluginImage,omitempty"`
+}
+
+func (e *internalKMSPluginConfigEnvelope) DeepCopyObject() runtime.Object {
+	out := new(internalKMSPluginConfigEnvelope)
+	*out = *e
+	out.Plugin = *e.Plugin.DeepCopy()
+	return out
+}
 
 var (
 	scheme         = runtime.NewScheme()
@@ -19,6 +40,9 @@ var (
 func init() {
 	utilruntime.Must(configv1.AddToScheme(scheme))
 	utilruntime.Must(apiserverconfigv1.AddToScheme(scheme))
+	scheme.AddKnownTypes(internalKMSPluginConfigGV, &internalKMSPluginConfigEnvelope{})
+	metav1.AddToGroupVersion(scheme, internalKMSPluginConfigGV)
+	codecs = serializer.NewCodecFactory(scheme)
 	info, ok := runtime.SerializerInfoForMediaType(codecs.SupportedMediaTypes(), runtime.ContentTypeJSON)
 	if !ok {
 		panic("json is not a supported media type")
@@ -81,31 +105,31 @@ func DecodeKMSConfiguration(data []byte) (*apiserverconfigv1.KMSConfiguration, e
 	return encryptionConfiguration.Resources[0].Providers[0].KMS, nil
 }
 
-// EncodeKMSPluginConfig serializes a configv1.KMSPluginConfig into a configv1.APIServer wrapper.
-// We use a configv1.APIServer as an envelope type because configv1.KMSPluginConfig is not a runtime.Object.
-func EncodeKMSPluginConfig(kmsConfig configv1.KMSPluginConfig) ([]byte, error) {
-	apiServerObj := &configv1.APIServer{
-		Spec: configv1.APIServerSpec{
-			Encryption: configv1.APIServerEncryption{
-				KMS: kmsConfig,
-			},
-		},
+// EncodeInternalKMSPluginConfig serializes an InternalKMSPluginConfig into its
+// internal envelope representation using Kubernetes codec infrastructure.
+func EncodeInternalKMSPluginConfig(config state.InternalKMSPluginConfig) ([]byte, error) {
+	envelope := &internalKMSPluginConfigEnvelope{
+		Plugin:         config.Plugin,
+		KMSPluginImage: config.KMSPluginImage,
 	}
-	encoder := codecs.EncoderForVersion(jsonSerializer, configv1.SchemeGroupVersion)
-	pluginData, err := runtime.Encode(encoder, apiServerObj)
+	encoder := codecs.EncoderForVersion(jsonSerializer, internalKMSPluginConfigGV)
+	data, err := runtime.Encode(encoder, envelope)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode KMS plugin config: %w", err)
+		return nil, fmt.Errorf("failed to encode internal KMS plugin config: %w", err)
 	}
-	return pluginData, nil
+	return data, nil
 }
 
-// DecodeKMSPluginConfig extracts a configv1.KMSPluginConfig object from its serialized configv1.APIServer wrapper.
-// We use a configv1.APIServer as an envelope type because KMSPluginConfig is not a runtime.Object.
-func DecodeKMSPluginConfig(data []byte) (configv1.KMSPluginConfig, error) {
-	apiServer := &configv1.APIServer{}
-	err := runtime.DecodeInto(codecs.UniversalDecoder(configv1.SchemeGroupVersion), data, apiServer)
+// DecodeInternalKMSPluginConfig extracts an InternalKMSPluginConfig from its
+// serialized envelope representation.
+func DecodeInternalKMSPluginConfig(data []byte) (state.InternalKMSPluginConfig, error) {
+	envelope := &internalKMSPluginConfigEnvelope{}
+	err := runtime.DecodeInto(codecs.UniversalDecoder(internalKMSPluginConfigGV), data, envelope)
 	if err != nil {
-		return configv1.KMSPluginConfig{}, err
+		return state.InternalKMSPluginConfig{}, fmt.Errorf("failed to decode internal KMS plugin config: %w", err)
 	}
-	return apiServer.Spec.Encryption.KMS, nil
+	return state.InternalKMSPluginConfig{
+		Plugin:         envelope.Plugin,
+		KMSPluginImage: envelope.KMSPluginImage,
+	}, nil
 }
