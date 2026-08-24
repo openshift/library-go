@@ -866,8 +866,12 @@ func TestKMSPreflightController(t *testing.T) {
 		},
 		{
 			// Scenario 2b: deploy error — transient, not terminal.
-			name:                      "deploy fails, reports error",
-			deployer:                  &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight"), deployErr: fmt.Errorf("quota exceeded")},
+			name:     "deploy fails, reports error",
+			deployer: &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight"), deployErr: fmt.Errorf("quota exceeded")},
+			encryptionConfigurationComputer: &fakeEncryptionConfigurationComputer{secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "encryption-config-test", Namespace: "openshift-config-managed"},
+				Data:       map[string][]byte{"encryption-config": []byte("dummy")},
+			}},
 			encryptionStatusProvider:  &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects:          []runtime.Object{apiServerWithKMS},
 			coreObjects:               []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},

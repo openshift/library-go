@@ -422,7 +422,10 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     2a. Result already recorded as Failed and pod is gone: surface the error
 //     without re-deploying. The admin must fix the config (new hash) before
 //     a new check can run.
-//     2b. No result yet: call Deploy. On success, requeue and wait for the pod to report results.
+//     2b. No result yet: compute the encryption-config Secret, then call Deploy.
+//     If the encryption mode is no longer KMS, skip deployment — next sync
+//     will re-evaluate whether preflight is required.
+//     On success, requeue and wait for the pod to report results.
 //
 //  3. Preflight required, pod exists (Status returns a PodStatus).
 //     Evaluate the pod state via conditions and phase:
@@ -474,6 +477,7 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //	1         No preflight required — cleanup                   false    nil   False     False        No
 //	1a        Already Succeeded — cleanup, no pod work          false    nil   False     False        No
 //	2a        No pod, already Failed — surface error            false    *pe   True      False        Yes
+//	2b        No pod, mode no longer KMS — skip                 false    nil   False     False        No
 //	2b        No pod, Deploy success                            true     nil   False     True         No
 //	2b        No pod, Deploy error                              true     err   True      False        No
 //	3a        Pod Failed — keep for inspection                  false    *pe   True      False        Yes
@@ -523,6 +527,11 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		encryptionConfig, err := c.encryptionConfigurationComputer.ComputeEncryptionConfiguration(ctx)
 		if err != nil {
 			return true, "", "", fmt.Errorf("failed to compute encryption configuration: %w", err)
+		}
+		if encryptionConfig == nil {
+			// Mode switched away from KMS — nothing to deploy.
+			// Next sync will re-evaluate whether preflight is still required.
+			return false, "", "", nil
 		}
 		c.dirtyDeployer = true
 		if err := c.deployer.Deploy(ctx, requiredHash, encryptionConfig); err != nil {
