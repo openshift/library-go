@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -102,7 +101,7 @@ func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider Enc
 
 	var previousEncryption configv1.APIServerEncryption
 	var needsUpdate bool
-	err = onErrorWithTimeout(waitPollTimeout, retry.DefaultBackoff, orError(errors.IsConflict, transientAPIError), func() error {
+	err = onErrorWithTimeout(waitPollTimeout, orError(errors.IsConflict, transientAPIError), func() error {
 		apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -278,15 +277,7 @@ func GetLastKeyMeta(t testing.TB, kubeClient kubernetes.Interface, namespace, la
 	// so we set the timeout to 5 min just in case
 	pollTimeout := time.Minute * 5
 
-	// set the number of step to high value
-	// we should stop on timeout otherwise the backoff returns after 5 steps
-	// and we never wait the timeout value
-	backOff := retry.DefaultBackoff
-	backOff.Steps = 9999
-
-	// in theory the max time we tolerate disruption on an SNO cluster is 60 seconds
-	// so we set the timeout to 5 min just in case
-	err := onErrorWithTimeout(pollTimeout, backOff, func(err error) bool {
+	err := onErrorWithTimeout(pollTimeout, func(err error) bool {
 		if !transientAPIError(err) {
 			t.Logf("error = %v is not retriable, failed to get the metadata from the last encryption key", err)
 			return false
@@ -344,7 +335,7 @@ func ForceKeyRotation(t testing.TB, updateUnsupportedConfig UpdateUnsupportedCon
 		return err
 	}
 
-	return onErrorWithTimeout(wait.ForeverTestTimeout, retry.DefaultBackoff, orError(errors.IsConflict, transientAPIError), func() error {
+	return onErrorWithTimeout(wait.ForeverTestTimeout, orError(errors.IsConflict, transientAPIError), func() error {
 		return updateUnsupportedConfig(raw)
 	})
 }
@@ -510,18 +501,24 @@ func CreateAndStoreWellKnownSecretOfLife(t testing.TB, clientSet ClientSet, name
 	t.Helper()
 	ctx := context.TODO()
 
-	oldSecret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, wellKnownSecretOfLifeName, metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		t.Fatalf("Failed to check if the secret already exists: %v", err)
-	}
-	if oldSecret != nil && len(oldSecret.Name) > 0 {
-		t.Log("The secret already exists, removing it first")
-		require.NoError(t, clientSet.Kube.CoreV1().Secrets(namespace).Delete(ctx, oldSecret.Name, metav1.DeleteOptions{}))
-	}
-
 	t.Logf("Creating %q in %s namespace", wellKnownSecretOfLifeName, namespace)
-	rawSecret := WellKnownSecretOfLife(t, namespace)
-	secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Create(ctx, rawSecret.(*corev1.Secret), metav1.CreateOptions{})
+	var secret *corev1.Secret
+	err := onErrorWithTimeout(waitPollTimeout, transientAPIError, func() error {
+		existing, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, wellKnownSecretOfLifeName, metav1.GetOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+		if err == nil {
+			secret = existing
+			return nil
+		}
+		rawSecret := WellKnownSecretOfLife(t, namespace)
+		secret, err = clientSet.Kube.CoreV1().Secrets(namespace).Create(ctx, rawSecret.(*corev1.Secret), metav1.CreateOptions{})
+		if errors.IsAlreadyExists(err) {
+			secret, err = clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, wellKnownSecretOfLifeName, metav1.GetOptions{})
+		}
+		return err
+	})
 	require.NoError(t, err)
 	return secret
 }
@@ -605,16 +602,28 @@ func CreateAndStoreWellKnownRouteOfLife(ctx context.Context, t testing.TB, cs Cl
 	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(route)
 	require.NoError(t, err)
 
-	created, err := cs.DynamicClient.Resource(wellKnownRouteGVR).Namespace(ns).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
-	if errors.IsAlreadyExists(err) {
-		// Leftover from a previous run, or a parallel create race.
-		t.Log("The route already exists, reusing it")
-		return route
-	}
-	require.NoError(t, err)
-
 	var result routev1.Route
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(created.Object, &result)
+	err = onErrorWithTimeout(waitPollTimeout, transientAPIError, func() error {
+		existing, err := cs.DynamicClient.Resource(wellKnownRouteGVR).Namespace(ns).Get(ctx, wellKnownRouteOfLifeName, metav1.GetOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+		if err == nil {
+			return runtime.DefaultUnstructuredConverter.FromUnstructured(existing.Object, &result)
+		}
+		created, err := cs.DynamicClient.Resource(wellKnownRouteGVR).Namespace(ns).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
+		if errors.IsAlreadyExists(err) {
+			existing, err = cs.DynamicClient.Resource(wellKnownRouteGVR).Namespace(ns).Get(ctx, wellKnownRouteOfLifeName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			return runtime.DefaultUnstructuredConverter.FromUnstructured(existing.Object, &result)
+		}
+		if err != nil {
+			return err
+		}
+		return runtime.DefaultUnstructuredConverter.FromUnstructured(created.Object, &result)
+	})
 	require.NoError(t, err)
 	return &result
 }
@@ -662,25 +671,33 @@ func CreateAndStoreWellKnownTokenOfLife(ctx context.Context, t testing.TB, cs Cl
 	t.Helper()
 	tokens := cs.DynamicClient.Resource(wellKnownOAuthAccessTokenGVR)
 
-	oldToken, err := tokens.Get(ctx, wellKnownTokenOfLifeName, metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		t.Fatalf("Failed to check if the token already exists: %v", err)
-	}
-	if oldToken != nil && len(oldToken.GetName()) > 0 {
-		t.Log("The access token already exists, removing it first")
-		require.NoError(t, tokens.Delete(ctx, oldToken.GetName(), metav1.DeleteOptions{}))
-	}
-
 	t.Logf("Creating %q at cluster scope level", wellKnownTokenOfLifeName)
 	token := WellKnownTokenOfLife(t, "")
 	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(token)
 	require.NoError(t, err)
 
-	created, err := tokens.Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
-	require.NoError(t, err)
-
 	var result oauthapiv1.OAuthAccessToken
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(created.Object, &result)
+	err = onErrorWithTimeout(waitPollTimeout, transientAPIError, func() error {
+		existing, err := tokens.Get(ctx, wellKnownTokenOfLifeName, metav1.GetOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+		if err == nil {
+			return runtime.DefaultUnstructuredConverter.FromUnstructured(existing.Object, &result)
+		}
+		created, err := tokens.Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
+		if errors.IsAlreadyExists(err) {
+			existing, err = tokens.Get(ctx, wellKnownTokenOfLifeName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			return runtime.DefaultUnstructuredConverter.FromUnstructured(existing.Object, &result)
+		}
+		if err != nil {
+			return err
+		}
+		return runtime.DefaultUnstructuredConverter.FromUnstructured(created.Object, &result)
+	})
 	require.NoError(t, err)
 	return &result
 }

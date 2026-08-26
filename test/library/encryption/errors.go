@@ -17,6 +17,7 @@ limitations under the License.
 package encryption
 
 import (
+	"context"
 	gonet "net"
 	"strings"
 	"time"
@@ -59,15 +60,20 @@ func orError(a, b func(error) bool) func(error) bool {
 	}
 }
 
-func onErrorWithTimeout(timeout time.Duration, backoff wait.Backoff, errorFunc func(error) bool, fn func() error) error {
+// onErrorWithTimeout retries fn until it succeeds, the timeout elapses, or fn
+// returns an error that errorFunc does not classify as retriable.
+//
+// It is built on wait.PollUntilContextTimeout so the timeout is actually honored:
+// unlike wait.ExponentialBackoff, the number of retries is bounded by the wall
+// clock, not by a fixed step count. This matters on single-node clusters where
+// the API server can be unavailable for far longer than a handful of quick
+// backoff steps while a new revision rolls out.
+//
+// On timeout the last retriable error is returned (rather than the generic
+// "timed out" error) so callers get an actionable message.
+func onErrorWithTimeout(timeout time.Duration, errorFunc func(error) bool, fn func() error) error {
 	var lastMatchingError error
-	stopCh := time.After(timeout)
-	err := wait.ExponentialBackoff(backoff, func() (bool, error) {
-		select {
-		case <-stopCh:
-			return false, wait.ErrWaitTimeout
-		default:
-		}
+	err := wait.PollUntilContextTimeout(context.Background(), waitPollInterval, timeout, true, func(context.Context) (bool, error) {
 		err := fn()
 		switch {
 		case err == nil:
@@ -79,7 +85,7 @@ func onErrorWithTimeout(timeout time.Duration, backoff wait.Backoff, errorFunc f
 			return false, err
 		}
 	})
-	if err == wait.ErrWaitTimeout && lastMatchingError != nil {
+	if wait.Interrupted(err) && lastMatchingError != nil {
 		err = lastMatchingError
 	}
 	return err
