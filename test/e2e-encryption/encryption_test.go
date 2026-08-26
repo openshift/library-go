@@ -1152,7 +1152,9 @@ func (d *configurableKMSPreflightDeployer) Status(_ context.Context) (string, co
 		Phase: corev1.PodSucceeded,
 		Conditions: []corev1.PodCondition{
 			{Type: controllers.KMSPreflightResultPodCondition, Status: resultStatus, Message: resultMessage},
-			{Type: controllers.KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "configurable"},
+			// Vary the remote key id per distinct config (stable on redeploy of the
+			// same config), mirroring a real KMS backend's per-key id.
+			{Type: controllers.KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "configurable-" + d.configHash},
 		},
 	}, nil
 }
