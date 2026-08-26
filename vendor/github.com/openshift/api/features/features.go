@@ -170,14 +170,6 @@ var (
 						enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 
-	FeatureGateVSphereMultiDisk = newFeatureGate("VSphereMultiDisk").
-					reportProblemsToJiraComponent("splat").
-					contactPerson("vr4manta").
-					productScope(ocpSpecific).
-					enhancementPR("https://github.com/openshift/enhancements/pull/1709").
-					enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
-					mustRegister()
-
 	FeatureGateNetworkConnect = newFeatureGate("NetworkConnect").
 					reportProblemsToJiraComponent("Networking/ovn-kubernetes").
 					contactPerson("tssurya").
@@ -214,8 +206,8 @@ var (
 					reportProblemsToJiraComponent("etcd").
 					contactPerson("hasbro17").
 					productScope(ocpSpecific).
-					enhancementPR(legacyFeatureGateWithoutEnhancement).
-					enable(inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
+					enhancementPR("https://github.com/openshift/enhancements/pull/2031").
+					enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 					mustRegister()
 
 	FeatureGateAutomatedEtcdBackup = newFeatureGate("AutomatedEtcdBackup").
@@ -317,7 +309,7 @@ var (
 						contactPerson("saschagrunert").
 						productScope(ocpSpecific).
 						enhancementPR("https://github.com/openshift/enhancements/pull/1934").
-						enable(inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade()).
+						enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 
 	FeatureGateUpgradeStatus = newFeatureGate("UpgradeStatus").
@@ -333,7 +325,7 @@ var (
 					contactPerson("fbertina").
 					productScope(kubernetes).
 					enhancementPR("https://github.com/kubernetes/enhancements/issues/3476").
-					enable(inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
+					enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 					mustRegister()
 
 	FeatureGateExternalSnapshotMetadata = newFeatureGate("ExternalSnapshotMetadata").
@@ -373,7 +365,7 @@ var (
 							contactPerson("saldawam").
 							productScope(ocpSpecific).
 							enhancementPR("https://github.com/openshift/enhancements/pull/1763").
-							enable(inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade()).
+							enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 							mustRegister()
 
 	FeatureGateExternalOIDCExternalClaimsSourcing = newFeatureGate("ExternalOIDCExternalClaimsSourcing").
@@ -634,14 +626,6 @@ var (
 						enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 
-	FeatureGateVSphereMultiNetworks = newFeatureGate("VSphereMultiNetworks").
-					reportProblemsToJiraComponent("SPLAT").
-					contactPerson("rvanderp").
-					productScope(ocpSpecific).
-					enhancementPR(legacyFeatureGateWithoutEnhancement).
-					enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
-					mustRegister()
-
 	FeatureGateIngressControllerDynamicConfigurationManager = newFeatureGate("IngressControllerDynamicConfigurationManager").
 								reportProblemsToJiraComponent("Networking/router").
 								contactPerson("miciah").
@@ -657,7 +641,7 @@ var (
 						enhancementPR("https://github.com/openshift/enhancements/pull/2033").
 						enable(inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade()).
 						mustRegister()
-  
+
 	FeatureGateIngressControllerMultipleHAProxyVersions = newFeatureGate("IngressControllerMultipleHAProxyVersions").
 								reportProblemsToJiraComponent("Networking/router").
 								contactPerson("miciah").
@@ -809,14 +793,6 @@ var (
 						enable(inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 
-	FeatureGateAWSServiceLBNetworkSecurityGroup = newFeatureGate("AWSServiceLBNetworkSecurityGroup").
-							reportProblemsToJiraComponent("Cloud Compute / Cloud Controller Manager").
-							contactPerson("mtulio").
-							productScope(ocpSpecific).
-							enhancementPR("https://github.com/openshift/enhancements/pull/1802").
-							enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
-							mustRegister()
-
 	FeatureGateNoRegistryClusterInstall = newFeatureGate("NoRegistryClusterInstall").
 						reportProblemsToJiraComponent("Installer / Agent based installation").
 						contactPerson("andfasano").
@@ -846,7 +822,7 @@ var (
 						contactPerson("pabrodri").
 						productScope(ocpSpecific).
 						enhancementPR("https://github.com/openshift/enhancements/pull/1785").
-						enable(inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
+						enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 	FeatureGateAWSDualStackInstall = newFeatureGate("AWSDualStackInstall").
 					reportProblemsToJiraComponent("Installer").
@@ -877,7 +853,7 @@ var (
 						contactPerson("barbacbd").
 						productScope(ocpSpecific).
 						enhancementPR("https://github.com/openshift/enhancements/pull/1977").
-						enable(inDevPreviewNoUpgrade()).
+						enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 
 	FeatureCBORServingAndStorage = newFeatureGate("CBORServingAndStorage").
@@ -923,8 +899,7 @@ var (
 				contactPerson("pabrodri").
 				productScope(ocpSpecific).
 				enhancementPR("https://github.com/openshift/enhancements/pull/1874").
-				enable(inClusterProfile(SelfManaged), inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade(), inDefault(), inOKD()).
-				enable(inClusterProfile(Hypershift), inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade()).
+				enable(inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade(), inDefault(), inOKD()).
 				mustRegister()
 
 	FeatureGateCRDCompatibilityRequirementOperator = newFeatureGate("CRDCompatibilityRequirementOperator").
@@ -1014,6 +989,14 @@ var (
 						enable(inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 
+	FeatureGateIngressControllerLBSecurityGroupsAWS = newFeatureGate("IngressControllerLBSecurityGroupsAWS").
+							reportProblemsToJiraComponent("Routing").
+							contactPerson("miciah").
+							productScope(ocpSpecific).
+							enhancementPR("https://github.com/openshift/enhancements/pull/2037").
+							enable(inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade()).
+							mustRegister()
+
 	FeatureGateTLSAdherence = newFeatureGate("TLSAdherence").
 				reportProblemsToJiraComponent("HPCASE / TLS Adherence").
 				contactPerson("joelanford").
@@ -1058,7 +1041,7 @@ var (
 						contactPerson("jsafrane").
 						productScope(ocpSpecific).
 						enhancementPR("https://github.com/openshift/enhancements/pull/2010").
-						enable(inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
+						enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 						mustRegister()
 
 	FeatureGateKarpenterOperator = newFeatureGate("KarpenterOperator").
@@ -1067,5 +1050,13 @@ var (
 					productScope(ocpSpecific).
 					enhancementPR("https://github.com/openshift/enhancements/pull/2007").
 					enable(inClusterProfile(SelfManaged), inDevPreviewNoUpgrade()).
+					mustRegister()
+
+	FeatureGateGomaxprocsInjection = newFeatureGate("GomaxprocsInjection").
+					reportProblemsToJiraComponent("node").
+					contactPerson("haircommander").
+					productScope(ocpSpecific).
+					enhancementPR("https://github.com/openshift/enhancements/pull/2047").
+					enable(inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 					mustRegister()
 )

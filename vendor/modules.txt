@@ -314,7 +314,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 ## explicit; go 1.19
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/pkg/pwalkdir
-# github.com/openshift/api v0.0.0-20260805215214-cfb63858e9d7
+# github.com/openshift/api v0.0.0-20260825094607-13a84dedc5a3
 ## explicit; go 1.26.0
 github.com/openshift/api
 github.com/openshift/api/annotations
