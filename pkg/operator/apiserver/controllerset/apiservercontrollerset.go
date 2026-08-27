@@ -372,26 +372,24 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 	resourceSyncer *resourcesynccontroller.ResourceSyncController,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	preflightDeployer controllers.KMSPreflightDeployer,
-	encryptionConfigurationComputer controllers.EncryptionConfigurationComputer,
 ) *APIServerControllerSet {
 
 	cs.encryptionControllers = encryptionControllerBuilder{
 		operatorClient: cs.operatorClient,
 		eventRecorder:  cs.eventRecorder,
 
-		component:                       component,
-		provider:                        provider,
-		deployer:                        deployer,
-		migrator:                        migrator,
-		apiServerClient:                 apiServerClient,
-		apiServerInformer:               apiServerInformer,
-		kubeInformersForNamespaces:      kubeInformersForNamespaces,
-		secretsClient:                   secretsClient,
-		configMapClient:                 configMapClient,
-		resourceSyncer:                  resourceSyncer,
-		encryptionStatusProvider:        encryptionStatusProvider,
-		preflightDeployer:               preflightDeployer,
-		encryptionConfigurationComputer: encryptionConfigurationComputer,
+		component:                  component,
+		provider:                   provider,
+		deployer:                   deployer,
+		migrator:                   migrator,
+		apiServerClient:            apiServerClient,
+		apiServerInformer:          apiServerInformer,
+		kubeInformersForNamespaces: kubeInformersForNamespaces,
+		secretsClient:              secretsClient,
+		configMapClient:            configMapClient,
+		resourceSyncer:             resourceSyncer,
+		encryptionStatusProvider:   encryptionStatusProvider,
+		preflightDeployer:          preflightDeployer,
 	}
 
 	return cs
@@ -489,19 +487,18 @@ type encryptionControllerBuilder struct {
 	operatorClient v1helpers.OperatorClient
 	eventRecorder  events.Recorder
 
-	component                       string
-	provider                        controllers.Provider
-	deployer                        statemachine.Deployer
-	migrator                        migrators.Migrator
-	secretsClient                   corev1.SecretsGetter
-	configMapClient                 corev1.ConfigMapsGetter
-	apiServerClient                 configv1client.APIServerInterface
-	apiServerInformer               configv1informers.APIServerInformer
-	kubeInformersForNamespaces      v1helpers.KubeInformersForNamespaces
-	resourceSyncer                  *resourcesynccontroller.ResourceSyncController
-	encryptionStatusProvider        kms.EncryptionStatusProvider
-	preflightDeployer               controllers.KMSPreflightDeployer
-	encryptionConfigurationComputer controllers.EncryptionConfigurationComputer
+	component                  string
+	provider                   controllers.Provider
+	deployer                   statemachine.Deployer
+	migrator                   migrators.Migrator
+	secretsClient              corev1.SecretsGetter
+	configMapClient            corev1.ConfigMapsGetter
+	apiServerClient            configv1client.APIServerInterface
+	apiServerInformer          configv1informers.APIServerInformer
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
+	resourceSyncer             *resourcesynccontroller.ResourceSyncController
+	encryptionStatusProvider   kms.EncryptionStatusProvider
+	preflightDeployer          controllers.KMSPreflightDeployer
 
 	unsupportedConfigPrefix []string
 }
@@ -527,7 +524,6 @@ func (e *encryptionControllerBuilder) build() []controllerWrapper {
 		e.resourceSyncer,
 		e.encryptionStatusProvider,
 		e.preflightDeployer,
-		e.encryptionConfigurationComputer,
 	)
 	if err != nil {
 		e.creationError = err

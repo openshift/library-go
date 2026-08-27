@@ -29,22 +29,6 @@ import (
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-// EncryptionConfigurationComputer computes the encryption configuration secret
-// passed to the preflight deployer right before it creates a new deployment.
-type EncryptionConfigurationComputer interface {
-	ComputeEncryptionConfiguration(ctx context.Context) (*corev1.Secret, error)
-}
-
-// NoopEncryptionConfigurationComputer is a placeholder EncryptionConfigurationComputer
-// that returns nil until a real implementation is available.
-type NoopEncryptionConfigurationComputer struct{}
-
-var _ EncryptionConfigurationComputer = NoopEncryptionConfigurationComputer{}
-
-func (NoopEncryptionConfigurationComputer) ComputeEncryptionConfiguration(_ context.Context) (*corev1.Secret, error) {
-	return nil, nil
-}
-
 // kmsConfigHasherResourceProvider abstracts fetching the Secret and ConfigMap referenced
 // by a KMS provider config.
 type kmsConfigHasherResourceProvider interface {
@@ -226,9 +210,6 @@ type kmsPreflightController struct {
 
 	deployer           KMSPreflightDeployer
 	encryptionDeployer statemachine.Deployer
-	// encryptionConfigurationComputer is called right before Deploy to produce the
-	// encryption configuration secret passed to the deployer.
-	encryptionConfigurationComputer EncryptionConfigurationComputer
 	// dirtyDeployer is true when preflight resources may exist in the cluster.
 	// Set to true after each Deploy and cleared to false after a successful Cleanup,
 	// so that repeated Cleanup calls in steady state issue no API requests.
@@ -319,7 +300,6 @@ func NewKMSPreflightController(
 	provider Provider,
 	preconditionsFulfilledFn preconditionsFulfilled,
 	deployer KMSPreflightDeployer,
-	encryptionConfigurationComputer EncryptionConfigurationComputer,
 	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	// secretsClient and configMapsClient read referenced Secrets and ConfigMaps in
@@ -345,9 +325,8 @@ func NewKMSPreflightController(
 		secretsClient:    secretsClient,
 		configMapsClient: configMapsClient,
 
-		deployer:                        deployer,
-		encryptionDeployer:              encryptionDeployer,
-		encryptionConfigurationComputer: encryptionConfigurationComputer,
+		deployer:           deployer,
+		encryptionDeployer: encryptionDeployer,
 		// assume resources may exist from a previous process run
 		dirtyDeployer:            true,
 		provider:                 provider,
@@ -368,11 +347,6 @@ func NewKMSPreflightController(
 }
 
 func (c *kmsPreflightController) computeEncryptionConfiguration(ctx context.Context) (*corev1.Secret, error) {
-	// TODO: remove this fallback once EncryptionConfigurationComputer is deleted.
-	if c.encryptionConfigurationComputer != nil {
-		return c.encryptionConfigurationComputer.ComputeEncryptionConfiguration(ctx)
-	}
-
 	// ListKeysWhileProgressing=true so preflight can still list keys and compute a plan even when there
 	// is no convergence yet. The key controller sets this to false to avoid extra Lists during rollout.
 	planner := NewEncryptionPlanner(c.instanceName, c.unsupportedConfigPrefix, c.encryptionDeployer, c.secretsClient, c.configMapsClient, c.apiServerClient, c.operatorClient, c.encryptionSecretSelector)

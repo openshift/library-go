@@ -24,6 +24,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -373,19 +374,6 @@ func (f *fakeEncryptionStatusProvider) UpdateKMSEncryptionStatus(_ context.Conte
 
 var _ kms.EncryptionStatusProvider = &fakeEncryptionStatusProvider{}
 
-type fakeEncryptionConfigurationComputer struct {
-	secret    *corev1.Secret
-	err       error
-	callCount int
-}
-
-func (f *fakeEncryptionConfigurationComputer) ComputeEncryptionConfiguration(_ context.Context) (*corev1.Secret, error) {
-	f.callCount++
-	return f.secret, f.err
-}
-
-var _ EncryptionConfigurationComputer = &fakeEncryptionConfigurationComputer{}
-
 func TestKMSPreflightController(t *testing.T) {
 	apiServerWithKMS := &configv1.APIServer{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
@@ -407,8 +395,6 @@ func TestKMSPreflightController(t *testing.T) {
 	scenarios := []struct {
 		name                                        string
 		deployer                                    KMSPreflightDeployer
-		encryptionConfigurationComputer             EncryptionConfigurationComputer
-		expectedComputerCallCount                   int
 		encryptionStatusProvider                    *fakeEncryptionStatusProvider
 		apiServerObjects                            []runtime.Object
 		coreObjects                                 []runtime.Object
@@ -483,37 +469,16 @@ func TestKMSPreflightController(t *testing.T) {
 		},
 		{
 			// Scenario 2b: deploying — progressing.
-			name:     "hashes match, no pod exists, deploys and returns",
-			deployer: &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
-			encryptionConfigurationComputer: &fakeEncryptionConfigurationComputer{secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Name: "enc-config", Namespace: "test"},
-			}},
-			encryptionStatusProvider:  &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
-			apiServerObjects:          []runtime.Object{apiServerWithKMS},
-			coreObjects:               []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			initialDirtyDeployer:      true,
-			preconditionsMet:          true,
-			expectedComputerCallCount: 1,
+			name:                     "hashes match, no pod exists, deploys and returns",
+			deployer:                 &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:     true,
+			preconditionsMet:         true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Deploying preflight pod for hash cuZm_g=="},
-			},
-		},
-		{
-			// Scenario 2b: computer fails before deploy.
-			name:                            "encryption configuration computer fails, reports error",
-			deployer:                        &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
-			encryptionConfigurationComputer: &fakeEncryptionConfigurationComputer{err: fmt.Errorf("vault unreachable")},
-			encryptionStatusProvider:        &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
-			apiServerObjects:                []runtime.Object{apiServerWithKMS},
-			coreObjects:                     []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			initialDirtyDeployer:            true,
-			preconditionsMet:                true,
-			expectedComputerCallCount:       1,
-			expectedError:                   "failed to compute encryption configuration: vault unreachable",
-			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "failed to compute encryption configuration: vault unreachable"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
@@ -866,15 +831,14 @@ func TestKMSPreflightController(t *testing.T) {
 		},
 		{
 			// Scenario 2b: deploy error — transient, not terminal.
-			name:                      "deploy fails, reports error",
-			deployer:                  &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight"), deployErr: fmt.Errorf("quota exceeded")},
-			encryptionStatusProvider:  &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
-			apiServerObjects:          []runtime.Object{apiServerWithKMS},
-			coreObjects:               []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			initialDirtyDeployer:      true,
-			preconditionsMet:          true,
-			expectedComputerCallCount: 1,
-			expectedError:             "quota exceeded",
+			name:                     "deploy fails, reports error",
+			deployer:                 &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight"), deployErr: fmt.Errorf("quota exceeded")},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:     true,
+			preconditionsMet:         true,
+			expectedError:            "quota exceeded",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "quota exceeded"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
@@ -1068,23 +1032,20 @@ func TestKMSPreflightController(t *testing.T) {
 				deployer = &fakeDeployer{}
 			}
 
-			computer := scenario.encryptionConfigurationComputer
-			if computer == nil {
-				computer = &fakeEncryptionConfigurationComputer{}
-			}
-
 			c := &kmsPreflightController{
-				controllerInstanceName:          factory.ControllerInstanceName("test", "EncryptionKMSPreflight"),
-				operatorClient:                  fakeOperatorClient,
-				apiServerClient:                 fakeApiServerClient,
-				secretsClient:                   fakeKubeClient.CoreV1(),
-				configMapsClient:                fakeKubeClient.CoreV1(),
-				deployer:                        deployer,
-				encryptionConfigurationComputer: computer,
-				dirtyDeployer:                   scenario.initialDirtyDeployer,
-				provider:                        provider,
-				preconditionsFulfilledFn:        preconditionsFn,
-				encryptionStatusProvider:        scenario.encryptionStatusProvider,
+				controllerInstanceName:   factory.ControllerInstanceName("test", "EncryptionKMSPreflight"),
+				instanceName:             "test",
+				encryptionSecretSelector: metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=test"},
+				operatorClient:           fakeOperatorClient,
+				apiServerClient:          fakeApiServerClient,
+				secretsClient:            fakeKubeClient.CoreV1(),
+				configMapsClient:         fakeKubeClient.CoreV1(),
+				deployer:                 deployer,
+				encryptionDeployer:       &fakeEncryptionDeployer{converged: true},
+				dirtyDeployer:            scenario.initialDirtyDeployer,
+				provider:                 provider,
+				preconditionsFulfilledFn: preconditionsFn,
+				encryptionStatusProvider: scenario.encryptionStatusProvider,
 			}
 
 			err := c.sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
@@ -1110,17 +1071,8 @@ func TestKMSPreflightController(t *testing.T) {
 			if !ok {
 				t.Fatalf("deployer is not *fakeDeployer")
 			}
-			fakeComputerInstance, ok := computer.(*fakeEncryptionConfigurationComputer)
-			if !ok {
-				t.Fatalf("computer is not *fakeEncryptionConfigurationComputer")
-			}
-			if fakeComputerInstance.callCount != scenario.expectedComputerCallCount {
-				t.Errorf("computer.ComputeEncryptionConfiguration call count: got %d, want %d", fakeComputerInstance.callCount, scenario.expectedComputerCallCount)
-			}
-			if fakeDeployerInstance.deployed {
-				if !equality.Semantic.DeepEqual(fakeDeployerInstance.deployedEncryptionConfig, fakeComputerInstance.secret) {
-					t.Errorf("deployer received wrong encryptionConfig: got %v, want %v", fakeDeployerInstance.deployedEncryptionConfig, fakeComputerInstance.secret)
-				}
+			if fakeDeployerInstance.deployed && fakeDeployerInstance.deployedEncryptionConfig == nil {
+				t.Errorf("deployer received nil encryptionConfig")
 			}
 			if fakeDeployerInstance.cleanupCount != scenario.expectedPreflightDeployerCleanupCount {
 				t.Errorf("deployer.Cleanup call count: got %d, want %d", fakeDeployerInstance.cleanupCount, scenario.expectedPreflightDeployerCleanupCount)
