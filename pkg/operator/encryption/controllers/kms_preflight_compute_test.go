@@ -42,7 +42,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -111,7 +111,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -177,7 +177,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -232,7 +232,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -283,7 +283,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -352,7 +352,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -389,7 +389,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -408,7 +408,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		first, err := computer.ComputeEncryptionConfiguration(context.TODO())
+		first, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -421,7 +421,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 		}
 
 		provider.encryptedGRs = []schema.GroupResource{{Resource: "secrets"}, {Resource: "configmaps"}}
-		second, err := computer.ComputeEncryptionConfiguration(context.TODO())
+		second, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error after EncryptedGRs change: %v", err)
 		}
@@ -503,7 +503,7 @@ func TestKMSPreflightComputeEncryptionConfigurationErrors(t *testing.T) {
 				instanceName,
 			)
 
-			secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
+			secret, err := computer.ComputeEncryptionConfiguration(context.TODO(), nil)
 			if err == nil {
 				t.Fatalf("expected an error, got secret %+v", secret)
 			}
