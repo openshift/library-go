@@ -30,20 +30,37 @@ type etcdWrapper struct {
 }
 
 func (e *etcdWrapper) Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
-	// we need to rebuild this port-forward based client every time so we can tolerate API server rollouts
-	clientInternal, done, err := e.newEtcdClientInternal()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build port-forward based etcd client: %v", err)
-	}
-	defer done()
-	return clientInternal.Get(ctx, key, opts...)
+	// Port-forwarding and etcd requests go through the kube-apiserver, which can be
+	// briefly unavailable during a revision rollout on SNO. Retry creating the
+	// client and the etcd request to tolerate this transient disruption.
+	var resp *clientv3.GetResponse
+	// in theory the max time we tolerate disruption on an SNO cluster is 60 seconds
+	// so we set the timeout to 5 min just in case
+	err := onErrorWithTimeout(5*time.Minute, func(error) bool {
+		return ctx.Err() == nil
+	}, func() error {
+		// we need to rebuild this port-forward based client every time so we can tolerate API server rollouts
+		clientInternal, done, err := e.newEtcdClientInternal(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to build port-forward based etcd client: %v", err)
+		}
+		defer done()
+		resp, err = clientInternal.Get(ctx, key, opts...)
+		return err
+	})
+	return resp, err
 }
 
-func (e *etcdWrapper) newEtcdClientInternal() (EtcdClient, func(), error) {
-	ctx, cancel := context.WithCancel(context.Background())
+func (e *etcdWrapper) newEtcdClientInternal(ctx context.Context) (EtcdClient, func(), error) {
+	ctx, cancel := context.WithCancel(ctx)
 	cmd := exec.CommandContext(ctx, "oc", "port-forward", "service/etcd", ":2379", "-n", "openshift-etcd")
 
+	var etcdClient3 *clientv3.Client
 	done := func() {
+		if etcdClient3 != nil {
+			// release the etcd client's gRPC connection and background goroutines
+			_ = etcdClient3.Close()
+		}
 		cancel()
 		_ = cmd.Wait() // wait to clean up resources but ignore returned error since cancel kills the process
 	}
@@ -100,7 +117,7 @@ func (e *etcdWrapper) newEtcdClientInternal() (EtcdClient, func(), error) {
 		return nil, nil, err
 	}
 
-	etcdClient3, err := clientv3.New(clientv3.Config{
+	etcdClient3, err = clientv3.New(clientv3.Config{
 		Endpoints:   []string{"https://127.0.0.1:" + port},
 		DialTimeout: 30 * time.Second,
 		TLS:         tlsConfig,
