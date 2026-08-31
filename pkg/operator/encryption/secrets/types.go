@@ -67,6 +67,22 @@ const (
 	// values fetched from the referenced configmap in openshift-config. The full data key is
 	// constructed as prefix + configMapName + separator + dataKey.
 	encryptionSecretKMSConfigMapDataPrefix = "encryption.apiserver.operator.openshift.io-kms-plugin-configmap-"
+
+	// EncryptionSecretTargetRemoteKeyID is the desired remote KMS key (KEK) to migrate toward.
+	// Written only by keyController.
+	EncryptionSecretTargetRemoteKeyID = "encryption.apiserver.operator.openshift.io/target-remote-key-id"
+
+	// EncryptionSecretMigratedRemoteKeyID is the last fully migrated remote KMS key (KEK).
+	// Written by keyController at bootstrap and by migrationController on rotation completion.
+	EncryptionSecretMigratedRemoteKeyID = "encryption.apiserver.operator.openshift.io/migrated-remote-key-id"
+
+	// EncryptionSecretRemoteKeyConvergedAt is the RFC3339 timestamp when the candidate remote
+	// key first achieved cluster-wide convergence. Written only by keyController.
+	EncryptionSecretRemoteKeyConvergedAt = "encryption.apiserver.operator.openshift.io/remote-key-converged-at"
+
+	// EncryptionSecretRemoteKeyConvergedID is the candidate remote key the convergence
+	// timestamp belongs to. Written only by keyController.
+	EncryptionSecretRemoteKeyConvergedID = "encryption.apiserver.operator.openshift.io/remote-key-converged-id"
 )
 
 // MigratedGroupResources is the data structured stored in the

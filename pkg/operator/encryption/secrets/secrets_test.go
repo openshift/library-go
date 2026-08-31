@@ -220,6 +220,33 @@ func TestRoundtrip(t *testing.T) {
 				ExternalReason: "external",
 			},
 		},
+		{
+			name:      "full kms with remote key annotations",
+			component: "kms",
+			ks: state.KeyState{
+				Key: v1.Key{
+					Name:   "3",
+					Secret: base64.StdEncoding.EncodeToString(emptyKey),
+				},
+				Backed: true,
+				Mode:   "KMS",
+				KMS: &state.KMSState{
+					Encryption: &v1.KMSConfiguration{
+						APIVersion: "v2",
+						Name:       "3",
+						Endpoint:   "unix:///var/run/kmsplugin/kms-3.sock",
+						Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+					},
+					Plugin: defaultKMSPluginConfig,
+				},
+				RemoteKey: state.RemoteKeyState{
+					TargetRemoteKeyID:   "remote-key-new",
+					MigratedRemoteKeyID: "remote-key-old",
+					ConvergedAt:         now,
+					ConvergedID:         "remote-key-new",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
