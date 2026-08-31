@@ -548,26 +548,8 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3d: hash matches, no result, pod running — progressing.
-			name: "pod exists, hash matches, no result yet, requeues",
-			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
-				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
-				},
-			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
-			apiServerObjects:         []runtime.Object{apiServerWithKMS},
-			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			initialDirtyDeployer:     true,
-			preconditionsMet:         true,
-			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting for preflight pod to report result for cuZm_g=="},
-			},
-		},
-		{
-			// Scenario 3c: terminal — pod exited without reporting hash.
-			name: "pod succeeded without reporting hash, reports error",
+			// Scenario 3c: terminal — pod exited without reporting result.
+			name: "pod succeeded without reporting result, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodSucceeded,
 			}},
@@ -583,27 +565,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3d: terminal — pod exited without reporting result.
-			name: "pod succeeded without reporting result after hash posted, reports error",
-			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
-				Phase: corev1.PodSucceeded,
-				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
-				},
-			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
-			apiServerObjects:         []runtime.Object{apiServerWithKMS},
-			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			initialDirtyDeployer:     true,
-			preconditionsMet:         true,
-			expectedError:            "preflight pod completed without reporting result for hash cuZm_g==",
-			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash cuZm_g=="},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
-			},
-		},
-		{
-			// Scenario 3e: check passed — done.
+			// Scenario 3d: check passed — done.
 			name: "pod succeeded, cleans up immediately",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -630,7 +592,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3f: terminal — check failed.
+			// Scenario 3e: terminal — check failed.
 			name: "pod exists, hash matches, result is False, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -688,7 +650,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3f: ensurePreflightResult is a no-op (already written), terminal.
+			// Scenario 3e: ensurePreflightResult is a no-op (already written), terminal.
 			name: "result already written for this hash (failed), ensurePreflightResult is a no-op",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -719,7 +681,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3e: write result fails — transient error, not terminal.
+			// Scenario 3d: write result fails — transient error, not terminal.
 			name: "UpdateKMSEncryptionStatus returns error, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -819,8 +781,8 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3c: no hash condition, pod running, no timeout — progressing.
-			name: "pod exists, no hash condition yet, waits for pod to report",
+			// Scenario 3c: no result reported, pod running, no timeout — progressing.
+			name: "pod exists, no result yet, waits for pod to report",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodRunning,
 			}},
@@ -831,11 +793,11 @@ func TestKMSPreflightController(t *testing.T) {
 			preconditionsMet:         true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting for preflight pod to report config hash for cuZm_g=="},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting for preflight pod to report result for cuZm_g=="},
 			},
 		},
 		{
-			// Scenario 3c: terminal — no hash, timeout via PodScheduled condition fallback.
+			// Scenario 3c: terminal — no result, timeout via PodScheduled condition fallback.
 			name: "pod stuck in Pending with no StartTime, falls back to PodScheduled condition for timeout",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodPending,
@@ -848,15 +810,15 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod has not reported config hash after 3m0s: pod is in Pending phase",
+			expectedError:            "preflight pod has not reported result after 3m0s: pod is in Pending phase",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported config hash after 3m0s: pod is in Pending phase"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported result after 3m0s: pod is in Pending phase"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
-			// Scenario 3c: terminal — no hash, timeout via StartTime.
-			name: "pod stuck in Pending without reporting hash, goes degraded with phase",
+			// Scenario 3c: terminal — no result, timeout via StartTime.
+			name: "pod stuck in Pending without reporting result, goes degraded with phase",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:     corev1.PodPending,
 				StartTime: &metav1.Time{Time: time.Now().Add(-5 * time.Minute)},
@@ -866,9 +828,9 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod has not reported config hash after 3m0s: pod is in Pending phase",
+			expectedError:            "preflight pod has not reported result after 3m0s: pod is in Pending phase",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported config hash after 3m0s: pod is in Pending phase"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod has not reported result after 3m0s: pod is in Pending phase"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
@@ -895,14 +857,14 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod has not reported config hash after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image",
+			expectedError:            "preflight pod has not reported result after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "ImagePullBackOff", Message: "preflight pod has not reported config hash after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "ImagePullBackOff", Message: "preflight pod has not reported result after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
 		{
-			// Scenario 3d: terminal — timeout waiting for result.
+			// Scenario 3c: terminal — timeout waiting for result.
 			name: "pod stuck without reporting result past timeout, goes degraded",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:     corev1.PodRunning,
