@@ -156,6 +156,18 @@ func TestEncryptionIntegration(tt *testing.T) {
 		{Group: "operator.openshift.io", Resource: "kubeapiservers"},
 		{Group: "operator.openshift.io", Resource: "kubeschedulers"},
 	})
+	encryptionSecretSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + component}
+	encryptionConfigurationComputer := controllers.NewEncryptionConfigurationComputer(
+		component,
+		[]string{},
+		provider,
+		deployer,
+		deployer,
+		kubeClient.CoreV1(),
+		fakeApiServerClient,
+		operatorClient,
+		encryptionSecretSelector,
+	)
 
 	controllers, err := encryption.NewControllers(
 		component,
@@ -173,7 +185,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		nil, // resourceSyncer
 		&dynamicKMSEncryptionStatusProvider{client: dynamicClient.Resource(operatorGVR)},
 		kmsPreflightDeployer,
-		controllers.NoopEncryptionConfigurationComputer{},
+		encryptionConfigurationComputer,
 	)
 	if err != nil {
 		t.Fatalf("failed to initialize controllers: %v", err)

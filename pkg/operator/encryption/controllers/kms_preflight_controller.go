@@ -23,7 +23,6 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
-	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -197,18 +196,14 @@ type KMSPreflightDeployer interface {
 }
 
 type kmsPreflightController struct {
-	controllerInstanceName   string
-	instanceName             string
-	unsupportedConfigPrefix  []string
-	encryptionSecretSelector metav1.ListOptions
+	controllerInstanceName string
 
 	operatorClient   operatorv1helpers.OperatorClient
 	apiServerClient  configv1client.APIServerInterface
 	secretsClient    corev1client.SecretsGetter
 	configMapsClient corev1client.ConfigMapsGetter
 
-	deployer           KMSPreflightDeployer
-	encryptionDeployer statemachine.Deployer
+	deployer KMSPreflightDeployer
 	// encryptionConfigurationComputer is called right before Deploy to produce the
 	// encryption configuration secret passed to the deployer.
 	encryptionConfigurationComputer EncryptionConfigurationComputer
@@ -313,15 +308,9 @@ func NewKMSPreflightController(
 	configMapsClient corev1client.ConfigMapsGetter,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
-	unsupportedConfigPrefix []string,
-	encryptionDeployer statemachine.Deployer,
-	encryptionSecretSelector metav1.ListOptions,
 ) factory.Controller {
 	c := &kmsPreflightController{
-		controllerInstanceName:   factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
-		instanceName:             instanceName,
-		unsupportedConfigPrefix:  unsupportedConfigPrefix,
-		encryptionSecretSelector: encryptionSecretSelector,
+		controllerInstanceName: factory.ControllerInstanceName(instanceName, "EncryptionKMSPreflight"),
 
 		operatorClient:   operatorClient,
 		apiServerClient:  apiServerClient,
@@ -329,7 +318,6 @@ func NewKMSPreflightController(
 		configMapsClient: configMapsClient,
 
 		deployer:                        deployer,
-		encryptionDeployer:              encryptionDeployer,
 		encryptionConfigurationComputer: encryptionConfigurationComputer,
 		// assume resources may exist from a previous process run
 		dirtyDeployer:            true,
