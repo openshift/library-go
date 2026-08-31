@@ -21,16 +21,6 @@ type EncryptionConfigurationComputer interface {
 	ComputeEncryptionConfiguration(ctx context.Context) (*corev1.Secret, error)
 }
 
-// NoopEncryptionConfigurationComputer is a placeholder EncryptionConfigurationComputer
-// that returns nil until a real implementation is available.
-type NoopEncryptionConfigurationComputer struct{}
-
-var _ EncryptionConfigurationComputer = NoopEncryptionConfigurationComputer{}
-
-func (NoopEncryptionConfigurationComputer) ComputeEncryptionConfiguration(_ context.Context) (*corev1.Secret, error) {
-	return nil, nil
-}
-
 // encryptionConfigurationComputer is the default EncryptionConfigurationComputer.
 // It derives the encryption configuration the preflight workload should run with by applying
 // the same key-planning and config-computation path as the key and state controllers.
