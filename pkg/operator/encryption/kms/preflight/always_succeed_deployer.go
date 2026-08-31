@@ -38,11 +38,6 @@ func (d *AlwaysSucceedKMSPreflightDeployer) Status(_ context.Context) (string, c
 		Phase: corev1.PodSucceeded,
 		Conditions: []corev1.PodCondition{
 			{
-				Type:    controllers.KMSPreflightConfigHashPodCondition,
-				Status:  corev1.ConditionTrue,
-				Message: d.configHash,
-			},
-			{
 				Type:   controllers.KMSPreflightResultPodCondition,
 				Status: corev1.ConditionTrue,
 			},

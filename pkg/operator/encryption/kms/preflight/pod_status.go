@@ -12,9 +12,9 @@ import (
 	kmsservice "k8s.io/kms/pkg/service"
 )
 
-func setPodCheckCondition(ctx context.Context, podClient corev1client.PodInterface, podName string, configHash string,
+func setPodCheckCondition(ctx context.Context, podClient corev1client.PodInterface, podName string,
 	status *kmsservice.StatusResponse, checkErr error) error {
-	conditions := podCheckConditions(configHash, status, checkErr)
+	conditions := podCheckConditions(status, checkErr)
 	return updatePodCheckConditions(ctx, podClient, podName, conditions)
 }
 
@@ -46,7 +46,7 @@ func updatePodCheckConditions(ctx context.Context, podClient corev1client.PodInt
 	return nil
 }
 
-func podCheckConditions(configHash string, status *kmsservice.StatusResponse, checkErr error) []corev1.PodCondition {
+func podCheckConditions(status *kmsservice.StatusResponse, checkErr error) []corev1.PodCondition {
 	now := metav1.Now()
 
 	checkStatus, checkReason, checkMessage := corev1.ConditionTrue, "Succeeded", ""
@@ -60,12 +60,6 @@ func podCheckConditions(configHash string, status *kmsservice.StatusResponse, ch
 			Status:             checkStatus,
 			Reason:             checkReason,
 			Message:            checkMessage,
-			LastTransitionTime: now,
-		},
-		{
-			Type:               controllers.KMSPreflightConfigHashPodCondition,
-			Status:             corev1.ConditionTrue,
-			Message:            configHash,
 			LastTransitionTime: now,
 		},
 	}

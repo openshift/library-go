@@ -569,7 +569,6 @@ func TestKMSPreflightController(t *testing.T) {
 			name: "pod succeeded, cleans up immediately",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
 					{Type: KMSPreflightResultPodCondition, Status: corev1.ConditionTrue, LastTransitionTime: metav1.Now()},
 					{Type: KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "remote-key-abc"},
 				},
@@ -596,7 +595,6 @@ func TestKMSPreflightController(t *testing.T) {
 			name: "pod exists, hash matches, result is False, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
 					{Type: KMSPreflightResultPodCondition, Status: corev1.ConditionFalse, Message: "encrypt call failed", LastTransitionTime: metav1.Now()},
 					{Type: KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "remote-key-xyz"},
 				},
@@ -623,7 +621,6 @@ func TestKMSPreflightController(t *testing.T) {
 			name: "result already written for this hash (succeeded), ensurePreflightResult is a no-op",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
 					{Type: KMSPreflightResultPodCondition, Status: corev1.ConditionTrue, LastTransitionTime: metav1.Now()},
 				},
 			}},
@@ -654,7 +651,6 @@ func TestKMSPreflightController(t *testing.T) {
 			name: "result already written for this hash (failed), ensurePreflightResult is a no-op",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
 					{Type: KMSPreflightResultPodCondition, Status: corev1.ConditionFalse, Message: "encrypt call failed", LastTransitionTime: metav1.Now()},
 				},
 			}},
@@ -685,7 +681,6 @@ func TestKMSPreflightController(t *testing.T) {
 			name: "UpdateKMSEncryptionStatus returns error, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
 					{Type: KMSPreflightResultPodCondition, Status: corev1.ConditionTrue, LastTransitionTime: metav1.Now()},
 				},
 			}},
@@ -867,11 +862,9 @@ func TestKMSPreflightController(t *testing.T) {
 			// Scenario 3c: terminal — timeout waiting for result.
 			name: "pod stuck without reporting result past timeout, goes degraded",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
-				Phase:     corev1.PodRunning,
-				StartTime: &metav1.Time{Time: time.Now().Add(-5 * time.Minute)},
-				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: wellKnownMatchingHashForBaseVaultConfig},
-				},
+				Phase:      corev1.PodRunning,
+				StartTime:  &metav1.Time{Time: time.Now().Add(-5 * time.Minute)},
+				Conditions: []corev1.PodCondition{},
 			}},
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects:         []runtime.Object{apiServerWithKMS},

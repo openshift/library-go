@@ -156,11 +156,6 @@ func (h *kmsConfigHasher) hashReferencedConfigMap(ctx context.Context, hasher ha
 // Pod readiness gate condition types set by the preflight checker running inside
 // the pod. The checker PATCHes its own pod status with these conditions.
 const (
-	// KMSPreflightConfigHashPodCondition carries the config hash the pod was
-	// deployed for. The controller compares this against the required hash to
-	// detect stale pods from a previous config.
-	KMSPreflightConfigHashPodCondition corev1.PodConditionType = "KMSPreflightConfigHash"
-
 	// KMSPreflightResultPodCondition carries the outcome of the preflight check.
 	// Status True means the check passed; False means it failed, with details
 	// in the condition message.

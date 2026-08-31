@@ -96,7 +96,6 @@ spec:
       command: ["cluster-kube-apiserver-operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
         - --kms-sockets=unix:///var/run/kmsplugin/kms-1.sock
@@ -109,8 +108,6 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      - name: CONFIG_HASH
-        value: abc123
       resources:
         requests:
           memory: 50Mi
@@ -188,7 +185,6 @@ spec:
       command: ["cluster-kube-apiserver-operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
         - --kms-sockets=unix:///var/run/kmsplugin/kms-1.sock
@@ -201,8 +197,6 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      - name: CONFIG_HASH
-        value: abc123
       resources:
         requests:
           memory: 50Mi
@@ -310,7 +304,6 @@ spec:
       command: ["cluster-kube-apiserver-operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
         - --kms-sockets=unix:///var/run/kmsplugin/kms-2.sock,unix:///var/run/kmsplugin/kms-1.sock
@@ -323,8 +316,6 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      - name: CONFIG_HASH
-        value: abc123
       resources:
         requests:
           memory: 50Mi

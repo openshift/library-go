@@ -34,10 +34,6 @@ func TestAlwaysSucceedKMSPreflightDeployer(t *testing.T) {
 	if podStatus.Phase != corev1.PodSucceeded {
 		t.Errorf("expected PodSucceeded, got %s", podStatus.Phase)
 	}
-	hashCond := controllers.FindPodCondition(podStatus.Conditions, controllers.KMSPreflightConfigHashPodCondition)
-	if hashCond == nil || hashCond.Message != hash {
-		t.Errorf("expected hash condition with message %q, got %v", hash, hashCond)
-	}
 	resultCond := controllers.FindPodCondition(podStatus.Conditions, controllers.KMSPreflightResultPodCondition)
 	if resultCond == nil || resultCond.Status != corev1.ConditionTrue {
 		t.Errorf("expected result condition True, got %v", resultCond)

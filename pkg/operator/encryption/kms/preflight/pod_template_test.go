@@ -37,7 +37,6 @@ spec:
       command: ["operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
       env:
@@ -49,8 +48,6 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      - name: CONFIG_HASH
-        value: abc123
       resources:
         requests:
           memory: 50Mi
@@ -110,7 +107,6 @@ spec:
       command: ["operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --config-hash=$(CONFIG_HASH)
         - --pod-name=$(POD_NAME)
         - --pod-namespace=$(POD_NAMESPACE)
       env:
@@ -122,8 +118,6 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      - name: CONFIG_HASH
-        value: abc123
       resources:
         requests:
           memory: 50Mi
