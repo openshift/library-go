@@ -465,11 +465,11 @@ func (c *keyController) ensureKMSPreflightPassed(ctx context.Context, configHash
 	}
 
 	// Scenario 2: preflight passed — proceed.
-	if encryptionStatus.Preflight.Result.ConfigHash == configHash && isPreflightResultSucceeded(&encryptionStatus.Preflight.Result) {
+	if isPreflightResultSucceeded(&encryptionStatus.Preflight.Result, configHash) {
 		return true, nil
 	}
 	// Scenario 3: preflight failed — surface the error.
-	if encryptionStatus.Preflight.Result.ConfigHash == configHash && isPreflightResultFailed(&encryptionStatus.Preflight.Result) {
+	if isPreflightResultFailed(&encryptionStatus.Preflight.Result, configHash) {
 		return false, fmt.Errorf("KMS preflight check failed for config hash %s; fix the KMS configuration to proceed", configHash)
 	}
 	// Scenario 4: back off: preflight check is still in progress.

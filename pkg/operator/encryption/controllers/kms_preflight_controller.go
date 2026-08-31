@@ -557,7 +557,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 
 	// Result already recorded for this hash as Succeeded: clean up the pod
 	// (idempotent if already gone) and return — no pod work needed.
-	if isPreflightResultSucceeded(existingResult) {
+	if isPreflightResultSucceeded(existingResult, requiredHash) {
 		return false, "", "", c.cleanupDeployer(ctx)
 	}
 
@@ -568,7 +568,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		// Result already recorded as Failed and the pod is gone: surface the error
 		// without re-deploying. The admin must fix the config (new hash) before a
 		// new check can run.
-		if isPreflightResultFailed(existingResult) {
+		if isPreflightResultFailed(existingResult, requiredHash) {
 			return false, "", "", &preflightError{
 				reason:  "PreflightCheckFailed",
 				message: fmt.Sprintf("preflight check failed for hash %s: pod was removed but failure is recorded in status", requiredHash),
@@ -694,12 +694,16 @@ func (c *kmsPreflightController) ensurePreflightResult(ctx context.Context, exis
 	})
 }
 
-func isPreflightResultSucceeded(result *operatorv1.KMSPreflightResult) bool {
-	return result != nil && result.Status == operatorv1.KMSPreflightResultSucceeded
+// isPreflightResultSucceeded reports a success for requiredHash. Checking the hash
+// too prevents a stale result from being read as a success of the current config.
+func isPreflightResultSucceeded(result *operatorv1.KMSPreflightResult, requiredHash string) bool {
+	return result != nil && result.ConfigHash == requiredHash && result.Status == operatorv1.KMSPreflightResultSucceeded
 }
 
-func isPreflightResultFailed(result *operatorv1.KMSPreflightResult) bool {
-	return result != nil && result.Status == operatorv1.KMSPreflightResultFailed
+// isPreflightResultFailed reports a failure for requiredHash. Checking the hash too
+// prevents a stale result from being read as a failure of the current config.
+func isPreflightResultFailed(result *operatorv1.KMSPreflightResult, requiredHash string) bool {
+	return result != nil && result.ConfigHash == requiredHash && result.Status == operatorv1.KMSPreflightResultFailed
 }
 
 type preflightError struct {
@@ -833,9 +837,5 @@ func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string,
 		return "", nil, configv1.KMSPluginConfig{}, nil
 	}
 
-	if encryptionStatus.Preflight.Result.ConfigHash == requiredHash {
-		r := encryptionStatus.Preflight.Result
-		return requiredHash, &r, apiServer.Spec.Encryption.KMS, nil
-	}
-	return requiredHash, nil, apiServer.Spec.Encryption.KMS, nil
+	return requiredHash, &encryptionStatus.Preflight.Result, apiServer.Spec.Encryption.KMS, nil
 }

@@ -500,6 +500,35 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			// Stale Succeeded result (different ConfigHash) must not short-circuit to
+			// cleanup: it does not apply to the required hash, so a fresh check deploys.
+			name:     "result Succeeded for a stale hash, no pod exists — deploys for required hash",
+			deployer: &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
+			encryptionConfigurationComputer: &fakeEncryptionConfigurationComputer{secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "enc-config", Namespace: "test"},
+			}},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{
+				observedConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				writtenStatus: &operatorv1.KMSPreflightResult{
+					Status:     operatorv1.KMSPreflightResultSucceeded,
+					ConfigHash: "stale-hash",
+				},
+			},
+			apiServerObjects:          []runtime.Object{apiServerWithKMS},
+			coreObjects:               []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:      true,
+			preconditionsMet:          true,
+			expectedComputerCallCount: 1,
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Deploying preflight pod for hash cuZm_g=="},
+			},
+			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
+				Status:     operatorv1.KMSPreflightResultSucceeded,
+				ConfigHash: "stale-hash",
+			},
+		},
+		{
 			// Scenario 2b: computer fails before deploy.
 			name:                            "encryption configuration computer fails, reports error",
 			deployer:                        &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
