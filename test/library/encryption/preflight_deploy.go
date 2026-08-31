@@ -82,8 +82,8 @@ func TestPreflightDeployAndPodMatchesOperand(ctx context.Context, t testing.TB, 
 }
 
 // AssertPreflightDeploy waits for checker pod conditions and validates Deploy side effects
-// (check container, plugin init container, config-hash / result / remote-key-ID conditions).
-// PodSpec drift vs the operand is AssertNoPreflightConfigDrift — call that separately.
+// (check container, plugin init container, deployed config hash, result / remote-key-ID
+// conditions). PodSpec drift vs the operand is AssertNoPreflightConfigDrift — call that separately.
 func AssertPreflightDeploy(ctx context.Context, t testing.TB, clientSet ClientSet, namespace string, deployer *preflight.PodPreflightDeployer) {
 	t.Helper()
 	require.NotNil(t, deployer)
@@ -96,10 +96,11 @@ func AssertPreflightDeploy(ctx context.Context, t testing.TB, clientSet ClientSe
 	require.Equal(t, preflight.CheckContainerName, preflightPod.Spec.Containers[0].Name)
 	require.NotEmpty(t, preflightPod.Spec.InitContainers, "expected KMS plugin init container")
 
+	var deployedHash string
 	var status corev1.PodStatus
 	err = wait.PollUntilContextTimeout(ctx, preflightStatusPollInterval, preflightStatusPollTimeout, true, func(ctx context.Context) (bool, error) {
 		var statusErr error
-		status, statusErr = deployer.Status(ctx)
+		deployedHash, status, statusErr = deployer.Status(ctx)
 		if statusErr != nil {
 			return false, statusErr
 		}
@@ -110,8 +111,7 @@ func AssertPreflightDeploy(ctx context.Context, t testing.TB, clientSet ClientSe
 	})
 	require.NoError(t, err, "waiting for KMSPreflightResult condition")
 
-	hashCond := requirePodCondition(t, status.Conditions, controllers.KMSPreflightConfigHashPodCondition, corev1.ConditionTrue)
-	require.Equal(t, preflightDeployConfigHash, hashCond.Message)
+	require.Equal(t, preflightDeployConfigHash, deployedHash, "deployed config hash from pod annotation")
 
 	resultCond := requirePodCondition(t, status.Conditions, controllers.KMSPreflightResultPodCondition, corev1.ConditionTrue)
 	require.Equal(t, "Succeeded", resultCond.Reason)
