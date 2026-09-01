@@ -482,7 +482,7 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     2b. No result yet: call Deploy. On success, requeue and wait for the pod to report results.
 //
 //  3. Preflight required, pod exists (Status returns a deployed hash and PodStatus).
-//     The deployed hash comes from the pod's ConfigHashAnnotation, set at creation,
+//     The deployed hash comes from the pod's config-hash annotation, set at creation,
 //     so it is available even when the pod never ran. Scenarios are listed in the
 //     order they are evaluated:
 //

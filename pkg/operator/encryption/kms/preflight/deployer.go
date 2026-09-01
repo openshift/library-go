@@ -26,11 +26,11 @@ const (
 	// EncryptionConfigSecretName is the secret Deploy creates for the preflight pod.
 	EncryptionConfigSecretName = "kms-preflight-encryption-config"
 
-	// ConfigHashAnnotation records, on the preflight pod, the config hash it was
+	// configHashAnnotation records, on the preflight pod, the config hash it was
 	// deployed for. It is set at render time (see assets/kms-preflight-pod.yaml)
 	// and read back by Status so the controller can detect a stale pod even when
 	// the pod never ran and therefore never reported any status condition.
-	ConfigHashAnnotation = "encryption.apiserver.operator.openshift.io/kms-preflight-config-hash"
+	configHashAnnotation = "encryption.apiserver.operator.openshift.io/kms-preflight-config-hash"
 
 	preflightRBACName = "kms-preflight"
 	preflightAppLabel = "openshift-kms-preflight"
@@ -118,7 +118,7 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 }
 
 // Status returns the config hash the current preflight pod was deployed for
-// (from its ConfigHashAnnotation) along with the pod status. The hash lets the
+// (from its configHashAnnotation) along with the pod status. The hash lets the
 // controller detect a stale pod regardless of whether the pod ever ran.
 func (d *PodPreflightDeployer) Status(ctx context.Context) (string, corev1.PodStatus, error) {
 	// preflight status checks are not very frequent, so we use the live client instead of a cached lister
@@ -127,7 +127,7 @@ func (d *PodPreflightDeployer) Status(ctx context.Context) (string, corev1.PodSt
 		return "", corev1.PodStatus{}, fmt.Errorf("failed to get pod for preflight %s/%s: %w", d.namespace, PodName, err)
 	}
 
-	return pod.Annotations[ConfigHashAnnotation], pod.Status, nil
+	return pod.Annotations[configHashAnnotation], pod.Status, nil
 }
 
 func (d *PodPreflightDeployer) Cleanup(ctx context.Context) error {

@@ -13,13 +13,14 @@ import (
 )
 
 type kmsPreflightTemplate struct {
-	PodName        string
-	Namespace      string
-	ConfigHash     string
-	OperatorImage  string
-	Command        string
-	KMSCallTimeout string
-	StaticPod      bool
+	PodName                 string
+	Namespace               string
+	ConfigHashAnnotationKey string
+	ConfigHash              string
+	OperatorImage           string
+	Command                 string
+	KMSCallTimeout          string
+	StaticPod               bool
 }
 
 func newKmsPreflightTemplate(
@@ -37,13 +38,14 @@ func newKmsPreflightTemplate(
 	}
 
 	return kmsPreflightTemplate{
-		PodName:        podName,
-		Namespace:      namespace,
-		ConfigHash:     configHash,
-		OperatorImage:  operatorImage,
-		Command:        strings.Join(operatorCommandQuoted, ","),
-		KMSCallTimeout: kmsCallTimeout.String(),
-		StaticPod:      staticPod,
+		PodName:                 podName,
+		Namespace:               namespace,
+		ConfigHashAnnotationKey: configHashAnnotation,
+		ConfigHash:              configHash,
+		OperatorImage:           operatorImage,
+		Command:                 strings.Join(operatorCommandQuoted, ","),
+		KMSCallTimeout:          kmsCallTimeout.String(),
+		StaticPod:               staticPod,
 	}
 }
 
