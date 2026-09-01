@@ -1128,15 +1128,15 @@ func (d *configurableKMSPreflightDeployer) Deploy(_ context.Context, configHash 
 	return nil
 }
 
-func (d *configurableKMSPreflightDeployer) Status(_ context.Context) (corev1.PodStatus, error) {
+func (d *configurableKMSPreflightDeployer) Status(_ context.Context) (string, corev1.PodStatus, error) {
 	if !d.deployed {
-		return corev1.PodStatus{}, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")
+		return "", corev1.PodStatus{}, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")
 	}
 	resultStatus, resultMessage := corev1.ConditionTrue, ""
 	if d.fail.Load() {
 		resultStatus, resultMessage = corev1.ConditionFalse, "intentional failure for testing"
 	}
-	return corev1.PodStatus{
+	return d.configHash, corev1.PodStatus{
 		Phase: corev1.PodSucceeded,
 		Conditions: []corev1.PodCondition{
 			{Type: controllers.KMSPreflightConfigHashPodCondition, Status: corev1.ConditionTrue, Message: d.configHash},
