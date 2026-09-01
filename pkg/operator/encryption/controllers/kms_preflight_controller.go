@@ -339,7 +339,7 @@ func NewKMSPreflightController(
 }
 
 func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
-	degradedCondition := applyoperatorv1.OperatorCondition().WithType("EncryptionKMSPreflightControllerDegraded")
+	degradedCondition := applyoperatorv1.OperatorCondition().WithType("EncryptionKMSPreflightControllerDegraded").WithStatus(operatorv1.ConditionFalse)
 	progressingCondition := applyoperatorv1.OperatorCondition().WithType("EncryptionKMSPreflightControllerProgressing").WithStatus(operatorv1.ConditionFalse)
 
 	defer func() {
