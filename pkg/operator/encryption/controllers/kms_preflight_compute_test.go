@@ -34,7 +34,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 	instanceName := "test"
 
 	t.Run("first key, no existing secrets, produces key ID 1", func(t *testing.T) {
-		controller := newKMSPreflightComputeController(
+		computer := newKMSPreflightComputeComputer(
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			&fakeEncryptionDeployer{converged: true},
 			apiServerWithKMS,
@@ -42,7 +42,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := controller.computeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -103,7 +103,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 	t.Run("existing key with deployed config, uses next key ID and retains credentials", func(t *testing.T) {
 		existingKeySecret := newExistingKMSKeySecret(t, instanceName, apiServerWithKMS, encryptedGRs, "3")
 		deployed := newDeployedKMSEncryptionConfig(t, instanceName, encryptedGRs, existingKeySecret)
-		controller := newKMSPreflightComputeController(
+		computer := newKMSPreflightComputeComputer(
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, existingKeySecret},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -111,7 +111,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := controller.computeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -169,7 +169,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 	t.Run("new candidate key and existing key both use production endpoints", func(t *testing.T) {
 		existingKeySecret := newExistingKMSKeySecret(t, instanceName, apiServerWithKMS, encryptedGRs, "3")
 		deployed := newDeployedKMSEncryptionConfig(t, instanceName, encryptedGRs, existingKeySecret)
-		controller := newKMSPreflightComputeController(
+		computer := newKMSPreflightComputeComputer(
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, existingKeySecret},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -177,7 +177,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := controller.computeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -224,7 +224,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			t.Fatalf("failed to serialize unbacked encryption config: %v", err)
 		}
 
-		controller := newKMSPreflightComputeController(
+		computer := newKMSPreflightComputeComputer(
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, key3},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -232,7 +232,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := controller.computeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -275,7 +275,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			},
 		}
 		deployed := newDeployedKMSEncryptionConfig(t, instanceName, encryptedGRs, validKeySecret)
-		controller := newKMSPreflightComputeController(
+		computer := newKMSPreflightComputeComputer(
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, validKeySecret, invalidKeySecret},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -283,7 +283,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := controller.computeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -344,7 +344,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			t.Fatalf("failed to build existing key secret: %v", err)
 		}
 		deployed := newDeployedKMSEncryptionConfig(t, instanceName, encryptedGRs, existingKeySecret)
-		controller := newKMSPreflightComputeController(
+		computer := newKMSPreflightComputeComputer(
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, existingKeySecret},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -352,7 +352,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := controller.computeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -381,7 +381,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 	})
 
 	t.Run("API server revisions not converged, still computes preflight config", func(t *testing.T) {
-		controller := newKMSPreflightComputeController(
+		computer := newKMSPreflightComputeComputer(
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			&fakeEncryptionDeployer{converged: false},
 			apiServerWithKMS,
@@ -389,7 +389,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		secret, err := controller.computeEncryptionConfiguration(context.TODO())
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -400,7 +400,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 
 	t.Run("EncryptedGRs are read at compute time", func(t *testing.T) {
 		provider := &testProvider{encryptedGRs: []schema.GroupResource{{Resource: "secrets"}}}
-		controller := newKMSPreflightComputeController(
+		computer := newKMSPreflightComputeComputer(
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			&fakeEncryptionDeployer{converged: true},
 			apiServerWithKMS,
@@ -408,7 +408,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			instanceName,
 		)
 
-		first, err := controller.computeEncryptionConfiguration(context.TODO())
+		first, err := computer.ComputeEncryptionConfiguration(context.TODO())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -421,7 +421,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 		}
 
 		provider.encryptedGRs = []schema.GroupResource{{Resource: "secrets"}, {Resource: "configmaps"}}
-		second, err := controller.computeEncryptionConfiguration(context.TODO())
+		second, err := computer.ComputeEncryptionConfiguration(context.TODO())
 		if err != nil {
 			t.Fatalf("unexpected error after EncryptedGRs change: %v", err)
 		}
@@ -495,7 +495,7 @@ func TestKMSPreflightComputeEncryptionConfigurationErrors(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			controller := newKMSPreflightComputeController(
+			computer := newKMSPreflightComputeComputer(
 				scenario.coreObjects,
 				scenario.deployer,
 				scenario.apiServer,
@@ -503,7 +503,7 @@ func TestKMSPreflightComputeEncryptionConfigurationErrors(t *testing.T) {
 				instanceName,
 			)
 
-			secret, err := controller.computeEncryptionConfiguration(context.TODO())
+			secret, err := computer.ComputeEncryptionConfiguration(context.TODO())
 			if err == nil {
 				t.Fatalf("expected an error, got secret %+v", secret)
 			}
@@ -514,13 +514,13 @@ func TestKMSPreflightComputeEncryptionConfigurationErrors(t *testing.T) {
 	}
 }
 
-func newKMSPreflightComputeController(
+func newKMSPreflightComputeComputer(
 	coreObjects []runtime.Object,
 	encryptionDeployer statemachine.Deployer,
 	apiServer *configv1.APIServer,
 	provider Provider,
 	instanceName string,
-) *kmsPreflightController {
+) EncryptionConfigurationComputer {
 	fakeKubeClient := fake.NewSimpleClientset(coreObjects...)
 	fakeConfigClient := configv1clientfake.NewSimpleClientset(apiServer)
 	fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
@@ -529,16 +529,17 @@ func newKMSPreflightComputeController(
 		nil,
 		nil,
 	)
-	return &kmsPreflightController{
-		instanceName:             instanceName,
-		encryptionSecretSelector: metav1.ListOptions{},
-		operatorClient:           fakeOperatorClient,
-		apiServerClient:          fakeConfigClient.ConfigV1().APIServers(),
-		secretsClient:            fakeKubeClient.CoreV1(),
-		configMapsClient:         fakeKubeClient.CoreV1(),
-		encryptionDeployer:       encryptionDeployer,
-		provider:                 provider,
-	}
+	return NewEncryptionConfigurationComputer(
+		instanceName,
+		nil,
+		provider,
+		encryptionDeployer,
+		fakeKubeClient.CoreV1(),
+		fakeKubeClient.CoreV1(),
+		fakeConfigClient.ConfigV1().APIServers(),
+		fakeOperatorClient,
+		metav1.ListOptions{},
+	)
 }
 
 func assertKMSKeyCredentials(t *testing.T, cfg *encryptiondata.Config, keyID, roleID, secretID, caBundle string) {
