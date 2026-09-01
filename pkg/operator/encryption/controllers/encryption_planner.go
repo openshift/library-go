@@ -136,7 +136,7 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 	}
 
 	// Resolve mode before reading deployer/key state so callers fail fast on APIServer/operator errors.
-	currentMode, externalReason, apiEncryption, err := p.resolveModeReasonAndEncryptionConfig(ctx, opts.KMSPluginConfig)
+	currentMode, externalReason, apiEncryption, err := p.modeAndExternalReason(ctx, opts.KMSPluginConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -176,12 +176,12 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 	return snap, nil
 }
 
-func (p *EncryptionPlanner) resolveModeReasonAndEncryptionConfig(ctx context.Context, kmsConfig *configv1.KMSPluginConfig) (state.Mode, string, configv1.APIServerEncryption, error) {
-	if kmsConfig != nil {
-		apiEncryption := configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: *kmsConfig}
-		return resolveModeReasonFromEncryption(apiEncryption, p.operatorClient, p.unsupportedConfigPrefix)
+func (p *EncryptionPlanner) modeAndExternalReason(ctx context.Context, kmsPluginConfig *configv1.KMSPluginConfig) (state.Mode, string, configv1.APIServerEncryption, error) {
+	if kmsPluginConfig != nil {
+		apiEncryption := configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: *kmsPluginConfig}
+		return modeAndExternalReasonFromAPIServerEncryption(apiEncryption, p.operatorClient, p.unsupportedConfigPrefix)
 	}
-	return getCurrentModeReasonAndEncryptionConfig(ctx, p.apiServerClient, p.operatorClient, p.unsupportedConfigPrefix)
+	return modeAndExternalReasonFromAPIServer(ctx, p.apiServerClient, p.operatorClient, p.unsupportedConfigPrefix)
 }
 
 // PlanNextKey deterministically decides whether a new key is needed. It does not generate key material.

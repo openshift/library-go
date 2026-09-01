@@ -373,7 +373,7 @@ func fetchReferencedResources(ctx context.Context, providerCfg kmsProviderConfig
 	return refSecret, refCM, nil
 }
 
-func resolveModeReasonFromEncryption(encryption configv1.APIServerEncryption, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
+func modeAndExternalReasonFromAPIServerEncryption(encryption configv1.APIServerEncryption, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
 	operatorSpec, _, _, err := operatorClient.GetOperatorState()
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
@@ -397,14 +397,15 @@ func resolveModeReasonFromEncryption(encryption configv1.APIServerEncryption, op
 	}
 }
 
-// getCurrentModeReasonAndEncryptionConfig the active encryption mode, any external rotation reason from unsupported config overrides, and the full encryption spec.
-func getCurrentModeReasonAndEncryptionConfig(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
+// modeAndExternalReasonFromAPIServer returns the active encryption mode, any external rotation
+// reason from unsupported config overrides, and the cluster APIServer encryption spec.
+func modeAndExternalReasonFromAPIServer(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
 	apiServer, err := apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}
 
-	return resolveModeReasonFromEncryption(apiServer.Spec.Encryption, operatorClient, unsupportedConfigPrefix)
+	return modeAndExternalReasonFromAPIServerEncryption(apiServer.Spec.Encryption, operatorClient, unsupportedConfigPrefix)
 }
 
 var _ kmsConfigHasherResourceProvider = &prefetchedKMSConfigHasherResourceProvider{}
