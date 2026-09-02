@@ -319,18 +319,20 @@ type fakeDeployer struct {
 	deployErr                error
 	statusErr                error
 	cleanupErr               error
+	deployedHash             string
 	podStatus                corev1.PodStatus
 	deployedEncryptionConfig *corev1.Secret
 }
 
-func (f *fakeDeployer) Deploy(_ context.Context, _ string, encryptionConfig *corev1.Secret) error {
+func (f *fakeDeployer) Deploy(_ context.Context, configHash string, encryptionConfig *corev1.Secret) error {
 	f.deployed = true
+	f.deployedHash = configHash
 	f.deployedEncryptionConfig = encryptionConfig
 	return f.deployErr
 }
 
-func (f *fakeDeployer) Status(_ context.Context) (corev1.PodStatus, error) {
-	return f.podStatus, f.statusErr
+func (f *fakeDeployer) Status(_ context.Context) (string, corev1.PodStatus, error) {
+	return f.deployedHash, f.podStatus, f.statusErr
 }
 
 func (f *fakeDeployer) Cleanup(_ context.Context) error {
@@ -564,7 +566,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3b: terminal — pod exited without reporting hash.
+			// Scenario 3c: terminal — pod exited without reporting hash.
 			name: "pod succeeded without reporting hash, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodSucceeded,
@@ -741,12 +743,39 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3c: stale pod, cleanup succeeds — progressing.
-			name: "pod exists, hash is stale, cleans up",
-			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
-				Conditions: []corev1.PodCondition{
-					{Type: KMSPreflightConfigHashPodCondition, Message: "old-hash"},
-					{Type: KMSPreflightResultPodCondition, Status: corev1.ConditionTrue},
+			// Scenario 3a: a Failed pod from a previous (bad) config must be reaped
+			// once the config is corrected, so the fixed config can make progress.
+			// The staleness is detected from the deployed hash, not the pod phase.
+			name: "stale pod that failed for old config is cleaned up",
+			deployer: &fakeDeployer{deployedHash: "old-hash", podStatus: corev1.PodStatus{
+				Phase: corev1.PodFailed,
+			}},
+			encryptionStatusProvider:              &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
+			apiServerObjects:                      []runtime.Object{apiServerWithKMS},
+			coreObjects:                           []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:                  true,
+			preconditionsMet:                      true,
+			expectedPreflightDeployerCleanupCount: 1,
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Cleaning up preflight pod with stale configuration"},
+			},
+		},
+		{
+			// Scenario 3a: a stale pod that never ran (e.g. ImagePullBackOff) reports
+			// no conditions, but the deployed hash from its annotation still lets the
+			// controller detect it as stale and reap it. This is checked before the
+			// phase/condition scenarios, so it works even after a controller restart.
+			name: "stale pod that never ran is cleaned up",
+			deployer: &fakeDeployer{deployedHash: "old-hash", podStatus: corev1.PodStatus{
+				Phase: corev1.PodPending,
+				ContainerStatuses: []corev1.ContainerStatus{
+					{
+						Name: "kms-preflight-check",
+						State: corev1.ContainerState{
+							Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"},
+						},
+					},
 				},
 			}},
 			encryptionStatusProvider:              &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
@@ -761,7 +790,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3a: terminal — pod crashed.
+			// Scenario 3b: terminal — pod crashed.
 			name: "pod crashed without reporting conditions, keeps pod for inspection",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodFailed,
@@ -790,7 +819,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3b: no hash condition, pod running, no timeout — progressing.
+			// Scenario 3c: no hash condition, pod running, no timeout — progressing.
 			name: "pod exists, no hash condition yet, waits for pod to report",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodRunning,
@@ -806,7 +835,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3b: terminal — no hash, timeout via PodScheduled condition fallback.
+			// Scenario 3c: terminal — no hash, timeout via PodScheduled condition fallback.
 			name: "pod stuck in Pending with no StartTime, falls back to PodScheduled condition for timeout",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodPending,
@@ -826,7 +855,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3b: terminal — no hash, timeout via StartTime.
+			// Scenario 3c: terminal — no hash, timeout via StartTime.
 			name: "pod stuck in Pending without reporting hash, goes degraded with phase",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:     corev1.PodPending,
@@ -844,7 +873,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3b: terminal — ImagePullBackOff timeout.
+			// Scenario 3c: terminal — ImagePullBackOff timeout.
 			name: "pod stuck with ImagePullBackOff, goes degraded with container reason",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:     corev1.PodPending,
@@ -925,15 +954,11 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3c: cleanup error — transient, not terminal.
+			// Scenario 3a: cleanup error — transient, not terminal.
 			name: "cleanup fails on stale hash, reports error",
 			deployer: &fakeDeployer{
-				cleanupErr: fmt.Errorf("delete forbidden"),
-				podStatus: corev1.PodStatus{
-					Conditions: []corev1.PodCondition{
-						{Type: KMSPreflightConfigHashPodCondition, Message: "old-hash"},
-					},
-				},
+				cleanupErr:   fmt.Errorf("delete forbidden"),
+				deployedHash: "old-hash",
 			},
 			encryptionStatusProvider:              &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
 			apiServerObjects:                      []runtime.Object{apiServerWithKMS},
@@ -948,7 +973,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3a: terminal — pod crashed, no terminated container.
+			// Scenario 3b: terminal — pod crashed, no terminated container.
 			name: "pod crashed, no terminated container, keeps pod for inspection",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:   corev1.PodFailed,
@@ -966,7 +991,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3a: terminal — pod crashed with non-zero exit code.
+			// Scenario 3b: terminal — pod crashed with non-zero exit code.
 			name: "pod crashed with terminated container, no message, uses exit code",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodFailed,
@@ -1095,6 +1120,12 @@ func TestKMSPreflightController(t *testing.T) {
 			deployer := scenario.deployer
 			if deployer == nil {
 				deployer = &fakeDeployer{}
+			}
+			// For pod-exists cases (Status does not return NotFound) that don't set
+			// a deployed hash explicitly, default it to the current config hash so
+			// the stale-pod gate treats the pod as current.
+			if fd, ok := deployer.(*fakeDeployer); ok && fd.statusErr == nil && fd.deployedHash == "" {
+				fd.deployedHash = wellKnownMatchingHashForBaseVaultConfig
 			}
 
 			computer := scenario.encryptionConfigurationComputer

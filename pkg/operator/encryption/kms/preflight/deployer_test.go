@@ -841,6 +841,7 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 	scenarios := []struct {
 		name        string
 		objects     []runtime.Object
+		expectHash  string
 		expectPhase corev1.PodPhase
 		expectErr   string
 	}{
@@ -849,17 +850,33 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 			expectErr: "failed to get pod",
 		},
 		{
-			name: "pod returns pod status",
+			name: "pod returns hash and pod status",
+			objects: []runtime.Object{
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        PodName,
+						Namespace:   testNamespace,
+						Annotations: map[string]string{configHashAnnotationKey: testConfigHash},
+					},
+					Status: corev1.PodStatus{Phase: corev1.PodRunning},
+				},
+			},
+			expectHash:  testConfigHash,
+			expectPhase: corev1.PodRunning,
+		},
+		{
+			name: "pod without annotation returns empty hash",
 			objects: []runtime.Object{
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      PodName,
 						Namespace: testNamespace,
 					},
-					Status: corev1.PodStatus{Phase: corev1.PodRunning},
+					Status: corev1.PodStatus{Phase: corev1.PodPending},
 				},
 			},
-			expectPhase: corev1.PodRunning,
+			expectHash:  "",
+			expectPhase: corev1.PodPending,
 		},
 	}
 
@@ -867,7 +884,7 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			deployer, _ := newTestDeployer(t, scenario.objects...)
 
-			status, err := deployer.Status(context.Background())
+			hash, status, err := deployer.Status(context.Background())
 			if scenario.expectErr != "" {
 				if err == nil || !strings.Contains(err.Error(), scenario.expectErr) {
 					t.Fatalf("expected error containing %q, got %v", scenario.expectErr, err)
@@ -876,6 +893,9 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("Status() error = %v", err)
+			}
+			if hash != scenario.expectHash {
+				t.Fatalf("expected hash %q, got %q", scenario.expectHash, hash)
 			}
 			if status.Phase != scenario.expectPhase {
 				t.Fatalf("expected phase %q, got %q", scenario.expectPhase, status.Phase)

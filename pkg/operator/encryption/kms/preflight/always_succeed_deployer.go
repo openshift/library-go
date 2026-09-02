@@ -30,11 +30,11 @@ func (d *AlwaysSucceedKMSPreflightDeployer) Deploy(_ context.Context, configHash
 	return nil
 }
 
-func (d *AlwaysSucceedKMSPreflightDeployer) Status(_ context.Context) (corev1.PodStatus, error) {
+func (d *AlwaysSucceedKMSPreflightDeployer) Status(_ context.Context) (string, corev1.PodStatus, error) {
 	if !d.deployed {
-		return corev1.PodStatus{}, apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")
+		return "", corev1.PodStatus{}, apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")
 	}
-	return corev1.PodStatus{
+	return d.configHash, corev1.PodStatus{
 		Phase: corev1.PodSucceeded,
 		Conditions: []corev1.PodCondition{
 			{
