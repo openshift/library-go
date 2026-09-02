@@ -198,14 +198,14 @@ func (c *clientCertificateController) sync(ctx context.Context, syncCtx factory.
 		_ = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&secret.ObjectMeta)
 
 		// save the changes into secret
-		if err := c.saveSecret(secret, originalAnnotations); err != nil {
+		if err := c.saveSecret(ctx, secret, originalAnnotations); err != nil {
 			return err
 		}
 		syncCtx.Recorder().Eventf("ClientCertificateCreated", "A new client certificate for %s is available", c.controllerName)
 		c.reset()
 		return nil
 	} else if needsMetadataUpdate && len(secret.ResourceVersion) > 0 {
-		if err := c.saveSecret(secret, originalAnnotations); err != nil {
+		if err := c.saveSecret(ctx, secret, originalAnnotations); err != nil {
 			return err
 		}
 	}
@@ -336,9 +336,9 @@ func (c *clientCertificateController) createCSR(ctx context.Context) (string, er
 	return req.Name, nil
 }
 
-func (c *clientCertificateController) saveSecret(secret *corev1.Secret, oldAnnotations map[string]string) error {
+func (c *clientCertificateController) saveSecret(ctx context.Context, secret *corev1.Secret, oldAnnotations map[string]string) error {
 	if secret.ResourceVersion == "" {
-		actualSecret, err := c.spokeCoreClient.Secrets(c.SecretNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		actualSecret, err := c.spokeCoreClient.Secrets(c.SecretNamespace).Create(ctx, secret, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -353,7 +353,7 @@ func (c *clientCertificateController) saveSecret(secret *corev1.Secret, oldAnnot
 		return nil
 	}
 
-	actualSecret, err := c.spokeCoreClient.Secrets(c.SecretNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
+	actualSecret, err := c.spokeCoreClient.Secrets(c.SecretNamespace).Update(ctx, secret, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
