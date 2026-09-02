@@ -373,13 +373,7 @@ func fetchReferencedResources(ctx context.Context, providerCfg kmsProviderConfig
 	return refSecret, refCM, nil
 }
 
-// getCurrentModeReasonAndEncryptionConfig the active encryption mode, any external rotation reason from unsupported config overrides, and the full encryption spec.
-func getCurrentModeReasonAndEncryptionConfig(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
-	apiServer, err := apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
-	if err != nil {
-		return "", "", configv1.APIServerEncryption{}, err
-	}
-
+func modeAndExternalReasonFromAPIServerEncryption(encryption configv1.APIServerEncryption, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
 	operatorSpec, _, _, err := operatorClient.GetOperatorState()
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
@@ -390,7 +384,6 @@ func getCurrentModeReasonAndEncryptionConfig(ctx context.Context, apiServerClien
 		return "", "", configv1.APIServerEncryption{}, err
 	}
 
-	encryption := apiServer.Spec.Encryption
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(encryption.Type); currentMode {
 	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
@@ -402,6 +395,17 @@ func getCurrentModeReasonAndEncryptionConfig(ctx context.Context, apiServerClien
 	default:
 		return "", "", configv1.APIServerEncryption{}, fmt.Errorf("unknown encryption mode configured: %s", currentMode)
 	}
+}
+
+// modeAndExternalReasonFromAPIServer returns the active encryption mode, any external rotation
+// reason from unsupported config overrides, and the cluster APIServer encryption spec.
+func modeAndExternalReasonFromAPIServer(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
+	apiServer, err := apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return "", "", configv1.APIServerEncryption{}, err
+	}
+
+	return modeAndExternalReasonFromAPIServerEncryption(apiServer.Spec.Encryption, operatorClient, unsupportedConfigPrefix)
 }
 
 var _ kmsConfigHasherResourceProvider = &prefetchedKMSConfigHasherResourceProvider{}

@@ -1316,7 +1316,7 @@ var complexNestedEncryptionConfigJSON = `
 }
 `
 
-func TestGetCurrentModeReasonAndEncryptionConfig(t *testing.T) {
+func TestModeAndExternalReasonFromAPIServer(t *testing.T) {
 	scenarios := []struct {
 		name                  string
 		observedConfig        []byte
@@ -1392,7 +1392,7 @@ func TestGetCurrentModeReasonAndEncryptionConfig(t *testing.T) {
 			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 
 			// act
-			currentMode, externalReason, encryption, err := getCurrentModeReasonAndEncryptionConfig(context.TODO(), fakeApiServerClient, fakeOperatorClient, scenario.prefix)
+			currentMode, externalReason, encryption, err := modeAndExternalReasonFromAPIServer(context.TODO(), fakeApiServerClient, fakeOperatorClient, scenario.prefix)
 
 			// validate
 			if err != nil {

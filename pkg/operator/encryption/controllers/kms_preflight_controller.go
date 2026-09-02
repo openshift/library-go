@@ -475,7 +475,7 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //
 // TODO: in the future we might want to add retries for failed preflights.
 func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeue bool, progressReason, progressMessage string, err error) {
-	requiredHash, existingResult, _, err := c.preflightRequired(ctx)
+	requiredHash, existingResult, kmsCfg, err := c.preflightRequired(ctx)
 	if err != nil {
 		return false, "", "", err
 	}
@@ -504,7 +504,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 				message: fmt.Sprintf("preflight check failed for hash %s: pod was removed but failure is recorded in status", requiredHash),
 			}
 		}
-		encryptionConfig, err := c.encryptionConfigurationComputer.ComputeEncryptionConfiguration(ctx)
+		encryptionConfig, err := c.encryptionConfigurationComputer.ComputeEncryptionConfiguration(ctx, &kmsCfg)
 		if err != nil {
 			return true, "", "", fmt.Errorf("failed to compute encryption configuration: %w", err)
 		}

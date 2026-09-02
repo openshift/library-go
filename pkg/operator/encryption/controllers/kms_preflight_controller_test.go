@@ -379,7 +379,7 @@ type fakeEncryptionConfigurationComputer struct {
 	callCount int
 }
 
-func (f *fakeEncryptionConfigurationComputer) ComputeEncryptionConfiguration(_ context.Context) (*corev1.Secret, error) {
+func (f *fakeEncryptionConfigurationComputer) ComputeEncryptionConfiguration(_ context.Context, _ *configv1.KMSPluginConfig) (*corev1.Secret, error) {
 	f.callCount++
 	return f.secret, f.err
 }

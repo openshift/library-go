@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -10,12 +11,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -196,6 +199,38 @@ func TestEncryptionPlannerDecideVsMaterialize(t *testing.T) {
 	}
 	if key1.KeyID != key2.KeyID || key1.KeyID != plan1.KeyID {
 		t.Fatalf("key IDs diverged: plan=%d key1=%d key2=%d", plan1.KeyID, key1.KeyID, key2.KeyID)
+	}
+}
+
+func TestEncryptionPlannerLoadWithPrefetchedKMSPluginConfig(t *testing.T) {
+	apiServerWithKMS := newKMSVaultAPIServer()
+	kmsCfg := apiServerWithKMS.Spec.Encryption.KMS
+	encryptedGRs := []schema.GroupResource{{Group: "", Resource: "secrets"}}
+	fakeKubeClient := fake.NewSimpleClientset(&wellKnownBaseSecret, &wellKnownBaseConfigMap)
+	fakeConfigClient := configv1clientfake.NewSimpleClientset(apiServerWithKMS)
+	fakeConfigClient.PrependReactor("get", "apiservers", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("APIServer GET should be skipped when KMSPluginConfig is prefetched")
+	})
+	fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+		&operatorv1.StaticPodOperatorSpec{OperatorSpec: operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}},
+		&operatorv1.StaticPodOperatorStatus{},
+		nil,
+		nil,
+	)
+	planner := NewEncryptionPlanner("test", nil, &fakeEncryptionDeployer{converged: true}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, metav1.ListOptions{})
+
+	snap, err := planner.Load(context.TODO(), encryptedGRs, LoadOptions{
+		ListKeysWhileProgressing: true,
+		KMSPluginConfig:          &kmsCfg,
+	})
+	if err != nil {
+		t.Fatalf("Load with prefetched KMS config failed: %v", err)
+	}
+	if snap.CurrentMode != state.KMS {
+		t.Fatalf("expected KMS mode, got %q", snap.CurrentMode)
+	}
+	if snap.APIEncryption.Type != configv1.EncryptionTypeKMS {
+		t.Fatalf("expected KMS encryption type, got %q", snap.APIEncryption.Type)
 	}
 }
 
