@@ -109,6 +109,10 @@ type InstallerController struct {
 
 	installerPodMutationFns []InstallerPodMutationFunc
 
+	// installerPrecondition, when set, is consulted immediately before an installer pod is created for a node.
+	// A positive duration delays pod creation by that amount.
+	installerPrecondition InstallerPreconditionFunc
+
 	startupMonitorEnabled func() (bool, error)
 
 	factory          *factory.Factory
@@ -133,6 +137,20 @@ func (c *InstallerController) WithInstallerPodMutationFn(installerPodMutationFn 
 
 func (c *InstallerController) WithMinReadyDuration(minReadyDuration time.Duration) *InstallerController {
 	c.minReadyDuration = minReadyDuration
+	return c
+}
+
+// InstallerPreconditionFunc returns how long the installer controller should delay creating an
+// installer pod (which will restart the operand static pod) on the given node. A positive duration
+// requeues the controller to retry later; zero allows the pod to be created. An error makes the sync fail.
+type InstallerPreconditionFunc func(ctx context.Context, nodeName string) (delay time.Duration, reason string, err error)
+
+// WithInstallerPrecondition sets a precondition consulted immediately before creating an installer
+// pod for a node.  Operators can use it to delay operand restarts when doing so would be unsafe,
+// for example when restarting an etcd member while another control plane node is being rebooted
+// would lose quorum.
+func (c *InstallerController) WithInstallerPrecondition(precondition InstallerPreconditionFunc) *InstallerController {
+	c.installerPrecondition = precondition
 	return c
 }
 
@@ -520,6 +538,18 @@ func (c *InstallerController) manageInstallationPods(ctx context.Context, operat
 					if !c.now().After(earliestRetry) {
 						klog.V(4).Infof("Backing off node %s installer retry %d until %v", currNodeState.NodeName, currNodeState.LastFailedCount+1, earliestRetry)
 						return true, earliestRetry.Sub(c.now()), nil, nil, nil
+					}
+				}
+
+				if c.installerPrecondition != nil {
+					delay, reason, err := c.installerPrecondition(ctx, currNodeState.NodeName)
+					if err != nil {
+						return true, 0, nil, nil, err
+					}
+					if delay > 0 {
+						c.eventRecorder.Warningf("InstallerPreconditionNotMet", "Delaying installer pod for revision %d on node %q: %s",
+							currNodeState.TargetRevision, currNodeState.NodeName, reason)
+						return true, delay, nil, nil, nil
 					}
 				}
 
