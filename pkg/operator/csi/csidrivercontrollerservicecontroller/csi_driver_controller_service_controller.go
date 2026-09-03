@@ -61,7 +61,7 @@ import (
 //
 // <name>Available: indicates that the CSI Controller Service was successfully deployed and at least one Deployment replica is available.
 // <name>Progressing: indicates that the CSI Controller Service is being deployed.
-// <name>Degraded: produced when the sync() method returns an error.
+// <name>Degraded: true when the deployment has timed out progressing, when failing pods reduce availability (while not mid-rollout), or when sync returns an error.
 
 func NewCSIDriverControllerServiceController(
 	name string,
