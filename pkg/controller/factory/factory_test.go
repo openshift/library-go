@@ -3,10 +3,12 @@ package factory
 import (
 	"context"
 	"fmt"
-	clocktesting "k8s.io/utils/clock/testing"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	v1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -225,43 +227,46 @@ func TestControllerWithInformer2(t *testing.T) {
 func TestControllerScheduled(t *testing.T) {
 	syncCalled := make(chan struct{})
 	controller := New().ResyncSchedule("@every 1s").WithSync(func(ctx context.Context, controllerContext SyncContext) error {
-		syncCalled <- struct{}{}
+		select {
+		case syncCalled <- struct{}{}:
+		case <-ctx.Done():
+		}
 		return nil
 	}).ToController("test", events.NewInMemoryRecorder("fake-controller", clocktesting.NewFakePassiveClock(time.Now())))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	syncCounter := 0
-	var syncMutex sync.Mutex
+	var syncCounter atomic.Int32
+	var wg sync.WaitGroup
 
-	// observe sync calls
-	go func() {
+	wg.Go(func() {
 		for {
 			select {
 			case <-syncCalled:
-				syncMutex.Lock()
-				syncCounter++
-				t.Logf("#%d sync called", syncCounter)
-				syncMutex.Unlock()
+				i := syncCounter.Add(1)
+				t.Logf("#%d sync called", i)
 			case <-ctx.Done():
 				t.Logf("controller finished")
 				return
 			}
 		}
-	}()
+	})
 
-	go controller.Run(ctx, 1)
+	wg.Go(func() {
+		controller.Run(ctx, 1)
+	})
 
 	timeoutCtx, timeoutCtxCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer timeoutCtxCancel()
-	if err := wait.PollImmediateUntil(500*time.Millisecond, func() (done bool, err error) {
-		syncMutex.Lock()
-		defer syncMutex.Unlock()
-		return syncCounter > 3, nil
-	}, timeoutCtx.Done()); err != nil {
+	if err := wait.PollUntilContextCancel(timeoutCtx, 500*time.Millisecond, true, func(ctx context.Context) (done bool, err error) {
+		return syncCounter.Load() >= 3, nil
+	}); err != nil {
 		t.Errorf("failed to observe at least 3 sync calls: %v", err)
 	}
+
+	cancel()
+	wg.Wait()
 }
 
 func TestControllerSyncAfterStart(t *testing.T) {
