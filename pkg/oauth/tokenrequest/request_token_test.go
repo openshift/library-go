@@ -2,8 +2,10 @@ package tokenrequest
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -756,6 +758,56 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 					return
 				}
 			}
+		})
+	}
+}
+
+func TestDarwinCertVerifyErr(t *testing.T) {
+	cert := &x509.Certificate{}
+
+	for _, tc := range []struct {
+		name       string
+		err        error
+		checkError func(t *testing.T, err error)
+	}{
+		{
+			// macOS verification succeeded: no error must pass through as nil.
+			name: "nil error stays nil",
+			err:  nil,
+			checkError: func(t *testing.T, err error) {
+				t.Helper()
+				if err != nil {
+					t.Fatalf("expected nil error, got %T: %v", err, err)
+				}
+			},
+		},
+		{
+			name: "x509-prefixed error is rewritten to UnknownAuthorityError",
+			err:  errors.New("x509: certificate signed by unknown authority"),
+			checkError: func(t *testing.T, err error) {
+				t.Helper()
+				unknownAuthErr, ok := err.(x509.UnknownAuthorityError)
+				if !ok {
+					t.Fatalf("expected x509.UnknownAuthorityError, got %T: %v", err, err)
+				}
+				if unknownAuthErr.Cert != cert {
+					t.Fatalf("expected the offending cert to be preserved on the error")
+				}
+			},
+		},
+		{
+			name: "non-x509 error is returned unchanged",
+			err:  errors.New("some other error"),
+			checkError: func(t *testing.T, err error) {
+				t.Helper()
+				if err == nil || err.Error() != "some other error" {
+					t.Fatalf("expected the original error to be returned, got %T: %v", err, err)
+				}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.checkError(t, darwinCertVerifyErr(tc.err, cert))
 		})
 	}
 }

@@ -607,3 +607,20 @@ func verifyServerCertChain(dnsName string, chain []*x509.Certificate) ([][]*x509
 		DNSName:       dnsName,
 	})
 }
+
+// darwinCertVerifyErr normalizes certificate verification errors on macOS.
+// root_darwin.go has insufficient typed errors for the macOS platform, leading
+// to a generic string based "x509:" error rather than a typed one. This rewrites
+// such an error into an x509.UnknownAuthorityError so callers can react to it the
+// same way they do on Linux/Windows (e.g. falling back to the kubeconfig CA),
+// keeping the approach consistent across platforms.
+// https://github.com/golang/go/blob/5a6340ff28c87e099f33c941e3d73e50d715ddf7/src/crypto/x509/root_darwin.go#L74
+func darwinCertVerifyErr(err error, cert *x509.Certificate) error {
+	if err == nil {
+		return nil
+	}
+	if strings.HasPrefix(err.Error(), "x509:") {
+		return x509.UnknownAuthorityError{Cert: cert}
+	}
+	return err
+}
