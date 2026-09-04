@@ -60,6 +60,12 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		key.ExternalReason = v
 	}
 
+	remoteKey, err := readRemoteKeyAnnotations(s.Annotations, s.Namespace, s.Name)
+	if err != nil {
+		return state.KeyState{}, err
+	}
+	key.RemoteKey = remoteKey
+
 	keyMode := state.Mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
 	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
@@ -161,6 +167,8 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		}
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
 	}
+
+	ApplyRemoteKeyAnnotations(s.Annotations, ks.RemoteKey)
 
 	if ks.HasKMSEncryption() {
 		encryptionConfigurationData, err := encoding.EncodeKMSConfiguration(ks.KMS.Encryption)
