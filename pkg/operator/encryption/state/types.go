@@ -44,6 +44,8 @@ type KeyState struct {
 	// described whether it is backed by a secret.
 	Backed   bool
 	Migrated MigrationState
+	// RemoteKey tracks KMS remote key rotation progress stored as secret annotations.
+	RemoteKey RemoteKeyState
 	// some controller logic caused this secret to be created by the key controller.
 	InternalReason string
 	// the user via unsupportConfigOverrides.encryption.reason triggered this key.
@@ -171,6 +173,14 @@ type MigrationState struct {
 	Timestamp time.Time
 	// the resources that were migrated at some point in time to this key.
 	Resources []schema.GroupResource
+}
+
+// RemoteKeyState tracks KMS remote key rotation progress stored as secret annotations.
+type RemoteKeyState struct {
+	TargetRemoteKeyID   string
+	MigratedRemoteKeyID string
+	ConvergedAt         time.Time
+	ConvergedID         string
 }
 
 // Mode is the value associated with the encryptionSecretMode annotation

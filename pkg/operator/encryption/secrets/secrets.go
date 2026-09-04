@@ -114,6 +114,12 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		return state.KeyState{}, fmt.Errorf("secret %s/%s of mode %q must have non-empty key", s.Namespace, s.Name, keyMode)
 	}
 
+	remoteKey, err := readRemoteKeyAnnotations(s.Annotations, s.Namespace, s.Name)
+	if err != nil {
+		return state.KeyState{}, err
+	}
+	key.RemoteKey = remoteKey
+
 	return key, nil
 }
 
@@ -189,6 +195,8 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			s.Data[encryptionSecretKMSConfigMapDataPrefix+flatKey] = value
 		}
 	}
+
+	ApplyRemoteKeyAnnotations(s.Annotations, ks.RemoteKey)
 
 	return s, nil
 }
