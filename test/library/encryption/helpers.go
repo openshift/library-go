@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
 	oauthapiv1 "github.com/openshift/api/oauth/v1"
@@ -165,6 +166,23 @@ func GetClients(t testing.TB) ClientSet {
 	require.NoError(t, err)
 
 	return ClientSet{Etcd: etcdClient, ApiServerConfig: apiServerConfigClient, Kube: kubeClient, DynamicClient: dynamicClient}
+}
+
+// ReadKMSPreflightForOperator returns the operator's current preflight snapshot (zero when unset).
+// Snapshot it before applying a new KMS config and pass it to AssertKMSPreflightSucceededForOperator
+// to confirm a fresh preflight ran for that config.
+func ReadKMSPreflightForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string) (operatorv1.KMSPreflightCheck, error) {
+	t.Helper()
+	gvr := operatorGVRForNamespace(t, operatorNamespace)
+	obj, err := clientSet.DynamicClient.Resource(gvr).Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return operatorv1.KMSPreflightCheck{}, err
+	}
+	status, err := decodeKMSOperatorStatus(obj.Object)
+	if err != nil {
+		return operatorv1.KMSPreflightCheck{}, err
+	}
+	return status.EncryptionStatus.Preflight, nil
 }
 
 func WaitForEncryptionKeyBasedOn(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, encryptionType configv1.EncryptionType, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) {
