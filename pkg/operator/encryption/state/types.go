@@ -50,6 +50,16 @@ type KeyState struct {
 	ExternalReason string
 	// stores all the KMS encryption mode related configurations
 	KMS *KMSState
+	// RemoteKey tracks KMS remote key rotation annotations on the backing secret.
+	RemoteKey RemoteKeyState
+}
+
+// RemoteKeyState is the in-memory view of remote key rotation annotations.
+type RemoteKeyState struct {
+	TargetRemoteKeyID   string
+	MigratedRemoteKeyID string
+	ConvergedAt         time.Time
+	ConvergedID         string
 }
 
 func (k *KeyState) HasKMSEncryption() bool {

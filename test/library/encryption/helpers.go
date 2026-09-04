@@ -27,6 +27,8 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+
 	oauthapiv1 "github.com/openshift/api/oauth/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/openshift/library-go/test/library"
@@ -71,7 +73,7 @@ type ForceRotationFunc func(t testing.TB, ctx context.Context)
 
 // WaitForRotationCompleteFunc waits until re-migration after rotation has finished.
 // Static encryption waits for the next encryption key secret to be migrated;
-// KMS waits for a new finished entry in KeyRotationStatus, created by the rotation controller.
+// KMS waits until target-remote-key-id and migrated-remote-key-id converge on the new remote key ID.
 type WaitForRotationCompleteFunc func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario)
 
 // StaticEncryptionForceRotation returns a ForceRotationFunc that mints a new key via encryption.reason.
@@ -87,6 +89,49 @@ func WaitForNextEncryptionKeyRotation() WaitForRotationCompleteFunc {
 	return func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario) {
 		t.Helper()
 		WaitForNextMigratedKey(t, clientSet.Kube, prevKeyMeta, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	}
+}
+
+// WaitForKMSRemoteKeyRotationComplete waits until the write-key secret's target and migrated
+// remote key IDs match after an external KMS key rotation. Unlike static encryption rotation,
+// KMS remote key rotation does not mint a new encryption key secret.
+func WaitForKMSRemoteKeyRotationComplete() WaitForRotationCompleteFunc {
+	return func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario) {
+		t.Helper()
+		require.NotEmpty(t, prevKeyMeta.Name, "previous key name is required")
+
+		secret, err := clientSet.Kube.CoreV1().Secrets(scenario.Namespace).Get(context.Background(), prevKeyMeta.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		before, err := secrets.ReadRemoteKeyAnnotations(secret)
+		require.NoError(t, err)
+		previousMigrated := before.MigratedRemoteKeyID
+
+		t.Logf("Waiting for KMS remote key rotation to complete on secret %q (previous migrated-remote-key-id=%q)", prevKeyMeta.Name, previousMigrated)
+		// Do not use t.Context(): Ginkgo's GinkgoTBWrapper promotes Context() to a nil
+		// embedded testing.TB and panics (nil pointer dereference). The poll timeout
+		// below is the cancellation bound, matching other helpers in this file.
+		err = wait.PollUntilContextTimeout(context.Background(), waitPollInterval, waitPollTimeout, true, func(ctx context.Context) (bool, error) {
+			secret, err := clientSet.Kube.CoreV1().Secrets(scenario.Namespace).Get(ctx, prevKeyMeta.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil
+			}
+			rk, err := secrets.ReadRemoteKeyAnnotations(secret)
+			if err != nil {
+				return false, err
+			}
+			if len(rk.TargetRemoteKeyID) == 0 || len(rk.MigratedRemoteKeyID) == 0 {
+				return false, nil
+			}
+			if rk.TargetRemoteKeyID != rk.MigratedRemoteKeyID {
+				return false, nil
+			}
+			if len(previousMigrated) > 0 && rk.MigratedRemoteKeyID == previousMigrated {
+				return false, nil
+			}
+			t.Logf("KMS remote key rotation complete: target=migrated=%q", rk.MigratedRemoteKeyID)
+			return true, nil
+		})
+		require.NoError(t, err)
 	}
 }
 
