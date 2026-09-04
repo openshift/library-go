@@ -2,7 +2,6 @@ package tokenrequest
 
 import (
 	"bytes"
-	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -762,52 +761,63 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 	}
 }
 
-func TestDarwinCertVerifyErr(t *testing.T) {
-	cert := &x509.Certificate{}
+func TestConvertErrorIfUnknownX509(t *testing.T) {
+	x509Err := errors.New("x509: certificate signed by unknown authority")
+	otherErr := errors.New("some other error")
 
 	for _, tc := range []struct {
-		name       string
-		err        error
-		checkError func(t *testing.T, err error)
+		name string
+		goos string
+		err  error
+		// wrapExpected is true when the error is expected to be wrapped in an
+		// unknownX509VerificationError; otherwise the original error must be
+		// returned unchanged.
+		wrapExpected bool
 	}{
 		{
-			// macOS verification succeeded: no error must pass through as nil.
-			name: "nil error stays nil",
-			err:  nil,
-			checkError: func(t *testing.T, err error) {
-				t.Helper()
-				if err != nil {
-					t.Fatalf("expected nil error, got %T: %v", err, err)
-				}
-			},
+			name:         "nil error stays nil on darwin",
+			goos:         "darwin",
+			err:          nil,
+			wrapExpected: false,
 		},
 		{
-			name: "x509-prefixed error is rewritten to UnknownAuthorityError",
-			err:  errors.New("x509: certificate signed by unknown authority"),
-			checkError: func(t *testing.T, err error) {
-				t.Helper()
-				unknownAuthErr, ok := err.(x509.UnknownAuthorityError)
-				if !ok {
-					t.Fatalf("expected x509.UnknownAuthorityError, got %T: %v", err, err)
-				}
-				if unknownAuthErr.Cert != cert {
-					t.Fatalf("expected the offending cert to be preserved on the error")
-				}
-			},
+			name:         "x509-prefixed error is wrapped on darwin",
+			goos:         "darwin",
+			err:          x509Err,
+			wrapExpected: true,
 		},
 		{
-			name: "non-x509 error is returned unchanged",
-			err:  errors.New("some other error"),
-			checkError: func(t *testing.T, err error) {
-				t.Helper()
-				if err == nil || err.Error() != "some other error" {
-					t.Fatalf("expected the original error to be returned, got %T: %v", err, err)
-				}
-			},
+			name:         "non-x509 error is returned unchanged on darwin",
+			goos:         "darwin",
+			err:          otherErr,
+			wrapExpected: false,
+		},
+		{
+			name:         "x509-prefixed error is left unchanged on linux",
+			goos:         "linux",
+			err:          x509Err,
+			wrapExpected: false,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.checkError(t, darwinCertVerifyErr(tc.err, cert))
+			got := convertErrorIfUnknownX509(tc.goos, tc.err)
+
+			if tc.wrapExpected {
+				wrapped, ok := got.(unknownX509VerificationError)
+				if !ok {
+					t.Fatalf("expected unknownX509VerificationError, got %T: %v", got, got)
+				}
+				if !errors.Is(wrapped, tc.err) {
+					t.Fatalf("expected the original error to be unwrappable, got %v", errors.Unwrap(wrapped))
+				}
+				return
+			}
+
+			// nil passes through as nil; on non-darwin (or non-x509 errors)
+			// the original error is returned unchanged.
+			if got != tc.err {
+				t.Fatalf("expected the original error %v to be returned unchanged, got %T: %v", tc.err, got, got)
+			}
 		})
 	}
 }
