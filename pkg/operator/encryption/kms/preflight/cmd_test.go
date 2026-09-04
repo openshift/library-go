@@ -19,7 +19,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-1.sock"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -29,7 +28,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-1.sock", "unix:///var/run/kmsplugin/kms-2.sock"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -38,7 +36,6 @@ func TestOptionsValidate(t *testing.T) {
 			name: "no sockets",
 			opts: options{
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -49,7 +46,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{""},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -60,7 +56,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-1.sock", "unix:///var/run/kmsplugin/kms-1.sock"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -71,7 +66,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"/var/run/kmsplugin/kms-1.sock"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -82,7 +76,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix://"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -93,7 +86,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix:///tmp/kms-1.sock"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -104,7 +96,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-x.sock"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -115,7 +106,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-1"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -126,7 +116,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{" unix:///var/run/kmsplugin/kms-1.sock "},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -137,7 +126,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-1.sock"},
 				kmsCallTimeout: 0,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
@@ -148,28 +136,16 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-1.sock"},
 				kmsCallTimeout: -time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 				podNamespace:   "openshift-config-managed",
 			},
 			wantErr: fmt.Errorf("--kms-call-timeout must be greater than 0"),
 		},
 		{
-			name: "config-hash empty",
-			opts: options{
-				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-1.sock"},
-				kmsCallTimeout: 10 * time.Second,
-				podName:        "kms-preflight",
-				podNamespace:   "openshift-config-managed",
-			},
-			wantErr: fmt.Errorf("--config-hash is required"),
-		},
-		{
 			name: "pod-name empty",
 			opts: options{
 				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-1.sock"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podNamespace:   "openshift-config-managed",
 			},
 			wantErr: fmt.Errorf("--pod-name is required"),
@@ -179,7 +155,6 @@ func TestOptionsValidate(t *testing.T) {
 			opts: options{
 				kmsSockets:     []string{"unix:///var/run/kmsplugin/kms-1.sock"},
 				kmsCallTimeout: 10 * time.Second,
-				configHash:     "abc123",
 				podName:        "kms-preflight",
 			},
 			wantErr: fmt.Errorf("--pod-namespace is required"),

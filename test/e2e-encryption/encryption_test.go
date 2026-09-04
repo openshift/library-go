@@ -1124,9 +1124,9 @@ func (p *dynamicKMSEncryptionStatusProvider) UpdateKMSEncryptionStatus(ctx conte
 
 var _ kms.EncryptionStatusProvider = &dynamicKMSEncryptionStatusProvider{}
 
-// configurableKMSPreflightDeployer is a test deployer based on
-// AlwaysSucceedKMSPreflightDeployer that can be switched to report a failed
-// preflight result via the fail flag.
+// configurableKMSPreflightDeployer is a test deployer that reports a
+// successful preflight result by default and can be switched to report a
+// failed preflight result via the fail flag.
 type configurableKMSPreflightDeployer struct {
 	configHash string
 	deployed   bool
@@ -1151,7 +1151,6 @@ func (d *configurableKMSPreflightDeployer) Status(_ context.Context) (string, co
 	return d.configHash, corev1.PodStatus{
 		Phase: corev1.PodSucceeded,
 		Conditions: []corev1.PodCondition{
-			{Type: controllers.KMSPreflightConfigHashPodCondition, Status: corev1.ConditionTrue, Message: d.configHash},
 			{Type: controllers.KMSPreflightResultPodCondition, Status: resultStatus, Message: resultMessage},
 			{Type: controllers.KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "configurable"},
 		},

@@ -26,7 +26,6 @@ type options struct {
 	kmsCallTimeout time.Duration
 	podName        string
 	podNamespace   string
-	configHash     string
 	kubeconfig     string
 }
 
@@ -52,7 +51,6 @@ func NewCommand(ctx context.Context) *cobra.Command {
 func (o *options) addFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.kmsSockets, "kms-sockets", nil, "KMS plugin endpoints in unix:// URI format (e.g. unix:///var/run/kmsplugin/kms-1.sock); the first socket receives full verification (Status + Encrypt + Decrypt), remaining sockets are checked for reachability (Status only)")
 	fs.DurationVar(&o.kmsCallTimeout, "kms-call-timeout", 0, "timeout for each gRPC call to the KMS plugin")
-	fs.StringVar(&o.configHash, "config-hash", o.configHash, "hash of config to use for encryption")
 	fs.StringVar(&o.podName, "pod-name", o.podName, "name of pod to use to report checker status")
 	fs.StringVar(&o.podNamespace, "pod-namespace", o.podNamespace, "namespace of pod to report checker status")
 	fs.StringVar(&o.kubeconfig, "kubeconfig", o.kubeconfig, "path to a kubeconfig; empty uses in-cluster config")
@@ -74,9 +72,6 @@ func (o *options) validate() error {
 	}
 	if o.kmsCallTimeout <= 0 {
 		return fmt.Errorf("--kms-call-timeout must be greater than 0")
-	}
-	if o.configHash == "" {
-		return fmt.Errorf("--config-hash is required")
 	}
 	if o.podName == "" {
 		return fmt.Errorf("--pod-name is required")
@@ -126,7 +121,7 @@ func (o *options) run(ctx context.Context) error {
 	status, checkErr := checker.check(ctx)
 
 	podClient := kubeClient.CoreV1().Pods(o.podNamespace)
-	reportErr := setPodCheckCondition(ctx, podClient, o.podName, o.configHash, status, checkErr)
+	reportErr := setPodCheckCondition(ctx, podClient, o.podName, status, checkErr)
 	// join the errors to not lose the original error message
 	if err := errors.Join(checkErr, reportErr); err != nil {
 		return err
