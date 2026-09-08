@@ -151,6 +151,10 @@ func TestRoundtrip(t *testing.T) {
 						Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 					},
 					Plugin: defaultKMSPluginConfig,
+					RemoteKey: state.RemoteKeyState{
+						TargetRemoteKeyID:   "remote-new",
+						MigratedRemoteKeyID: "remote-old",
+					},
 				},
 				Migrated: state.MigrationState{
 					Timestamp: now,
