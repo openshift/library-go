@@ -52,6 +52,14 @@ type KeyState struct {
 	KMS *KMSState
 }
 
+// RemoteKeyState is the in-memory view of remote key rotation annotations.
+type RemoteKeyState struct {
+	TargetRemoteKeyID   string
+	MigratedRemoteKeyID string
+	ConvergedAt         time.Time
+	ConvergedID         string
+}
+
 func (k *KeyState) HasKMSEncryption() bool {
 	return k != nil && k.KMS != nil && k.KMS.Encryption != nil
 }
@@ -68,6 +76,14 @@ func (k *KeyState) HasKMSConfigMapData() bool {
 	return k != nil && k.KMS != nil && len(k.KMS.PluginConfigMapData.entries) > 0
 }
 
+// RemoteKey returns the remote key rotation state. Non-KMS keys have no remote key.
+func (k *KeyState) RemoteKey() RemoteKeyState {
+	if k == nil || k.KMS == nil {
+		return RemoteKeyState{}
+	}
+	return k.KMS.RemoteKey
+}
+
 // KMSState stores all KMS encryption mode related configurations
 type KMSState struct {
 	// Encoded EncryptionConfig that stores the KMS related fields
@@ -81,6 +97,9 @@ type KMSState struct {
 
 	// PluginConfigMapData stores data key-value pairs fetched from referenced configmaps.
 	PluginConfigMapData KMSReferenceData
+
+	// RemoteKey tracks KMS remote key rotation annotations on the backing secret.
+	RemoteKey RemoteKeyState
 }
 
 // KMSReferenceData stores data key-value pairs fetched from referenced secrets or configmaps.
