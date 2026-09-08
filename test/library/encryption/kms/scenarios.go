@@ -39,9 +39,9 @@ func encryptionComponentLabelSelector(component string) string {
 func EncryptionTurnOnAndOffScenarios(ctx context.Context, t testing.TB) []library.OnOffScenario {
 	provider := DefaultVaultEncryptionProvider(ctx, t)
 	return []library.OnOffScenario{
-		kasOnOffScenario(provider),
-		authOnOffScenario(ctx),
-		oasOnOffScenario(ctx),
+		KASOnOffScenario(provider),
+		AuthOnOffScenario(ctx),
+		OASOnOffScenario(ctx),
 	}
 }
 
@@ -61,9 +61,9 @@ func EncryptionProvidersMigrationScenarios(ctx context.Context, t testing.TB) []
 		library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
 	})
 	return []library.ProvidersMigrationScenario{
-		kasProvidersMigrationScenario(providers),
-		authProvidersMigrationScenario(ctx),
-		oasProvidersMigrationScenario(ctx),
+		KASProvidersMigrationScenario(providers),
+		AuthProvidersMigrationScenario(ctx),
+		OASProvidersMigrationScenario(ctx),
 	}
 }
 
@@ -79,9 +79,9 @@ func EncryptionKMSToKMSMigrationScenarios(ctx context.Context, t testing.TB) []l
 		SecondaryVaultEncryptionProvider(ctx, t),
 	})
 	return []library.ProvidersMigrationScenario{
-		kasKMSToKMSMigrationScenario(providers),
-		authKMSToKMSMigrationScenario(ctx),
-		oasKMSToKMSMigrationScenario(ctx),
+		KASKMSToKMSMigrationScenario(providers),
+		AuthKMSToKMSMigrationScenario(ctx),
+		OASKMSToKMSMigrationScenario(ctx),
 	}
 }
 
@@ -111,7 +111,7 @@ func PreflightDeployScenario(ctx context.Context, t testing.TB) library.Prefligh
 	}
 }
 
-func kasOnOffScenario(provider library.EncryptionProvider) library.OnOffScenario {
+func KASOnOffScenario(provider library.EncryptionProvider) library.OnOffScenario {
 	return library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       globalMachineSpecifiedConfigNamespace,
@@ -134,7 +134,7 @@ func kasOnOffScenario(provider library.EncryptionProvider) library.OnOffScenario
 	}
 }
 
-func authOnOffScenario(ctx context.Context) library.OnOffScenario {
+func AuthOnOffScenario(ctx context.Context) library.OnOffScenario {
 	return library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       globalMachineSpecifiedConfigNamespace,
@@ -155,7 +155,7 @@ func authOnOffScenario(ctx context.Context) library.OnOffScenario {
 	}
 }
 
-func oasOnOffScenario(ctx context.Context) library.OnOffScenario {
+func OASOnOffScenario(ctx context.Context) library.OnOffScenario {
 	return library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       globalMachineSpecifiedConfigNamespace,
@@ -176,7 +176,7 @@ func oasOnOffScenario(ctx context.Context) library.OnOffScenario {
 	}
 }
 
-func kasProvidersMigrationScenario(providers []library.EncryptionProvider) library.ProvidersMigrationScenario {
+func KASProvidersMigrationScenario(providers []library.EncryptionProvider) library.ProvidersMigrationScenario {
 	return library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       globalMachineSpecifiedConfigNamespace,
@@ -199,7 +199,7 @@ func kasProvidersMigrationScenario(providers []library.EncryptionProvider) libra
 	}
 }
 
-func authProvidersMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
+func AuthProvidersMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
 	return library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       globalMachineSpecifiedConfigNamespace,
@@ -220,7 +220,7 @@ func authProvidersMigrationScenario(ctx context.Context) library.ProvidersMigrat
 	}
 }
 
-func oasProvidersMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
+func OASProvidersMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
 	return library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       globalMachineSpecifiedConfigNamespace,
@@ -241,8 +241,8 @@ func oasProvidersMigrationScenario(ctx context.Context) library.ProvidersMigrati
 	}
 }
 
-func kasKMSToKMSMigrationScenario(providers []library.EncryptionProvider) library.ProvidersMigrationScenario {
-	scenario := kasProvidersMigrationScenario(providers)
+func KASKMSToKMSMigrationScenario(providers []library.EncryptionProvider) library.ProvidersMigrationScenario {
+	scenario := KASProvidersMigrationScenario(providers)
 	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
 		library.AssertWellKnownSecretOfLifeEncrypted(t, clientSet, resource)
 		library.AssertWellKnownSecretOfLifeEncryptedWithKMS(t, clientSet,
@@ -253,8 +253,8 @@ func kasKMSToKMSMigrationScenario(providers []library.EncryptionProvider) librar
 	return scenario
 }
 
-func authKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
-	scenario := authProvidersMigrationScenario(ctx)
+func AuthKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
+	scenario := AuthProvidersMigrationScenario(ctx)
 	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
 		library.AssertWellKnownTokenOfLifeEncrypted(t, clientSet, resource)
 		library.AssertWellKnownTokenOfLifeEncryptedWithKMS(t, clientSet,
@@ -265,8 +265,8 @@ func authKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrati
 	return scenario
 }
 
-func oasKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
-	scenario := oasProvidersMigrationScenario(ctx)
+func OASKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
+	scenario := OASProvidersMigrationScenario(ctx)
 	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
 		library.AssertWellKnownRouteOfLifeEncrypted(t, clientSet, resource)
 		library.AssertWellKnownRouteOfLifeEncryptedWithKMS(t, clientSet,
