@@ -168,7 +168,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	err = c.checkAndCreateKeys(ctx, syncCtx, c.provider.EncryptedGRs())
+	err = c.syncEncryptionKeys(ctx, syncCtx)
 	if err != nil {
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
@@ -182,7 +182,8 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 	return err
 }
 
-func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
+func (c *keyController) syncEncryptionKeys(ctx context.Context, syncContext factory.SyncContext) error {
+	encryptedGRs := c.provider.EncryptedGRs()
 	planner := NewEncryptionPlanner(c.instanceName, c.unsupportedConfigPrefix, c.deployer, c.secretClient, c.configMapClient, c.apiServerClient, c.operatorClient, c.encryptionSecretSelector)
 	snap, err := planner.Load(ctx, encryptedGRs, LoadOptions{})
 	if err != nil {
@@ -193,6 +194,21 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
+	if err := c.checkAndCreateKeysFromSnap(ctx, syncContext, planner, snap); err != nil {
+		return err
+	}
+
+	requeueAfter, err := c.reconcileRemoteKeyRotationFromSnap(ctx, snap)
+	if err != nil {
+		return err
+	}
+	if requeueAfter > 0 {
+		syncContext.Queue().AddAfter(syncContext.QueueKey(), requeueAfter)
+	}
+	return nil
+}
+
+func (c *keyController) checkAndCreateKeysFromSnap(ctx context.Context, syncContext factory.SyncContext, planner *EncryptionPlanner, snap *KeyPlanningSnapshot) error {
 	plan, err := planner.PlanNextKey(snap)
 	if err != nil {
 		return err
@@ -220,8 +236,25 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	}
 
 	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, plan.Reasons)
-
 	return nil
+}
+
+func (c *keyController) reconcileRemoteKeyRotationFromSnap(ctx context.Context, snap *KeyPlanningSnapshot) (time.Duration, error) {
+	if c.encryptionStatusProvider == nil || snap.CurrentMode != state.KMS {
+		return 0, nil
+	}
+
+	writeKey, ok := writeKeyForRemoteKeyRotation(snap.State.DesiredBeforePlan)
+	if !ok || len(writeKey.RemoteKey().TargetRemoteKeyID) == 0 {
+		return 0, nil
+	}
+
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get KMS encryption status for remote key rotation: %w", err)
+	}
+
+	return reconcileRemoteKeyRotation(ctx, c.secretClient, c.instanceName, snap.State.EncryptedGRs, snap.State.DesiredBeforePlan, encryptionStatus, systemRemoteKeyClock{})
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
