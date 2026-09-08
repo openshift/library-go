@@ -18,6 +18,7 @@ import (
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -193,6 +194,18 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
+	if err := c.checkAndCreateKeysFromSnap(ctx, syncContext, planner, snap); err != nil {
+		return err
+	}
+
+	if err := c.reconcileRemoteKeyRotationFromSnap(ctx, snap); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *keyController) checkAndCreateKeysFromSnap(ctx context.Context, syncContext factory.SyncContext, planner *EncryptionPlanner, snap *KeyPlanningSnapshot) error {
 	plan, err := planner.PlanNextKey(snap)
 	if err != nil {
 		return err
@@ -222,6 +235,24 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, plan.Reasons)
 
 	return nil
+}
+
+func (c *keyController) reconcileRemoteKeyRotationFromSnap(ctx context.Context, snap *KeyPlanningSnapshot) error {
+	if c.encryptionStatusProvider == nil || snap.CurrentMode != state.KMS {
+		return nil
+	}
+
+	writeKey, ok := writeKeyForRemoteKeyRotation(snap.State.DesiredBeforePlan)
+	if !ok || len(writeKey.RemoteKey().TargetRemoteKeyID) == 0 {
+		return nil
+	}
+
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get KMS encryption status for remote key rotation: %w", err)
+	}
+
+	return reconcileRemoteKeyRotation(ctx, c.secretClient, c.instanceName, snap.State.EncryptedGRs, snap.State.DesiredBeforePlan, encryptionStatus, clock.RealClock{})
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
@@ -596,6 +627,11 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		}
 		if !same {
 			return latestKeyID, "kms-provider-changed", true, nil
+		}
+
+		if secrets.NeedsRemoteKeyMigration(latestKey.RemoteKey()) {
+			// Block new encryption key minting while target and migrated remote key IDs differ.
+			return 0, "", false, nil
 		}
 
 		// For KMS mode, we don't do time-based rotation. KMS keys are rotated

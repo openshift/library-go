@@ -1,11 +1,17 @@
 package secrets
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/util/retry"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
 // ReadRemoteKeyStateFromSecret reads remote key rotation annotations from a key secret.
@@ -35,7 +41,7 @@ func ReadRemoteKeyStateFromSecret(s *corev1.Secret) (state.RemoteKeyState, error
 }
 
 // applyRemoteKeyAnnotations writes remote key rotation annotations into the given map.
-// Empty values remove the corresponding annotation keys. Returns an error when the remote key state is invalid
+// Empty values remove the corresponding annotation keys. Returns an error when the remote key state is invalid.
 func applyRemoteKeyAnnotations(annotations map[string]string, rk state.RemoteKeyState) error {
 	if err := rk.Validate(); err != nil {
 		return err
@@ -62,4 +68,68 @@ func applyRemoteKeyAnnotations(annotations map[string]string, rk state.RemoteKey
 	}
 
 	return nil
+}
+
+// NeedsRemoteKeyMigration reports whether migrated-remote-key-id is set,
+// target-remote-key-id is non-empty, and they differ (needsMigration).
+func NeedsRemoteKeyMigration(rk state.RemoteKeyState) bool {
+	return len(rk.MigratedRemoteKeyID) > 0 &&
+		len(rk.TargetRemoteKeyID) > 0 &&
+		rk.MigratedRemoteKeyID != rk.TargetRemoteKeyID
+}
+
+// IsBootstrapped reports whether the initial remote key bootstrap has completed.
+func IsBootstrapped(rk state.RemoteKeyState) bool {
+	return len(rk.MigratedRemoteKeyID) > 0
+}
+
+// MigrationWriteKeyName returns the StorageVersionMigration write-key annotation value.
+// When target-remote-key-id is set, the write-key is always suffixed with that ID
+// (first enablement and remote-key rotation). Plain keyName is used only when
+// target-remote-key-id is unset.
+func MigrationWriteKeyName(keyName string, rk state.RemoteKeyState) string {
+	if len(rk.TargetRemoteKeyID) == 0 {
+		return keyName
+	}
+	return keyName + "-" + rk.TargetRemoteKeyID
+}
+
+// RemoteKeyIDFromMigrationWriteKey extracts the remote key ID suffix from a migration write-key value.
+func RemoteKeyIDFromMigrationWriteKey(keyName, migrationWriteKey string) (string, bool) {
+	prefix := keyName + "-"
+	if !strings.HasPrefix(migrationWriteKey, prefix) {
+		return "", false
+	}
+	remoteKeyID := strings.TrimPrefix(migrationWriteKey, prefix)
+	if len(remoteKeyID) == 0 {
+		return "", false
+	}
+	return remoteKeyID, true
+}
+
+// PatchRemoteKeyState updates remote key annotations on a key secret using
+// get-modify-update with conflict retry. Other annotations are preserved.
+func PatchRemoteKeyState(ctx context.Context, client corev1client.SecretInterface, secretName string, mutate func(*state.RemoteKeyState) (bool, error)) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		s, err := client.Get(ctx, secretName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		rk, err := ReadRemoteKeyStateFromSecret(s)
+		if err != nil {
+			return err
+		}
+		changed, err := mutate(&rk)
+		if err != nil || !changed {
+			return err
+		}
+		if s.Annotations == nil {
+			s.Annotations = map[string]string{}
+		}
+		if err := applyRemoteKeyAnnotations(s.Annotations, rk); err != nil {
+			return err
+		}
+		_, updateErr := client.Update(ctx, s, metav1.UpdateOptions{})
+		return updateErr
+	})
 }
