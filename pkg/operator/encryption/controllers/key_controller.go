@@ -18,6 +18,7 @@ import (
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -193,6 +194,18 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
+	if err := c.checkAndCreateKeysFromSnap(ctx, syncContext, planner, snap); err != nil {
+		return err
+	}
+
+	if err := c.reconcileRemoteKeyRotationFromSnap(ctx, snap); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *keyController) checkAndCreateKeysFromSnap(ctx context.Context, syncContext factory.SyncContext, planner *EncryptionPlanner, snap *KeyPlanningSnapshot) error {
 	plan, err := planner.PlanNextKey(snap)
 	if err != nil {
 		return err
@@ -222,6 +235,24 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, plan.Reasons)
 
 	return nil
+}
+
+func (c *keyController) reconcileRemoteKeyRotationFromSnap(ctx context.Context, snap *KeyPlanningSnapshot) error {
+	if c.encryptionStatusProvider == nil || snap.CurrentMode != state.KMS {
+		return nil
+	}
+
+	writeKey, ok := writeKeyForRemoteKeyRotation(snap.State.DesiredBeforePlan)
+	if !ok || len(writeKey.RemoteKey().TargetRemoteKeyID) == 0 {
+		return nil
+	}
+
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get KMS encryption status for remote key rotation: %w", err)
+	}
+
+	return reconcileRemoteKeyRotation(ctx, c.secretClient, c.instanceName, snap.State.EncryptedGRs, snap.State.DesiredBeforePlan, encryptionStatus, clock.RealClock{})
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
@@ -267,13 +298,14 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to compute KMS config hash: %w", err)
 		}
-		preflightPassed, err := c.ensureKMSPreflightPassed(ctx, configHash)
+		preflightPassed, remoteKeyID, err := c.ensureKMSPreflightPassed(ctx, configHash)
 		if err != nil {
 			return nil, false, err
 		}
 		if !preflightPassed {
 			return nil, false, nil
 		}
+		ks.KMS.RemoteKey.TargetRemoteKeyID = remoteKeyID
 	}
 	secret, err := secrets.FromKeyState(c.instanceName, ks)
 	if err != nil {
@@ -451,10 +483,10 @@ func (p *prefetchedKMSConfigHasherResourceProvider) getConfigMap(_ context.Conte
 //     back off.
 //
 // Callers are responsible for requeuing when this returns (false, nil).
-func (c *keyController) ensureKMSPreflightPassed(ctx context.Context, configHash string) (bool, error) {
+func (c *keyController) ensureKMSPreflightPassed(ctx context.Context, configHash string) (bool, string, error) {
 	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
 	if err != nil {
-		return false, fmt.Errorf("failed to get KMS encryption status: %w", err)
+		return false, "", fmt.Errorf("failed to get KMS encryption status: %w", err)
 	}
 
 	// Scenario 1: ObservedConfigHash outdated — schedule the preflight check.
@@ -462,22 +494,22 @@ func (c *keyController) ensureKMSPreflightPassed(ctx context.Context, configHash
 		if err := c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
 			s.Preflight.ObservedConfigHash = configHash
 		}); err != nil {
-			return false, fmt.Errorf("failed to write preflight observed config hash: %w", err)
+			return false, "", fmt.Errorf("failed to write preflight observed config hash: %w", err)
 		}
 		// Scenario 1: back off: wait for the preflight controller to pick up the new hash.
-		return false, nil
+		return false, "", nil
 	}
 
 	// Scenario 2: preflight passed — proceed.
 	if isPreflightResultSucceeded(&encryptionStatus.Preflight.Result, configHash) {
-		return true, nil
+		return true, encryptionStatus.Preflight.Result.RemoteKeyID, nil
 	}
 	// Scenario 3: preflight failed — surface the error.
 	if isPreflightResultFailed(&encryptionStatus.Preflight.Result, configHash) {
-		return false, fmt.Errorf("KMS preflight check failed for config hash %s; fix the KMS configuration to proceed", configHash)
+		return false, "", fmt.Errorf("KMS preflight check failed for config hash %s; fix the KMS configuration to proceed", configHash)
 	}
 	// Scenario 4: back off: preflight check is still in progress.
-	return false, nil
+	return false, "", nil
 }
 
 type encryptionKeyPlan struct {
@@ -592,6 +624,11 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		}
 		if !same {
 			return latestKeyID, "kms-provider-changed", true, nil
+		}
+
+		if secrets.NeedsRemoteKeyMigration(latestKey.RemoteKey()) {
+			// Block new encryption key minting while target and migrated remote key IDs differ.
+			return 0, "", false, nil
 		}
 
 		// For KMS mode, we don't do time-based rotation. KMS keys are rotated

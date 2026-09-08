@@ -216,26 +216,49 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
 	var errs []error
+	var writeKeyState state.KeyState
+	var writeKeySecretName string
+	var migrationWriteKey string
+	var hadRemoteKeyMigration bool
+	var writeKeyGRs []schema.GroupResource
+	var remoteKeyMigratedGRs []schema.GroupResource
 	for _, gr := range grs {
 		grActualKeys := currentState[gr]
 		if !grActualKeys.HasWriteKey() {
 			continue // no write key to migrate to
 		}
 
-		if alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey); alreadyMigrated {
+		writeKeyState = grActualKeys.WriteKey
+		writeKeySecret, err := secrets.FromKeyState(c.instanceName, grActualKeys.WriteKey)
+		if err != nil {
+			errs = append(errs, err)
 			continue
+		}
+		writeKeySecretName = writeKeySecret.Name
+		remoteKeyAnnotations := grActualKeys.WriteKey.RemoteKey()
+		migrationWriteKey = secrets.MigrationWriteKeyName(grActualKeys.WriteKey.Key.Name, remoteKeyAnnotations)
+		remoteKeyMigration := secrets.NeedsRemoteKeyMigration(remoteKeyAnnotations)
+		if remoteKeyMigration {
+			hadRemoteKeyMigration = true
+			writeKeyGRs = append(writeKeyGRs, gr)
+		}
+
+		if !remoteKeyMigration {
+			if alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey); alreadyMigrated {
+				continue
+			}
 		}
 
 		// idem-potent migration start
-		finished, result, when, err := c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
+		finished, result, when, err := c.migrator.EnsureMigration(gr, migrationWriteKey)
 		if err == nil && finished && result != nil && time.Since(when) > migrationRetryDuration {
 			// last migration error is far enough ago. Prune and retry.
 			if err := c.migrator.PruneMigration(gr); err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			finished, result, when, err = c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
-
+			// when is not used anymore below
+			finished, result, _, err = c.migrator.EnsureMigration(gr, migrationWriteKey)
 		}
 		if err != nil {
 			errs = append(errs, err)
@@ -248,6 +271,13 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 
 		if !finished {
 			migratingResources = append(migratingResources, gr)
+			continue
+		}
+
+		if remoteKeyMigration {
+			if result == nil {
+				remoteKeyMigratedGRs = append(remoteKeyMigratedGRs, gr)
+			}
 			continue
 		}
 
@@ -280,6 +310,23 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		}); err != nil {
 			errs = append(errs, err)
 			continue
+		}
+	}
+
+	if hadRemoteKeyMigration && len(writeKeySecretName) > 0 && len(remoteKeyMigratedGRs) == len(writeKeyGRs) {
+		if remoteKeyID, ok := secrets.RemoteKeyIDFromMigrationWriteKey(writeKeyState.Key.Name, migrationWriteKey); ok {
+			if err := secrets.PatchRemoteKeyAnnotations(ctx, c.secretClient.Secrets("openshift-config-managed"), writeKeySecretName, func(rk *secrets.RemoteKeyAnnotations) (bool, error) {
+				if !secrets.NeedsRemoteKeyMigration(*rk) {
+					return false, nil
+				}
+				if rk.MigratedRemoteKeyID == remoteKeyID {
+					return false, nil
+				}
+				rk.MigratedRemoteKeyID = remoteKeyID
+				return true, nil
+			}); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
