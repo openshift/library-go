@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,12 +22,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 
 	oauthapiv1 "github.com/openshift/api/oauth/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -169,7 +172,7 @@ func GetClients(t testing.TB) ClientSet {
 }
 
 // ReadKMSPreflightForOperator returns the operator's current preflight snapshot (zero when unset).
-// Snapshot it before applying a new KMS config and pass it to AssertKMSPreflightSucceededForOperator
+// Snapshot it before applying a new KMS config and pass it to AssertKMSPreflight
 // to confirm a fresh preflight ran for that config.
 func ReadKMSPreflightForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string) (operatorv1.KMSPreflightCheck, error) {
 	t.Helper()
@@ -758,4 +761,41 @@ func allTargetGRsMigrated(keyMeta EncryptionKeyMeta, targetGRs []schema.GroupRes
 		}
 	}
 	return true
+}
+
+// StartCapturingLatestPreflightPod watches the preflight pod by name and keeps the
+// latest ADDED/MODIFIED version (UID-locked so a stale pod reusing the name cannot
+// pollute the capture) in an atomic.Pointer. The operator reaps the pod on success,
+// so start this before applying the KMS config; the watch runs until ctx is cancelled.
+func StartCapturingLatestPreflightPod(ctx context.Context, t testing.TB, clientSet ClientSet, namespace string) *atomic.Pointer[corev1.Pod] {
+	t.Helper()
+	w, err := clientSet.Kube.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{FieldSelector: "metadata.name=" + preflight.PodName})
+	require.NoError(t, err)
+	t.Logf("capturing preflight pod %s/%s", namespace, preflight.PodName)
+
+	captured := &atomic.Pointer[corev1.Pod]{}
+	go func() {
+		defer w.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case ev, ok := <-w.ResultChan():
+				if !ok {
+					return
+				}
+				pod, isPod := ev.Object.(*corev1.Pod)
+				if !isPod || (ev.Type != watch.Added && ev.Type != watch.Modified) {
+					continue
+				}
+				if prev := captured.Load(); prev != nil && ev.Type == watch.Modified && prev.UID != pod.UID {
+					continue
+				}
+				captured.Store(pod)
+				t.Logf("captured preflight pod %s/%s (%s, uid=%s, rv=%s, phase=%s)",
+					pod.Namespace, pod.Name, ev.Type, pod.UID, pod.ResourceVersion, pod.Status.Phase)
+			}
+		}
+	}()
+	return captured
 }
