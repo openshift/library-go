@@ -173,12 +173,12 @@ func GetClients(t testing.TB) ClientSet {
 // to confirm a fresh preflight ran for that config.
 func ReadKMSPreflightForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string) (operatorv1.KMSPreflightCheck, error) {
 	t.Helper()
-	gvr := operatorGVRForNamespace(t, operatorNamespace)
-	obj, err := clientSet.DynamicClient.Resource(gvr).Get(ctx, "cluster", metav1.GetOptions{})
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return operatorv1.KMSPreflightCheck{}, err
 	}
-	status, err := decodeKMSOperatorStatus(obj.Object)
+	status, err := cr.decodeKMSOperatorStatus(obj.Object)
 	if err != nil {
 		return operatorv1.KMSPreflightCheck{}, err
 	}
