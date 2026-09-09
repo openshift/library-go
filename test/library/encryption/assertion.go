@@ -20,12 +20,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
 	oauthapiv1 "github.com/openshift/api/oauth/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 var protoEncodingPrefix = []byte{0x6b, 0x38, 0x73, 0x00}
@@ -389,4 +393,73 @@ func assertWellKnownRoutes(t testing.TB, etcdClient EtcdClient, expectedMode str
 	totalRoutes, err := VerifyResources(t, etcdClient, "/openshift.io/routes/", expectedMode, false)
 	t.Logf("Verified %d Routes", totalRoutes)
 	require.NoError(t, err)
+}
+
+// preflightDegradedConditionType is set by kmsPreflightController, which exports no constant for it.
+const preflightDegradedConditionType = "EncryptionKMSPreflightControllerDegraded"
+
+// kmsOperatorStatus is the subset of an operator CR status the KMS preflight assertions read.
+type kmsOperatorStatus struct {
+	Conditions       []operatorv1.OperatorCondition `json:"conditions"`
+	EncryptionStatus operatorv1.KMSEncryptionStatus `json:"encryptionStatus"`
+}
+
+func decodeKMSOperatorStatus(obj map[string]interface{}) (kmsOperatorStatus, error) {
+	var cr struct {
+		Status kmsOperatorStatus `json:"status"`
+	}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj, &cr)
+	return cr.Status, err
+}
+
+// operatorGVRForNamespace maps an operator namespace to its operator CR.
+func operatorGVRForNamespace(t testing.TB, operatorNamespace string) schema.GroupVersionResource {
+	t.Helper()
+	byNamespace := map[string]schema.GroupVersionResource{
+		"openshift-kube-apiserver-operator": {Group: "operator.openshift.io", Version: "v1", Resource: "kubeapiservers"},
+		"openshift-authentication-operator": {Group: "operator.openshift.io", Version: "v1", Resource: "authentications"},
+		"openshift-apiserver-operator":      {Group: "operator.openshift.io", Version: "v1", Resource: "openshiftapiservers"},
+	}
+	gvr, ok := byNamespace[operatorNamespace]
+	require.Truef(t, ok, "no known operator CR for namespace %q; cannot read/assert KMS preflight", operatorNamespace)
+	return gvr
+}
+
+// AssertKMSPreflightSucceededForOperator asserts KMS preflight passed for the operator owning
+// operatorNamespace. previous is the pre-apply snapshot (see ReadKMSPreflightForOperator).
+func AssertKMSPreflightSucceededForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, previous operatorv1.KMSPreflightCheck) {
+	t.Helper()
+	gvr := operatorGVRForNamespace(t, operatorNamespace)
+	assertKMSPreflightSucceeded(ctx, t, clientSet.DynamicClient, gvr, "cluster", previous)
+}
+
+// assertKMSPreflightSucceeded asserts preflight passed for the CR's current config: degraded is
+// False, preflight reports Succeeded for the observed config hash, remoteKeyID is set (proving a
+// live KMS check ran), and remoteKeyID advanced when the config changed since previous.
+func assertKMSPreflightSucceeded(ctx context.Context, t testing.TB, dynamicClient dynamic.Interface, gvr schema.GroupVersionResource, name string, previous operatorv1.KMSPreflightCheck) {
+	t.Helper()
+
+	var preflight operatorv1.KMSPreflightCheck
+	var degradedFalse bool
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, time.Minute, true, func(ctx context.Context) (bool, error) {
+		obj, err := dynamicClient.Resource(gvr).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		status, err := decodeKMSOperatorStatus(obj.Object)
+		if err != nil {
+			return false, err
+		}
+		preflight = status.EncryptionStatus.Preflight
+		result := preflight.Result
+		degradedFalse = v1helpers.IsOperatorConditionFalse(status.Conditions, preflightDegradedConditionType)
+		passed := result.Status == operatorv1.KMSPreflightResultSucceeded && result.ConfigHash != "" && result.ConfigHash == preflight.ObservedConfigHash
+		fresh := preflight.ObservedConfigHash == previous.ObservedConfigHash || result.RemoteKeyID != previous.Result.RemoteKeyID
+		ran := result.RemoteKeyID != ""
+		return degradedFalse && passed && ran && fresh, nil
+	})
+	require.NoErrorf(t, err,
+		"KMS preflight not confirmed for %s/%s: degradedFalse=%t result.status=%q result.configHash=%q observedConfigHash=%q remoteKeyID=%q (previous observedConfigHash=%q remoteKeyID=%q)",
+		gvr.Resource, name, degradedFalse, preflight.Result.Status, preflight.Result.ConfigHash, preflight.ObservedConfigHash, preflight.Result.RemoteKeyID,
+		previous.ObservedConfigHash, previous.Result.RemoteKeyID)
 }

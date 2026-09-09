@@ -75,9 +75,14 @@ func TestEncryptionTypeAESGCM(ctx context.Context, t testing.TB, scenario BasicS
 func TestEncryptionTypeKMS(ctx context.Context, t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
 	provider := resolveProvider(t, configv1.EncryptionTypeKMS, providers)
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
+	// Snapshot preflight before applying the new config so the assertion can confirm a fresh
+	// preflight ran for it (the remote key id advances when the config genuinely changes).
+	previousPreflight, err := ReadKMSPreflightForOperator(ctx, e, GetClients(e), scenario.OperatorNamespace)
+	require.NoError(e, err)
 	clientSet := SetAndWaitForEncryptionType(ctx, e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
+	AssertKMSPreflightSucceededForOperator(ctx, e, clientSet, scenario.OperatorNamespace, previousPreflight)
 }
 
 func TestEncryptionType(ctx context.Context, t testing.TB, scenario BasicScenario, provider EncryptionProvider) {
