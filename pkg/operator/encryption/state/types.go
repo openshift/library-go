@@ -68,6 +68,32 @@ func (k *KeyState) HasKMSConfigMapData() bool {
 	return k != nil && k.KMS != nil && len(k.KMS.PluginConfigMapData.entries) > 0
 }
 
+// RemoteKey returns the remote key rotation state. Non-KMS keys have no remote key.
+func (k *KeyState) RemoteKey() RemoteKeyState {
+	if k == nil || k.KMS == nil {
+		return RemoteKeyState{}
+	}
+	return k.KMS.RemoteKey
+}
+
+// RemoteKeyState is the in-memory view of remote key rotation annotations.
+type RemoteKeyState struct {
+	// TargetRemoteKeyID is the target remote KMS key ID to migrate toward.
+	// Will be empty before successful preflight, otherwise it is always set to what health check observes.
+	TargetRemoteKeyID string
+	// MigratedRemoteKeyID is the last fully migrated remote KMS key ID. Meaning it is empty until the first
+	// SVM ran successfully.
+	MigratedRemoteKeyID string
+	// ConvergedAt records when a candidate remote key ID first achieved cluster convergence. This is used to determine
+	// when the five-minute grace period for apiservers start. Only non-zero when a new target remote key was observed
+	// across all health reports.
+	ConvergedAt time.Time
+	// ConvergedID is the candidate remote key ID the converged-at timestamp belongs to. This is used to track what remote
+	// key triggered the convergence timer. This is used to determine whether the remote key was changed during the convergence.
+	// Only non-empty when a new target remote key was observed across all health reports.
+	ConvergedID string
+}
+
 // KMSState stores all KMS encryption mode related configurations
 type KMSState struct {
 	// Encoded EncryptionConfig that stores the KMS related fields
@@ -81,6 +107,9 @@ type KMSState struct {
 
 	// PluginConfigMapData stores data key-value pairs fetched from referenced configmaps.
 	PluginConfigMapData KMSReferenceData
+
+	// RemoteKey tracks KMS remote key rotation annotations on the backing secret.
+	RemoteKey RemoteKeyState
 }
 
 // KMSReferenceData stores data key-value pairs fetched from referenced secrets or configmaps.
