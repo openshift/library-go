@@ -766,15 +766,23 @@ func allTargetGRsMigrated(keyMeta EncryptionKeyMeta, targetGRs []schema.GroupRes
 // StartCapturingLatestPreflightPod watches the preflight pod by name and keeps the
 // latest ADDED/MODIFIED version (UID-locked so a stale pod reusing the name cannot
 // pollute the capture) in an atomic.Pointer. The operator reaps the pod on success,
-// so start this before applying the KMS config; the watch runs until ctx is cancelled.
-func StartCapturingLatestPreflightPod(ctx context.Context, t testing.TB, clientSet ClientSet, namespace string) *atomic.Pointer[corev1.Pod] {
+// so start this before applying the KMS config. stop cancels the watch and blocks
+// until the goroutine exits, so the pointer can be read without racing a Store; it
+// is idempotent.
+func StartCapturingLatestPreflightPod(ctx context.Context, t testing.TB, clientSet ClientSet, namespace string) (*atomic.Pointer[corev1.Pod], func()) {
 	t.Helper()
+	ctx, cancel := context.WithCancel(ctx)
 	w, err := clientSet.Kube.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{FieldSelector: "metadata.name=" + preflight.PodName})
-	require.NoError(t, err)
+	if err != nil {
+		cancel()
+		require.NoError(t, err)
+	}
 	t.Logf("capturing preflight pod %s/%s", namespace, preflight.PodName)
 
 	captured := &atomic.Pointer[corev1.Pod]{}
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		defer w.Stop()
 		for {
 			select {
@@ -797,5 +805,10 @@ func StartCapturingLatestPreflightPod(ctx context.Context, t testing.TB, clientS
 			}
 		}
 	}()
-	return captured
+
+	stop := func() {
+		cancel()
+		<-done
+	}
+	return captured, stop
 }

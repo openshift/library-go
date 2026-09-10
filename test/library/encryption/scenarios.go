@@ -81,11 +81,10 @@ func TestEncryptionTypeKMS(ctx context.Context, t testing.TB, scenario BasicScen
 	require.NoError(e, err)
 	// Capture the preflight pod as the operator creates it; on success the operator reaps it,
 	// so it cannot be fetched live afterwards for the PodSpec drift check below.
-	captureCtx, cancelCapture := context.WithCancel(ctx)
-	defer cancelCapture()
-	capturedPreflightPod := StartCapturingLatestPreflightPod(captureCtx, e, GetClients(e), scenario.Namespace)
+	capturedPreflightPod, stopCapture := StartCapturingLatestPreflightPod(ctx, e, GetClients(e), scenario.Namespace)
+	defer stopCapture()
 	clientSet := SetAndWaitForEncryptionType(ctx, e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
-	cancelCapture() // preflight has run and its pod is captured; stop the watch
+	stopCapture() // preflight has run; join the watch before reading the capture
 	scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 	AssertKMSPreflight(ctx, e, clientSet, scenario.OperatorNamespace, scenario.Namespace, scenario.LabelSelector, previousPreflightStatus, capturedPreflightPod.Load())
