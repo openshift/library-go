@@ -20,7 +20,6 @@ require (
 	github.com/openshift/api v0.0.0-20260805215214-cfb63858e9d7
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
 	github.com/openshift/client-go v0.0.0-20260806041845-b74fb348f1e7
-	github.com/openshift/osincli v0.0.0-20160924135400-fababb0555f2
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.7.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.74.0
@@ -33,6 +32,7 @@ require (
 	go.etcd.io/etcd/client/v3 v3.6.8
 	golang.org/x/crypto v0.52.0
 	golang.org/x/net v0.55.1-0.20260602153038-42abb857022c
+	golang.org/x/oauth2 v0.34.0
 	golang.org/x/sys v0.45.0
 	golang.org/x/time v0.15.0
 	gopkg.in/evanphx/json-patch.v4 v4.13.0
@@ -132,7 +132,6 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 // indirect
-	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/term v0.43.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
