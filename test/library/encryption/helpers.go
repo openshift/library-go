@@ -31,6 +31,8 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+
 	oauthapiv1 "github.com/openshift/api/oauth/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/openshift/library-go/test/library"
@@ -75,7 +77,7 @@ type ForceRotationFunc func(t testing.TB, ctx context.Context)
 
 // WaitForRotationCompleteFunc waits until re-migration after rotation has finished.
 // Static encryption waits for the next encryption key secret to be migrated;
-// KMS waits for a new finished entry in KeyRotationStatus, created by the rotation controller.
+// KMS waits until target-remote-key-id and migrated-remote-key-id converge on the new remote key ID.
 type WaitForRotationCompleteFunc func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario)
 
 // StaticEncryptionForceRotation returns a ForceRotationFunc that mints a new key via encryption.reason.
@@ -91,6 +93,61 @@ func WaitForNextEncryptionKeyRotation() WaitForRotationCompleteFunc {
 	return func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario) {
 		t.Helper()
 		WaitForNextMigratedKey(t, clientSet.Kube, prevKeyMeta, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	}
+}
+
+// WaitForKMSRemoteKeyRotationComplete waits until the write-key secret's target and migrated
+// remote key IDs converge. Unlike static encryption rotation, KMS remote key rotation does
+// not mint a new encryption key secret. The helper first waits for migrated-remote-key-id
+// to be populated, records that value, then waits for target-remote-key-id and
+// migrated-remote-key-id to match on a different remote key ID.
+func WaitForKMSRemoteKeyRotationComplete() WaitForRotationCompleteFunc {
+	return func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario) {
+		t.Helper()
+		require.NotEmpty(t, prevKeyMeta.Name, "previous key name is required")
+
+		t.Logf("Waiting for KMS remote key rotation to complete on secret %q", prevKeyMeta.Name)
+		var baselineRemoteKeyID string
+		var baselineCaptured bool
+		// Do not use t.Context(): Ginkgo's GinkgoTBWrapper promotes Context() to a nil
+		// embedded testing.TB and panics (nil pointer dereference). The poll timeout
+		// below is the cancellation bound, matching other helpers in this file.
+		err := wait.PollUntilContextTimeout(context.Background(), waitPollInterval, waitPollTimeout, true, func(ctx context.Context) (bool, error) {
+			secret, err := clientSet.Kube.CoreV1().Secrets(scenario.Namespace).Get(ctx, prevKeyMeta.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil
+			}
+			rk, err := secrets.ReadRemoteKeyAnnotations(secret)
+			if err != nil {
+				return false, err
+			}
+			if !baselineCaptured {
+				if len(rk.MigratedRemoteKeyID) == 0 {
+					t.Logf("KMS remote key pending bootstrap on %q: target=%q converged=%q",
+						prevKeyMeta.Name, rk.TargetRemoteKeyID, rk.ConvergedID)
+					return false, nil
+				}
+				baselineRemoteKeyID = rk.MigratedRemoteKeyID
+				baselineCaptured = true
+				t.Logf("Observed migrated-remote-key-id=%q on %q before waiting for rotation convergence",
+					baselineRemoteKeyID, prevKeyMeta.Name)
+			}
+			if len(rk.TargetRemoteKeyID) == 0 || len(rk.MigratedRemoteKeyID) == 0 {
+				return false, nil
+			}
+			if rk.TargetRemoteKeyID != rk.MigratedRemoteKeyID {
+				t.Logf("KMS remote key rotation pending on %q: target=%q migrated=%q converged=%q (baseline=%q)",
+					prevKeyMeta.Name, rk.TargetRemoteKeyID, rk.MigratedRemoteKeyID, rk.ConvergedID, baselineRemoteKeyID)
+				return false, nil
+			}
+			if rk.MigratedRemoteKeyID == baselineRemoteKeyID {
+				return false, nil
+			}
+			t.Logf("KMS remote key rotation complete on %q: target=migrated=%q (baseline=%q)",
+				prevKeyMeta.Name, rk.MigratedRemoteKeyID, baselineRemoteKeyID)
+			return true, nil
+		})
+		require.NoError(t, err)
 	}
 }
 
