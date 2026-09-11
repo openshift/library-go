@@ -88,6 +88,13 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			// encryption mode.
 			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", encryptionSecretKMSPluginConfig)
 		}
+
+		remoteKey, err := ReadRemoteKeyStateFromSecret(s)
+		if err != nil {
+			return state.KeyState{}, err
+		}
+		key.KMS.RemoteKey = remoteKey
+
 		for dataKey, value := range s.Data {
 			rawKey, found := strings.CutPrefix(dataKey, encryptionSecretKMSSecretDataPrefix)
 			if !found {
@@ -176,6 +183,10 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Data[encryptionSecretKMSPluginConfig] = pluginData
+	}
+
+	if err := applyRemoteKeyAnnotations(s.Annotations, ks.RemoteKey()); err != nil {
+		return nil, err
 	}
 
 	if ks.HasKMSSecretData() {

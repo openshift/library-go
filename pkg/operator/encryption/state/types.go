@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -92,6 +93,14 @@ type RemoteKeyState struct {
 	// key triggered the convergence timer. This is used to determine whether the remote key was changed during the convergence.
 	// Only non-empty when a new target remote key was observed across all health reports.
 	ConvergedID string
+}
+
+// Validate checks whether the remote key state is coherent. Returns a descriptive error when it is not.
+func (rk RemoteKeyState) Validate() error {
+	if rk.ConvergedAt.IsZero() != (rk.ConvergedID == "") {
+		return errors.New("RemoteKeyState requires convergedAt and convergedId both set, or default")
+	}
+	return nil
 }
 
 // KMSState stores all KMS encryption mode related configurations
