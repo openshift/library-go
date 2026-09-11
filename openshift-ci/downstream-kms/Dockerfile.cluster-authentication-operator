@@ -1,0 +1,22 @@
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.26-openshift-5.0 AS builder
+WORKDIR /go/src/github.com/openshift/library-go
+COPY . .
+
+WORKDIR /go/src/github.com/openshift/cluster-authentication-operator
+RUN git clone --branch master --single-branch https://github.com/openshift/cluster-authentication-operator.git . \
+    && go mod edit -replace github.com/openshift/library-go=/go/src/github.com/openshift/library-go \
+    && go mod tidy \
+    && go mod vendor
+
+ARG TAGS=ocp
+ENV GO_PACKAGE=github.com/openshift/cluster-authentication-operator
+RUN go build -ldflags "-X $GO_PACKAGE/pkg/version.versionFromGit=$(git describe --long --tags --abbrev=7 --match 'v[0-9]*' 2>/dev/null || echo downstream-kms-test)" -tags="${TAGS}" -o authentication-operator ./cmd/authentication-operator
+RUN GO_BUILD_PACKAGES=./cmd/cluster-authentication-operator-tests-ext make build --warn-undefined-variables \
+    && gzip cluster-authentication-operator-tests-ext
+
+FROM registry.ci.openshift.org/ocp/5.0:base-rhel9
+COPY --from=builder /go/src/github.com/openshift/cluster-authentication-operator/authentication-operator /usr/bin/
+COPY --from=builder /go/src/github.com/openshift/cluster-authentication-operator/cluster-authentication-operator-tests-ext.gz /usr/bin/
+COPY --from=builder /go/src/github.com/openshift/cluster-authentication-operator/manifests /manifests
+ENTRYPOINT ["/usr/bin/authentication-operator"]
+LABEL io.openshift.release.operator=true

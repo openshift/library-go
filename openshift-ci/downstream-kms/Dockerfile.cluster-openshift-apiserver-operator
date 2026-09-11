@@ -1,0 +1,19 @@
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.26-openshift-5.0 AS builder
+WORKDIR /go/src/github.com/openshift/library-go
+COPY . .
+
+WORKDIR /go/src/github.com/openshift/cluster-openshift-apiserver-operator
+RUN git clone --branch main --single-branch https://github.com/openshift/cluster-openshift-apiserver-operator.git . \
+    && go mod edit -replace github.com/openshift/library-go=/go/src/github.com/openshift/library-go \
+    && go mod tidy \
+    && go mod vendor
+
+RUN GODEBUG=tls13=1 make build \
+    && make tests-ext-build \
+    && gzip cluster-openshift-apiserver-operator-tests-ext
+
+FROM registry.ci.openshift.org/ocp/5.0:base-rhel9
+COPY --from=builder /go/src/github.com/openshift/cluster-openshift-apiserver-operator/cluster-openshift-apiserver-operator /usr/bin/
+COPY --from=builder /go/src/github.com/openshift/cluster-openshift-apiserver-operator/cluster-openshift-apiserver-operator-tests-ext.gz /usr/bin/
+COPY --from=builder /go/src/github.com/openshift/cluster-openshift-apiserver-operator/manifests /manifests
+LABEL io.openshift.release.operator=true
