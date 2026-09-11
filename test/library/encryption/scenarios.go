@@ -77,12 +77,17 @@ func TestEncryptionTypeKMS(ctx context.Context, t testing.TB, scenario BasicScen
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	// Snapshot preflight before applying the new config so the assertion can confirm a fresh
 	// preflight ran for it (the remote key id advances when the config genuinely changes).
-	previousPreflight, err := ReadKMSPreflightForOperator(ctx, e, GetClients(e), scenario.OperatorNamespace)
+	previousPreflightStatus, err := ReadKMSPreflightForOperator(ctx, e, GetClients(e), scenario.OperatorNamespace)
 	require.NoError(e, err)
+	// Capture the preflight pod as the operator creates it; on success the operator reaps it,
+	// so it cannot be fetched live afterwards for the PodSpec drift check below.
+	capturedPreflightPod, stopCapture := StartCapturingLatestPreflightPod(ctx, e, GetClients(e), scenario.Namespace)
+	defer stopCapture()
 	clientSet := SetAndWaitForEncryptionType(ctx, e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	stopCapture() // preflight has run; join the watch before reading the capture
 	scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
-	AssertKMSPreflightSucceededForOperator(ctx, e, clientSet, scenario.OperatorNamespace, previousPreflight)
+	AssertKMSPreflight(ctx, e, clientSet, scenario.OperatorNamespace, scenario.Namespace, scenario.LabelSelector, previousPreflightStatus, capturedPreflightPod.Load())
 }
 
 func TestEncryptionType(ctx context.Context, t testing.TB, scenario BasicScenario, provider EncryptionProvider) {
