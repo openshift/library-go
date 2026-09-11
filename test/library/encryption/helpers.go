@@ -784,22 +784,54 @@ func StartCapturingLatestPreflightPod(ctx context.Context, t testing.TB, clientS
 	go func() {
 		defer close(done)
 		defer w.Stop()
+
+		// snapshot renders the current capture for diagnostic logs so a CI failure
+		// ("no preflight pod captured") is self-explanatory from the log alone.
+		snapshot := func() string {
+			if p := captured.Load(); p != nil {
+				return fmt.Sprintf("uid=%s rv=%s phase=%s", p.UID, p.ResourceVersion, p.Status.Phase)
+			}
+			return "<none>"
+		}
+
+		var events, stores int
 		for {
 			select {
 			case <-ctx.Done():
+				t.Logf("preflight pod capture: watch stopped via context after %d events, %d stored (captured=%s)",
+					events, stores, snapshot())
 				return
 			case ev, ok := <-w.ResultChan():
 				if !ok {
+					// The apiserver closes watches routinely (request timeout, apiserver
+					// rollout). This watch is NOT re-established, so anything created after
+					// this point is never captured -- the likely cause of an empty capture.
+					t.Logf("preflight pod capture: WATCH CHANNEL CLOSED after %d events, %d stored (captured=%s) -- watch is not re-established",
+						events, stores, snapshot())
 					return
 				}
+				events++
+				if ev.Type == watch.Error {
+					t.Logf("preflight pod capture: watch ERROR event (#%d): %#v", events, ev.Object)
+					continue
+				}
 				pod, isPod := ev.Object.(*corev1.Pod)
-				if !isPod || (ev.Type != watch.Added && ev.Type != watch.Modified) {
+				if !isPod {
+					t.Logf("preflight pod capture: skipping %s event (#%d) with non-pod object %T", ev.Type, events, ev.Object)
+					continue
+				}
+				if ev.Type != watch.Added && ev.Type != watch.Modified {
+					t.Logf("preflight pod capture: skipping %s event (#%d) for %s/%s (uid=%s, phase=%s)",
+						ev.Type, events, pod.Namespace, pod.Name, pod.UID, pod.Status.Phase)
 					continue
 				}
 				if prev := captured.Load(); prev != nil && ev.Type == watch.Modified && prev.UID != pod.UID {
+					t.Logf("preflight pod capture: ignoring MODIFIED event (#%d) for stale uid=%s (captured uid=%s)",
+						events, pod.UID, prev.UID)
 					continue
 				}
 				captured.Store(pod)
+				stores++
 				t.Logf("captured preflight pod %s/%s (%s, uid=%s, rv=%s, phase=%s)",
 					pod.Namespace, pod.Name, ev.Type, pod.UID, pod.ResourceVersion, pod.Status.Phase)
 			}
