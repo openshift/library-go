@@ -2,6 +2,7 @@ package tokenrequest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -10,16 +11,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/openshift/osincli"
+	"golang.org/x/oauth2"
 
-	"k8s.io/apimachinery/pkg/util/diff"
 	restclient "k8s.io/client-go/rest"
 
 	"github.com/openshift/library-go/pkg/oauth/oauthdiscovery"
@@ -257,11 +256,13 @@ func TestRequestToken(t *testing.T) {
 					},
 				},
 				Handler: tc.Handler,
-				OsinConfig: &osincli.ClientConfig{
-					ClientId:     openShiftCLIClientID,
-					AuthorizeUrl: oauthdiscovery.OpenShiftOAuthAuthorizeURL(s.URL),
-					TokenUrl:     oauthdiscovery.OpenShiftOAuthTokenURL(s.URL),
-					RedirectUrl:  oauthdiscovery.OpenShiftOAuthTokenImplicitURL(s.URL),
+				OAuthConfig: &oauth2.Config{
+					ClientID: openShiftCLIClientID,
+					Endpoint: oauth2.Endpoint{
+						AuthURL:  oauthdiscovery.OpenShiftOAuthAuthorizeURL(s.URL),
+						TokenURL: oauthdiscovery.OpenShiftOAuthTokenURL(s.URL),
+					},
+					RedirectURL: oauthdiscovery.OpenShiftOAuthTokenImplicitURL(s.URL),
 				},
 				Issuer:    s.URL,
 				TokenFlow: true,
@@ -285,7 +286,206 @@ func TestRequestToken(t *testing.T) {
 	}
 }
 
-func TestSetDefaultOsinConfig(t *testing.T) {
+func TestRequestToken_ImplicitFlow(t *testing.T) {
+	// The implicit ("token") flow is not natively supported by
+	// golang.org/x/oauth2 (AuthCodeURL hardcodes response_type=code), so
+	// authorizeURL overrides it explicitly. Exercise the migrated flow end to
+	// end: assert the authorization URL carries response_type=token and that the
+	// access token returned in the redirect fragment is accepted.
+	const expectedToken = "implicit-access-token"
+
+	sawAuthorize := false
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method == http.MethodHead {
+			// transportWithSystemRoots probes the issuer with a HEAD request
+			return
+		}
+		if req.URL.Path != "/oauth/authorize" {
+			t.Errorf("expected authorize request, got %s %s", req.Method, req.URL.Path)
+			return
+		}
+		sawAuthorize = true
+		if got := req.URL.Query().Get("response_type"); got != tokenResponseType {
+			t.Errorf("expected response_type=%q, got %q", tokenResponseType, got)
+		}
+		w.Header().Set("Location", fmt.Sprintf("/#access_token=%s", expectedToken))
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer s.Close()
+
+	opts := &RequestTokenOptions{
+		ClientConfig: &restclient.Config{
+			Host: s.URL,
+			TLSClientConfig: restclient.TLSClientConfig{
+				CAData: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s.Certificate().Raw}),
+			},
+		},
+		Handler: &challengehandlers.BasicChallengeHandler{Username: "myuser", Password: "mypassword"},
+		OAuthConfig: &oauth2.Config{
+			ClientID: openShiftCLIClientID,
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  oauthdiscovery.OpenShiftOAuthAuthorizeURL(s.URL),
+				TokenURL: oauthdiscovery.OpenShiftOAuthTokenURL(s.URL),
+			},
+			RedirectURL: oauthdiscovery.OpenShiftOAuthTokenImplicitURL(s.URL),
+		},
+		Issuer:    s.URL,
+		TokenFlow: true,
+	}
+
+	token, err := opts.requestTokenWithChallengeHandlers()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != expectedToken {
+		t.Errorf("expected token %q, got %q", expectedToken, token)
+	}
+	if !sawAuthorize {
+		t.Error("authorize endpoint was never called")
+	}
+}
+
+func TestRequestToken_ChallengeHandlerCodeFlow(t *testing.T) {
+	// The ordinary (non-browser) "oc login" path runs the OAuth code flow through
+	// requestTokenWithChallengeHandlers with TokenFlow=false. The existing
+	// challenge tests use TokenFlow=true and the browser test exercises a
+	// different callback path, so exercise this one end to end: the authorization
+	// GET must carry the PKCE S256 challenge derived from the verifier, and the
+	// token-exchange POST must carry the verifier plus an "Accept: application/json"
+	// header. Also assert a JSON token response is accepted even when the server
+	// labels it "text/plain" (both behaviors osincli provided and x/oauth2 does
+	// not by default).
+	const (
+		codeVerifier = "code-challenge-plain"
+		authCode     = "secret-auth-code"
+		accessToken  = "secret"
+	)
+	jsonBody := fmt.Sprintf(`{"token_type":"Bearer","access_token":%q}`, accessToken)
+	formBody := fmt.Sprintf("token_type=Bearer&access_token=%s", accessToken)
+
+	for _, tc := range []struct {
+		name             string
+		tokenContentType string
+		tokenBody        string
+	}{
+		{name: "json token response", tokenContentType: "application/json", tokenBody: jsonBody},
+		{name: "json token response labeled text/plain", tokenContentType: "text/plain", tokenBody: jsonBody},
+		// a genuine form response under text/plain must still be parsed natively by
+		// x/oauth2 (i.e. not wrongly relabeled as JSON), proving the discriminator.
+		{name: "form token response labeled text/plain", tokenContentType: "text/plain", tokenBody: formBody},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sawAuthorize, sawToken := false, false
+			s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodHead:
+					// transportWithSystemRoots probes the issuer with a HEAD request
+					return
+				case r.URL.Path == "/oauth/authorize":
+					sawAuthorize = true
+					q := r.URL.Query()
+					if got := q.Get("response_type"); got != "code" {
+						t.Errorf("expected response_type=code, got %q", got)
+					}
+					if got := q.Get("code_challenge_method"); got != pkce_s256 {
+						t.Errorf("expected code_challenge_method=%q, got %q", pkce_s256, got)
+					}
+					if got, want := q.Get("code_challenge"), oauth2.S256ChallengeFromVerifier(codeVerifier); got != want {
+						t.Errorf("expected code_challenge %q, got %q", want, got)
+					}
+					w.Header().Set("Location", fmt.Sprintf("/callback?code=%s", authCode))
+					w.WriteHeader(http.StatusFound)
+				case r.URL.Path == "/oauth/token":
+					sawToken = true
+					if got := r.Header.Get("Accept"); got != "application/json" {
+						t.Errorf("expected token request Accept: application/json, got %q", got)
+					}
+					if err := r.ParseForm(); err != nil {
+						t.Errorf("failed to parse token request form: %v", err)
+						return
+					}
+					if got := r.Form.Get("grant_type"); got != "authorization_code" {
+						t.Errorf("expected grant_type=authorization_code, got %q", got)
+					}
+					if got := r.Form.Get("code"); got != authCode {
+						t.Errorf("expected code=%q, got %q", authCode, got)
+					}
+					if got := r.Form.Get("code_verifier"); got != codeVerifier {
+						t.Errorf("expected code_verifier=%q, got %q", codeVerifier, got)
+					}
+					// AuthStyleInHeader: the client id is sent via HTTP Basic auth
+					// (with an empty secret), not as a client_id body parameter,
+					// matching the historical osincli behavior.
+					if user, pass, ok := r.BasicAuth(); !ok || user != openShiftCLIClientID || pass != "" {
+						t.Errorf("expected Basic auth with client id %q and empty secret, got user=%q pass=%q ok=%v", openShiftCLIClientID, user, pass, ok)
+					}
+					if got := r.Form.Get("client_id"); got != "" {
+						t.Errorf("expected no client_id body parameter with AuthStyleInHeader, got %q", got)
+					}
+					w.Header().Set("Content-Type", tc.tokenContentType)
+					fmt.Fprint(w, tc.tokenBody)
+				default:
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+				}
+			}))
+			defer s.Close()
+
+			o := &RequestTokenOptions{
+				ClientConfig: &restclient.Config{
+					Host: s.URL,
+					TLSClientConfig: restclient.TLSClientConfig{
+						CAData: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s.Certificate().Raw}),
+					},
+				},
+				Handler: &challengehandlers.BasicChallengeHandler{Username: "myuser", Password: "mypassword"},
+				OAuthConfig: &oauth2.Config{
+					ClientID: openShiftCLIClientID,
+					Endpoint: oauth2.Endpoint{
+						AuthURL:   oauthdiscovery.OpenShiftOAuthAuthorizeURL(s.URL),
+						TokenURL:  oauthdiscovery.OpenShiftOAuthTokenURL(s.URL),
+						AuthStyle: oauth2.AuthStyleInHeader,
+					},
+					RedirectURL: oauthdiscovery.OpenShiftOAuthTokenImplicitURL(s.URL),
+				},
+				Issuer:       s.URL,
+				TokenFlow:    false,
+				codeVerifier: codeVerifier,
+			}
+
+			token, err := o.requestTokenWithChallengeHandlers()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if token != accessToken {
+				t.Errorf("expected token %q, got %q", accessToken, token)
+			}
+			if !sawAuthorize {
+				t.Error("authorize endpoint was never called")
+			}
+			if !sawToken {
+				t.Error("token endpoint was never called")
+			}
+		})
+	}
+}
+
+func TestOAuthCodeFlow_UnparseableRedirectIsIgnored(t *testing.T) {
+	// oauthCodeFlow handles arbitrary redirects (e.g. from an authenticating
+	// proxy) that may not be part of the OAuth flow. A redirect whose query cannot
+	// be parsed must be treated as "not the OAuth redirect" so the caller keeps
+	// following redirects, rather than failing login. This matches the
+	// pre-migration behavior, which ignored the ParseForm error.
+	o := &RequestTokenOptions{}
+	token, err := o.oauthCodeFlow(context.Background(), "https://proxy.example.com/redirect?broken=%zz")
+	if err != nil {
+		t.Fatalf("expected unparseable redirect to be ignored, got error: %v", err)
+	}
+	if token != "" {
+		t.Errorf("expected no token from a non-OAuth redirect, got %q", token)
+	}
+}
+
+func TestSetDefaultOAuthConfig(t *testing.T) {
 	noHostChange := func(host string) string { return host }
 	loopbackRedirectUrl := "http://127.0.0.1:12345/callback"
 	for _, tc := range []struct {
@@ -297,7 +497,7 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 		redirectUrl *string
 
 		expectPKCE     bool
-		expectedConfig *osincli.ClientConfig
+		expectedConfig *oauth2.Config
 	}{
 		{
 			name: "code with PKCE support from server",
@@ -312,12 +512,10 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			clientName:  openShiftCLIClientID,
 
 			expectPKCE: true,
-			expectedConfig: &osincli.ClientConfig{
-				ClientId:            openShiftCLIClientID,
-				AuthorizeUrl:        "b",
-				TokenUrl:            "c",
-				RedirectUrl:         "a/oauth/token/implicit",
-				CodeChallengeMethod: pkce_s256,
+			expectedConfig: &oauth2.Config{
+				ClientID:    openShiftCLIClientID,
+				Endpoint:    oauth2.Endpoint{AuthURL: "b", TokenURL: "c"},
+				RedirectURL: "a/oauth/token/implicit",
 			},
 		},
 		{
@@ -333,11 +531,10 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			clientName:  openShiftCLIClientID,
 
 			expectPKCE: false,
-			expectedConfig: &osincli.ClientConfig{
-				ClientId:     openShiftCLIClientID,
-				AuthorizeUrl: "b",
-				TokenUrl:     "c",
-				RedirectUrl:  "a/oauth/token/implicit",
+			expectedConfig: &oauth2.Config{
+				ClientID:    openShiftCLIClientID,
+				Endpoint:    oauth2.Endpoint{AuthURL: "b", TokenURL: "c"},
+				RedirectURL: "a/oauth/token/implicit",
 			},
 		},
 		{
@@ -353,11 +550,10 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			clientName:  openShiftCLIClientID,
 
 			expectPKCE: false,
-			expectedConfig: &osincli.ClientConfig{
-				ClientId:     openShiftCLIClientID,
-				AuthorizeUrl: "b",
-				TokenUrl:     "c",
-				RedirectUrl:  "a/oauth/token/implicit",
+			expectedConfig: &oauth2.Config{
+				ClientID:    openShiftCLIClientID,
+				Endpoint:    oauth2.Endpoint{AuthURL: "b", TokenURL: "c"},
+				RedirectURL: "a/oauth/token/implicit",
 			},
 		},
 		{
@@ -373,11 +569,10 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			clientName:  openShiftCLIClientID,
 
 			expectPKCE: false,
-			expectedConfig: &osincli.ClientConfig{
-				ClientId:     openShiftCLIClientID,
-				AuthorizeUrl: "b",
-				TokenUrl:     "c",
-				RedirectUrl:  "a/oauth/token/implicit",
+			expectedConfig: &oauth2.Config{
+				ClientID:    openShiftCLIClientID,
+				Endpoint:    oauth2.Endpoint{AuthURL: "b", TokenURL: "c"},
+				RedirectURL: "a/oauth/token/implicit",
 			},
 		},
 		{
@@ -393,11 +588,10 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			clientName:  openShiftCLIClientID,
 
 			expectPKCE: false,
-			expectedConfig: &osincli.ClientConfig{
-				ClientId:     openShiftCLIClientID,
-				AuthorizeUrl: "b",
-				TokenUrl:     "c",
-				RedirectUrl:  "a/oauth/token/implicit",
+			expectedConfig: &oauth2.Config{
+				ClientID:    openShiftCLIClientID,
+				Endpoint:    oauth2.Endpoint{AuthURL: "b", TokenURL: "c"},
+				RedirectURL: "a/oauth/token/implicit",
 			},
 		},
 		{
@@ -413,12 +607,10 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			clientName:  openShiftCLIClientID,
 
 			expectPKCE: true,
-			expectedConfig: &osincli.ClientConfig{
-				ClientId:            openShiftCLIClientID,
-				AuthorizeUrl:        "b",
-				TokenUrl:            "c",
-				RedirectUrl:         "a/oauth/token/implicit",
-				CodeChallengeMethod: pkce_s256,
+			expectedConfig: &oauth2.Config{
+				ClientID:    openShiftCLIClientID,
+				Endpoint:    oauth2.Endpoint{AuthURL: "b", TokenURL: "c"},
+				RedirectURL: "a/oauth/token/implicit",
 			},
 		},
 		{
@@ -434,12 +626,10 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			clientName:  openShiftCLIClientID,
 
 			expectPKCE: true,
-			expectedConfig: &osincli.ClientConfig{
-				ClientId:            openShiftCLIClientID,
-				AuthorizeUrl:        "b",
-				TokenUrl:            "c",
-				RedirectUrl:         "a/oauth/token/implicit",
-				CodeChallengeMethod: pkce_s256,
+			expectedConfig: &oauth2.Config{
+				ClientID:    openShiftCLIClientID,
+				Endpoint:    oauth2.Endpoint{AuthURL: "b", TokenURL: "c"},
+				RedirectURL: "a/oauth/token/implicit",
 			},
 		},
 		{
@@ -455,12 +645,10 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			clientName:  openShiftCLIClientID,
 
 			expectPKCE: true,
-			expectedConfig: &osincli.ClientConfig{
-				ClientId:            openShiftCLIClientID,
-				AuthorizeUrl:        "44authzisanawesomeendpoint",
-				TokenUrl:            "&&buttokenendpointisprettygoodtoo",
-				RedirectUrl:         "arandomissuerthatisfun123!!!/oauth/token/implicit",
-				CodeChallengeMethod: pkce_s256,
+			expectedConfig: &oauth2.Config{
+				ClientID:    openShiftCLIClientID,
+				Endpoint:    oauth2.Endpoint{AuthURL: "44authzisanawesomeendpoint", TokenURL: "&&buttokenendpointisprettygoodtoo"},
+				RedirectURL: "arandomissuerthatisfun123!!!/oauth/token/implicit",
 			},
 		},
 		{
@@ -477,12 +665,10 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			redirectUrl: &loopbackRedirectUrl,
 
 			expectPKCE: true,
-			expectedConfig: &osincli.ClientConfig{
-				ClientId:            openShiftCLIBrowserClientID,
-				AuthorizeUrl:        "b",
-				TokenUrl:            "c",
-				RedirectUrl:         loopbackRedirectUrl,
-				CodeChallengeMethod: pkce_s256,
+			expectedConfig: &oauth2.Config{
+				ClientID:    openShiftCLIBrowserClientID,
+				Endpoint:    oauth2.Endpoint{AuthURL: "b", TokenURL: "c"},
+				RedirectURL: loopbackRedirectUrl,
 			},
 		},
 	} {
@@ -508,31 +694,34 @@ func TestSetDefaultOsinConfig(t *testing.T) {
 			ClientConfig: &restclient.Config{Host: tc.hostWrapper(s.URL)},
 			TokenFlow:    tc.tokenFlow,
 		}
-		if err := opts.SetDefaultOsinConfig(tc.clientName, tc.redirectUrl); err != nil {
-			t.Errorf("%s: unexpected SetDefaultOsinConfig error: %v", tc.name, err)
+		if err := opts.SetDefaultOAuthConfig(tc.clientName, tc.redirectUrl); err != nil {
+			t.Errorf("%s: unexpected SetDefaultOAuthConfig error: %v", tc.name, err)
 			continue
 		}
 
-		// check PKCE data
+		// check PKCE data; PKCE is tracked via the code verifier, the challenge is
+		// derived from it and added per-request at authorization/exchange time.
 		if tc.expectPKCE {
-			if len(opts.OsinConfig.CodeChallenge) == 0 || len(opts.OsinConfig.CodeChallengeMethod) == 0 || len(opts.OsinConfig.CodeVerifier) == 0 {
+			if len(opts.codeVerifier) == 0 {
 				t.Errorf("%s: did not set PKCE", tc.name)
 				continue
 			}
 		} else {
-			if len(opts.OsinConfig.CodeChallenge) != 0 || len(opts.OsinConfig.CodeChallengeMethod) != 0 || len(opts.OsinConfig.CodeVerifier) != 0 {
+			if len(opts.codeVerifier) != 0 {
 				t.Errorf("%s: incorrectly set PKCE", tc.name)
 				continue
 			}
 		}
 
-		// blindly unset random PKCE data since we already checked for it
-		opts.OsinConfig.CodeChallenge = ""
-		opts.OsinConfig.CodeVerifier = ""
-
-		// compare the configs to see if they match
-		if !reflect.DeepEqual(*tc.expectedConfig, *opts.OsinConfig) {
-			t.Errorf("%s: expected osin config does not match, %s", tc.name, diff.Diff(*tc.expectedConfig, *opts.OsinConfig))
+		// compare the configs to see if they match; oauth2.Config carries an
+		// unexported auth-style cache so compare the relevant fields directly.
+		got := opts.OAuthConfig
+		if got.ClientID != tc.expectedConfig.ClientID ||
+			got.Endpoint.AuthURL != tc.expectedConfig.Endpoint.AuthURL ||
+			got.Endpoint.TokenURL != tc.expectedConfig.Endpoint.TokenURL ||
+			got.RedirectURL != tc.expectedConfig.RedirectURL {
+			t.Errorf("%s: expected oauth config %+v, got clientID=%q authURL=%q tokenURL=%q redirectURL=%q",
+				tc.name, tc.expectedConfig, got.ClientID, got.Endpoint.AuthURL, got.Endpoint.TokenURL, got.RedirectURL)
 		}
 	}
 }
@@ -549,7 +738,6 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 		name               string
 		requests           []expectedRequest
 		expectedToken      string
-		codeChallenge      string
 		codeVerifier       string
 		expectError        string
 		callbackParameters url.Values
@@ -565,9 +753,9 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 					path:   "/oauth/authorize",
 					parameters: map[string][]string{
 						"client_id":             {openShiftCLIBrowserClientID},
-						"code_challenge":        {"code-challenge-encrypted"},
+						"code_challenge":        {oauth2.S256ChallengeFromVerifier("code-challenge-plain")},
 						"code_challenge_method": {pkce_s256},
-						"response_type":         {string(osincli.CODE)},
+						"response_type":         {"code"},
 					},
 				},
 				{
@@ -576,12 +764,11 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 					response: `{"token_type": "access", "access_token": "secret"}`,
 					parameters: map[string][]string{
 						"code":          {"secret-auth-code"},
-						"grant_type":    {string(osincli.AUTHORIZATION_CODE)},
+						"grant_type":    {"authorization_code"},
 						"code_verifier": {"code-challenge-plain"},
 					},
 				},
 			},
-			codeChallenge:      "code-challenge-encrypted",
 			codeVerifier:       "code-challenge-plain",
 			callbackParameters: url.Values{"code": []string{"secret-auth-code"}},
 		},
@@ -596,15 +783,14 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 					path:   "/oauth/authorize",
 					parameters: map[string][]string{
 						"client_id":             {openShiftCLIBrowserClientID},
-						"code_challenge":        {"code-challenge-encrypted"},
+						"code_challenge":        {oauth2.S256ChallengeFromVerifier("code-challenge-plain")},
 						"code_challenge_method": {pkce_s256},
-						"response_type":         {string(osincli.CODE)},
+						"response_type":         {"code"},
 					},
 				},
 			},
-			codeChallenge: "code-challenge-encrypted",
-			codeVerifier:  "code-challenge-plain",
-			expectError:   "Requested parameter not sent",
+			codeVerifier: "code-challenge-plain",
+			expectError:  "Requested parameter not sent",
 		},
 		{
 			name: "no token after exchanging code",
@@ -617,9 +803,9 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 					path:   "/oauth/authorize",
 					parameters: map[string][]string{
 						"client_id":             {openShiftCLIBrowserClientID},
-						"code_challenge":        {"code-challenge-encrypted"},
+						"code_challenge":        {oauth2.S256ChallengeFromVerifier("code-challenge-plain")},
 						"code_challenge_method": {pkce_s256},
-						"response_type":         {string(osincli.CODE)},
+						"response_type":         {"code"},
 					},
 				},
 				{
@@ -628,14 +814,13 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 					response: "{}",
 					parameters: map[string][]string{
 						"code":          {"secret-auth-code"},
-						"grant_type":    {string(osincli.AUTHORIZATION_CODE)},
+						"grant_type":    {"authorization_code"},
 						"code_verifier": {"code-challenge-plain"},
 					},
 				},
 			},
-			codeChallenge:      "code-challenge-encrypted",
 			codeVerifier:       "code-challenge-plain",
-			expectError:        "Invalid parameters received",
+			expectError:        "server response missing access_token",
 			callbackParameters: url.Values{"code": []string{"secret-auth-code"}},
 		},
 	} {
@@ -688,6 +873,9 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 					t.Fatalf("unknown method: %s", r.Method)
 				}
 				if rr.response != "" {
+					// golang.org/x/oauth2 selects its response parser based on the
+					// Content-Type header, so the token endpoint must advertise JSON.
+					w.Header().Set("Content-Type", "application/json")
 					w.Write([]byte(rr.response))
 				}
 			}))
@@ -701,13 +889,13 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 					},
 				},
 
-				OsinConfig: &osincli.ClientConfig{
-					ClientId:            openShiftCLIBrowserClientID,
-					AuthorizeUrl:        oauthdiscovery.OpenShiftOAuthAuthorizeURL(oauthServer.URL),
-					TokenUrl:            oauthdiscovery.OpenShiftOAuthTokenURL(oauthServer.URL),
-					CodeChallengeMethod: pkce_s256,
-					CodeChallenge:       tc.codeChallenge,
-					CodeVerifier:        tc.codeVerifier,
+				OAuthConfig: &oauth2.Config{
+					ClientID: openShiftCLIBrowserClientID,
+					Endpoint: oauth2.Endpoint{
+						AuthURL:   oauthdiscovery.OpenShiftOAuthAuthorizeURL(oauthServer.URL),
+						TokenURL:  oauthdiscovery.OpenShiftOAuthTokenURL(oauthServer.URL),
+						AuthStyle: oauth2.AuthStyleInHeader,
+					},
 				},
 				Issuer: oauthServer.URL,
 			}
@@ -732,10 +920,11 @@ func TestRequestToken_BrowserFlow(t *testing.T) {
 
 			_, err := o.WithLocalCallback(authzUrlHandler, 0)
 			if err != nil {
-				t.Errorf("%s: unexpected SetDefaultOsinConfig error: %v", tc.name, err)
+				t.Errorf("%s: unexpected SetDefaultOAuthConfig error: %v", tc.name, err)
 				return
 			}
-			o.OsinConfig.RedirectUrl = fmt.Sprintf("http://%s/callback", o.LocalCallbackServer.listenAddr)
+			o.OAuthConfig.RedirectURL = fmt.Sprintf("http://%s/callback", o.LocalCallbackServer.listenAddr)
+			o.codeVerifier = tc.codeVerifier
 
 			token, err := o.requestTokenWithLocalCallback()
 			if tc.expectError == "" {
