@@ -2,6 +2,7 @@ package crypto
 
 import (
 	configv1 "github.com/openshift/api/config/v1"
+	"k8s.io/klog/v2"
 )
 
 // ShouldHonorClusterTLSProfile returns true if the component should honor the
@@ -13,10 +14,15 @@ import (
 //
 // Unknown enum values are treated as StrictAllComponents for forward compatibility
 // and to default to the more secure behavior.
-func ShouldHonorClusterTLSProfile(tlsAdherence configv1.TLSAdherencePolicy) bool {
+func ShouldHonorClusterTLSProfile(tlsAdherence configv1.TLSAdherencePolicy, isLegacyAdheringComponent bool, logger klog.Logger) bool {
+	if isLegacyAdheringComponent {
+		return true
+	}
 	switch tlsAdherence {
 	case configv1.TLSAdherencePolicyNoOpinion, configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly:
 		return false
+	case configv1.TLSAdherencePolicyStrictAllComponents:
+		return true
 	default:
 		return true
 	}
