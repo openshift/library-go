@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,12 +22,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 
 	oauthapiv1 "github.com/openshift/api/oauth/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -169,7 +172,7 @@ func GetClients(t testing.TB) ClientSet {
 }
 
 // ReadKMSPreflightForOperator returns the operator's current preflight snapshot (zero when unset).
-// Snapshot it before applying a new KMS config and pass it to AssertKMSPreflightSucceededForOperator
+// Snapshot it before applying a new KMS config and pass it to AssertKMSPreflight
 // to confirm a fresh preflight ran for that config.
 func ReadKMSPreflightForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string) (operatorv1.KMSPreflightCheck, error) {
 	t.Helper()
@@ -758,4 +761,86 @@ func allTargetGRsMigrated(keyMeta EncryptionKeyMeta, targetGRs []schema.GroupRes
 		}
 	}
 	return true
+}
+
+// StartCapturingLatestPreflightPod watches the preflight pod by name and keeps the
+// latest ADDED/MODIFIED version (UID-locked so a stale pod reusing the name cannot
+// pollute the capture) in an atomic.Pointer. The operator reaps the pod on success,
+// so start this before applying the KMS config. stop cancels the watch and blocks
+// until the goroutine exits, so the pointer can be read without racing a Store; it
+// is idempotent.
+func StartCapturingLatestPreflightPod(ctx context.Context, t testing.TB, clientSet ClientSet, namespace string) (*atomic.Pointer[corev1.Pod], func()) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(ctx)
+	w, err := clientSet.Kube.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{FieldSelector: "metadata.name=" + preflight.PodName})
+	if err != nil {
+		cancel()
+		require.NoError(t, err)
+	}
+	t.Logf("capturing preflight pod %s/%s", namespace, preflight.PodName)
+
+	captured := &atomic.Pointer[corev1.Pod]{}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer w.Stop()
+
+		// snapshot renders the current capture for diagnostic logs so a CI failure
+		// ("no preflight pod captured") is self-explanatory from the log alone.
+		snapshot := func() string {
+			if p := captured.Load(); p != nil {
+				return fmt.Sprintf("uid=%s rv=%s phase=%s", p.UID, p.ResourceVersion, p.Status.Phase)
+			}
+			return "<none>"
+		}
+
+		var events, stores int
+		for {
+			select {
+			case <-ctx.Done():
+				t.Logf("preflight pod capture: watch stopped via context after %d events, %d stored (captured=%s)",
+					events, stores, snapshot())
+				return
+			case ev, ok := <-w.ResultChan():
+				if !ok {
+					// The apiserver closes watches routinely (request timeout, apiserver
+					// rollout). This watch is NOT re-established, so anything created after
+					// this point is never captured -- the likely cause of an empty capture.
+					t.Logf("preflight pod capture: WATCH CHANNEL CLOSED after %d events, %d stored (captured=%s) -- watch is not re-established",
+						events, stores, snapshot())
+					return
+				}
+				events++
+				if ev.Type == watch.Error {
+					t.Logf("preflight pod capture: watch ERROR event (#%d): %#v", events, ev.Object)
+					continue
+				}
+				pod, isPod := ev.Object.(*corev1.Pod)
+				if !isPod {
+					t.Logf("preflight pod capture: skipping %s event (#%d) with non-pod object %T", ev.Type, events, ev.Object)
+					continue
+				}
+				if ev.Type != watch.Added && ev.Type != watch.Modified {
+					t.Logf("preflight pod capture: skipping %s event (#%d) for %s/%s (uid=%s, phase=%s)",
+						ev.Type, events, pod.Namespace, pod.Name, pod.UID, pod.Status.Phase)
+					continue
+				}
+				if prev := captured.Load(); prev != nil && ev.Type == watch.Modified && prev.UID != pod.UID {
+					t.Logf("preflight pod capture: ignoring MODIFIED event (#%d) for stale uid=%s (captured uid=%s)",
+						events, pod.UID, prev.UID)
+					continue
+				}
+				captured.Store(pod)
+				stores++
+				t.Logf("captured preflight pod %s/%s (%s, uid=%s, rv=%s, phase=%s)",
+					pod.Namespace, pod.Name, ev.Type, pod.UID, pod.ResourceVersion, pod.Status.Phase)
+			}
+		}
+	}()
+
+	stop := func() {
+		cancel()
+		<-done
+	}
+	return captured, stop
 }

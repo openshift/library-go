@@ -13,6 +13,11 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 )
 
+// preflightConfigHashAnnotation mirrors the unexported annotation the preflight
+// deployer stamps on the pod. Annotation keys are a stable contract, so the test
+// duplicates it rather than exporting it from the production package.
+const preflightConfigHashAnnotation = "encryption.apiserver.operator.openshift.io/kms-preflight-config-hash"
+
 // DefaultPreflightPodSpecDriftIgnore lists PodSpec field names skipped by
 // AssertNoPreflightConfigDrift via cmpopts.IgnoreFields. Unknown diffs outside
 // this list fail the drift check.
@@ -72,12 +77,34 @@ func AssertNoPreflightConfigDrift(ctx context.Context, t testing.TB, clientSet C
 	targetPod := findAnyOperandPod(ctx, t, clientSet, namespace, labelSelector)
 	require.NotNil(t, targetPod, "no Running pod in %s matching %q", namespace, labelSelector)
 
-	diff := cmp.Diff(&targetPod.Spec, &preflightPod.Spec,
-		cmpopts.IgnoreFields(corev1.PodSpec{}, DefaultPreflightPodSpecDriftIgnore...),
+	assertNoPodSpecDrift(t, targetPod, preflightPod, DefaultPreflightPodSpecDriftIgnore...)
+}
+
+// AssertNoPreflightConfigDriftFromCapture runs the PodSpec drift check against a
+// pod recorded by StartCapturingLatestPreflightPod, for use on the positive path where
+// the operator reaps the pod on success. preflightPod must carry expectedConfigHash,
+// proving the diff is against the pod deployed for the config under test.
+func AssertNoPreflightConfigDriftFromCapture(ctx context.Context, t testing.TB, clientSet ClientSet, namespace, labelSelector, expectedConfigHash string, preflightPod *corev1.Pod) {
+	t.Helper()
+	require.NotNil(t, preflightPod, "no preflight pod captured")
+	require.Equal(t, expectedConfigHash, preflightPod.Annotations[preflightConfigHashAnnotation], "captured preflight pod config-hash annotation")
+
+	targetPod := findAnyOperandPod(ctx, t, clientSet, namespace, labelSelector)
+	require.NotNil(t, targetPod, "no Running pod in %s matching %q", namespace, labelSelector)
+
+	assertNoPodSpecDrift(t, targetPod, preflightPod, DefaultPreflightPodSpecDriftIgnore...)
+}
+
+// assertNoPodSpecDrift fails if cmp.Diff reports PodSpec drift between operand and
+// preflightPod outside ignoreFields.
+func assertNoPodSpecDrift(t testing.TB, operand, preflightPod *corev1.Pod, ignoreFields ...string) {
+	t.Helper()
+	diff := cmp.Diff(&operand.Spec, &preflightPod.Spec,
+		cmpopts.IgnoreFields(corev1.PodSpec{}, ignoreFields...),
 		cmpopts.EquateEmpty(),
 	)
 	require.Empty(t, diff, "preflight pod %s/%s drifted from target %s/%s:\n%s",
-		preflightPod.Namespace, preflightPod.Name, targetPod.Namespace, targetPod.Name, diff)
+		preflightPod.Namespace, preflightPod.Name, operand.Namespace, operand.Name, diff)
 }
 
 // findAnyOperandPod returns any Running pod matching labelSelector.
