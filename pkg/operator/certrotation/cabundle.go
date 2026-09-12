@@ -8,6 +8,9 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -101,7 +104,14 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Created ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+
+		if klog.V(2).Enabled() {
+			klog.V(2).Infof("Created ca-bundle.crt configmap %s/%s with:\n%s", actualCABundleConfigMap.Namespace, actualCABundleConfigMap.Name, certs.CertificateBundleToString(updatedCerts))
+			if diff := cmp.Diff(nil, actualCABundleConfigMap.Annotations, cmpopts.EquateEmpty()); len(diff) > 0 {
+				klog.V(2).Infof("ConfigMap %s/%s annotations diff: %s", actualCABundleConfigMap.Namespace, actualCABundleConfigMap.Name, diff)
+			}
+		}
+
 		caBundleConfigMap = actualCABundleConfigMap
 	} else if updateRequired {
 		actualCABundleConfigMap, err := c.Client.ConfigMaps(c.Namespace).Update(ctx, caBundleConfigMap, metav1.UpdateOptions{})
@@ -113,7 +123,14 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+
+		if klog.V(2).Enabled() {
+			klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", actualCABundleConfigMap.Namespace, actualCABundleConfigMap.Name, certs.CertificateBundleToString(updatedCerts))
+			if diff := cmp.Diff(originalCABundleConfigMap.Annotations, actualCABundleConfigMap.Annotations, cmpopts.EquateEmpty()); len(diff) > 0 {
+				klog.V(2).Infof("ConfigMap %s/%s annotations diff: %s", actualCABundleConfigMap.Namespace, actualCABundleConfigMap.Name, diff)
+			}
+		}
+
 		caBundleConfigMap = actualCABundleConfigMap
 	}
 

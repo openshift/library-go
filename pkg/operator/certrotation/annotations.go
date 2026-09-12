@@ -1,10 +1,8 @@
 package certrotation
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"github.com/openshift/api/annotations"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -48,44 +46,30 @@ func (a AdditionalAnnotations) EnsureTLSMetadataUpdate(meta *metav1.ObjectMeta) 
 		meta.Annotations = make(map[string]string)
 	}
 	if len(a.JiraComponent) > 0 && meta.Annotations[annotations.OpenShiftComponent] != a.JiraComponent {
-		diff := cmp.Diff(meta.Annotations[annotations.OpenShiftComponent], a.JiraComponent)
-		klog.V(2).Infof("Updating %q annotation for %s/%s, diff: %s", annotations.OpenShiftComponent, meta.Namespace, meta.Name, diff)
 		meta.Annotations[annotations.OpenShiftComponent] = a.JiraComponent
 		modified = true
 	}
 	if len(a.Description) > 0 && meta.Annotations[annotations.OpenShiftDescription] != a.Description {
-		diff := cmp.Diff(meta.Annotations[annotations.OpenShiftDescription], a.Description)
-		klog.V(2).Infof("Updating %q annotation for %s/%s, diff: %s", annotations.OpenShiftDescription, meta.Namespace, meta.Name, diff)
 		meta.Annotations[annotations.OpenShiftDescription] = a.Description
 		modified = true
 	}
 	if len(a.TestName) > 0 && meta.Annotations[CertificateTestNameAnnotation] != a.TestName {
-		diff := cmp.Diff(meta.Annotations[CertificateTestNameAnnotation], a.TestName)
-		klog.V(2).Infof("Updating %q annotation for %s/%s, diff: %s", CertificateTestNameAnnotation, meta.Name, meta.Namespace, diff)
 		meta.Annotations[CertificateTestNameAnnotation] = a.TestName
 		modified = true
 	}
 	if len(a.AutoRegenerateAfterOfflineExpiry) > 0 && meta.Annotations[CertificateAutoRegenerateAfterOfflineExpiryAnnotation] != a.AutoRegenerateAfterOfflineExpiry {
-		diff := cmp.Diff(meta.Annotations[CertificateAutoRegenerateAfterOfflineExpiryAnnotation], a.AutoRegenerateAfterOfflineExpiry)
-		klog.V(2).Infof("Updating %q annotation for %s/%s, diff: %s", CertificateAutoRegenerateAfterOfflineExpiryAnnotation, meta.Namespace, meta.Name, diff)
 		meta.Annotations[CertificateAutoRegenerateAfterOfflineExpiryAnnotation] = a.AutoRegenerateAfterOfflineExpiry
 		modified = true
 	}
 	if len(a.NotBefore) > 0 && meta.Annotations[CertificateNotBeforeAnnotation] != a.NotBefore {
-		diff := cmp.Diff(meta.Annotations[CertificateNotBeforeAnnotation], a.NotBefore)
-		klog.V(2).Infof("Updating %q annotation for %s/%s, diff: %s", CertificateNotBeforeAnnotation, meta.Name, meta.Namespace, diff)
 		meta.Annotations[CertificateNotBeforeAnnotation] = a.NotBefore
 		modified = true
 	}
 	if len(a.NotAfter) > 0 && meta.Annotations[CertificateNotAfterAnnotation] != a.NotAfter {
-		diff := cmp.Diff(meta.Annotations[CertificateNotAfterAnnotation], a.NotAfter)
-		klog.V(2).Infof("Updating %q annotation for %s/%s, diff: %s", CertificateNotAfterAnnotation, meta.Name, meta.Namespace, diff)
 		meta.Annotations[CertificateNotAfterAnnotation] = a.NotAfter
 		modified = true
 	}
 	if len(a.RefreshPeriod) > 0 && meta.Annotations[CertificateRefreshPeriodAnnotation] != a.RefreshPeriod {
-		diff := cmp.Diff(meta.Annotations[CertificateRefreshPeriodAnnotation], a.RefreshPeriod)
-		klog.V(2).Infof("Updating %q annotation for %s/%s, diff: %s", CertificateRefreshPeriodAnnotation, meta.Name, meta.Namespace, diff)
 		meta.Annotations[CertificateRefreshPeriodAnnotation] = a.RefreshPeriod
 		modified = true
 	}
