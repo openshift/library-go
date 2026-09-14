@@ -267,13 +267,21 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to compute KMS config hash: %w", err)
 		}
-		preflightPassed, err := c.ensureKMSPreflightPassed(ctx, configHash)
+
+		encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to get KMS encryption status: %w", err)
+		}
+
+		preflightPassed, err := c.ensureKMSPreflightPassed(ctx, configHash, encryptionStatus)
 		if err != nil {
 			return nil, false, err
 		}
 		if !preflightPassed {
 			return nil, false, nil
 		}
+
+		ks.KMS.RemoteKey.TargetRemoteKeyID = encryptionStatus.Preflight.Result.RemoteKeyID
 	}
 	secret, err := secrets.FromKeyState(c.instanceName, ks)
 	if err != nil {
@@ -451,11 +459,7 @@ func (p *prefetchedKMSConfigHasherResourceProvider) getConfigMap(_ context.Conte
 //     back off.
 //
 // Callers are responsible for requeuing when this returns (false, nil).
-func (c *keyController) ensureKMSPreflightPassed(ctx context.Context, configHash string) (bool, error) {
-	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
-	if err != nil {
-		return false, fmt.Errorf("failed to get KMS encryption status: %w", err)
-	}
+func (c *keyController) ensureKMSPreflightPassed(ctx context.Context, configHash string, encryptionStatus *operatorv1.KMSEncryptionStatus) (bool, error) {
 
 	// Scenario 1: ObservedConfigHash outdated — schedule the preflight check.
 	if encryptionStatus.Preflight.ObservedConfigHash != configHash {
