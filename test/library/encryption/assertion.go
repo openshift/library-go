@@ -467,9 +467,9 @@ func (o kmsOperatorCR) decodeKMSOperatorStatus(obj map[string]interface{}) (kmsO
 // AssertKMSPreflight asserts KMS preflight passed for the operator owning
 // operatorNamespace, then asserts capturedPreflightPod does not drift from the operand
 // PodSpec. previous is the pre-apply snapshot (see ReadKMSPreflightForOperator);
-// namespace/labelSelector locate the operand pod; capturedPreflightPod comes from
+// namespace locates the operand pod; capturedPreflightPod comes from
 // StartCapturingLatestPreflightPod started before the config was applied.
-func AssertKMSPreflight(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace, namespace, labelSelector string, previous operatorv1.KMSPreflightCheck, capturedPreflightPod *corev1.Pod) {
+func AssertKMSPreflight(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace, namespace string, previous operatorv1.KMSPreflightCheck, capturedPreflightPod *corev1.Pod) {
 	t.Helper()
 	// Auth/OAS assertions require this change in their release-payload images; skip them until then.
 	if operatorNamespace != "openshift-kube-apiserver-operator" {
@@ -477,7 +477,14 @@ func AssertKMSPreflight(ctx context.Context, t testing.TB, clientSet ClientSet, 
 	}
 	cr := operatorCRForNamespace(t, operatorNamespace)
 	observedConfigHash := assertKMSPreflightSucceeded(ctx, t, clientSet.DynamicClient, cr, "cluster", previous)
-	AssertNoPreflightConfigDriftFromCapture(ctx, t, clientSet, namespace, labelSelector, observedConfigHash, capturedPreflightPod)
+	// The operator skips redeploying a preflight pod when this exact config already
+	// passed preflight (e.g. turning KMS on a second time with an unchanged config):
+	// the recorded Succeeded result short-circuits deployment. No pod is captured in
+	// that case, so there is nothing to drift-check.
+	if previous.Result.Status == operatorv1.KMSPreflightResultSucceeded && previous.Result.ConfigHash == observedConfigHash {
+		return
+	}
+	AssertNoPreflightConfigDriftFromCapture(ctx, t, clientSet, namespace, "apiserver=true", observedConfigHash, capturedPreflightPod)
 }
 
 // assertKMSPreflightSucceeded asserts preflight passed for the CR's current config: degraded is
