@@ -467,13 +467,13 @@ func (o kmsOperatorCR) decodeKMSOperatorStatus(obj map[string]interface{}) (kmsO
 // AssertKMSPreflight asserts KMS preflight passed for the operator owning
 // operatorNamespace, then asserts capturedPreflightPod does not drift from the operand
 // PodSpec. previous is the pre-apply snapshot (see ReadKMSPreflightForOperator);
-// namespace/labelSelector locate the operand pod; capturedPreflightPod comes from
+// namespace locates the operand pod; capturedPreflightPod comes from
 // StartCapturingLatestPreflightPod started before the config was applied.
-func AssertKMSPreflight(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace, namespace, labelSelector string, previous operatorv1.KMSPreflightCheck, capturedPreflightPod *corev1.Pod) {
+func AssertKMSPreflight(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace, namespace string, previous operatorv1.KMSPreflightCheck, capturedPreflightPod *corev1.Pod) {
 	t.Helper()
 	cr := operatorCRForNamespace(t, operatorNamespace)
 	observedConfigHash := assertKMSPreflightSucceeded(ctx, t, clientSet.DynamicClient, cr, "cluster", previous)
-	AssertNoPreflightConfigDriftFromCapture(ctx, t, clientSet, namespace, labelSelector, observedConfigHash, capturedPreflightPod)
+	AssertNoPreflightConfigDriftFromCapture(ctx, t, clientSet, namespace, "apiserver=true", observedConfigHash, capturedPreflightPod)
 }
 
 // assertKMSPreflightSucceeded asserts preflight passed for the CR's current config: degraded is
