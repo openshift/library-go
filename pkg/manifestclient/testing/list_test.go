@@ -15,7 +15,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// This test also makes sure that the AuthorizeWithSelectors feature gate is properly set in the manifestclient package.
 func TestListWithLabelSelector_FindsExpectedConfigMaps(t *testing.T) {
 	gvr := schema.GroupVersionResource{
 		Group:    "",
