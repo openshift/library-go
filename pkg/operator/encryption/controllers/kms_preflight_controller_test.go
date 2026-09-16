@@ -1015,13 +1015,17 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// ObservedConfigHash is non-empty (set when KMS was active) but the
-			// cluster has since reverted to identity encryption. The controller
-			// must not degrade — the stale hash is irrelevant until KMS is
-			// re-enabled and the key controller overwrites it.
-			name: "ObservedConfigHash set but encryption reverted to identity — no preflight, not degraded",
+			// The cluster reverted to identity encryption while a Succeeded result
+			// from a prior KMS episode is still recorded. The controller must not
+			// degrade and must clear the cached result so a later re-enable (even
+			// with an unchanged config) re-runs the reachability check.
+			name: "encryption reverted to identity — clears cached result, not degraded",
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{
 				observedConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				writtenStatus: &operatorv1.KMSPreflightResult{
+					Status:     operatorv1.KMSPreflightResultSucceeded,
+					ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				},
 			},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
@@ -1031,9 +1035,11 @@ func TestKMSPreflightController(t *testing.T) {
 					},
 				},
 			}},
-			initialDirtyDeployer:                  true,
-			preconditionsMet:                      true,
-			expectedPreflightDeployerCleanupCount: 1,
+			initialDirtyDeployer:                        true,
+			preconditionsMet:                            true,
+			expectedPreflightDeployerCleanupCount:       1,
+			expectedEncryptionStatusProviderUpdateCalls: 1,
+			expectedKMSPreflightResult:                  &operatorv1.KMSPreflightResult{},
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
@@ -1097,6 +1103,7 @@ func TestKMSPreflightController(t *testing.T) {
 				deployer:                        deployer,
 				encryptionConfigurationComputer: computer,
 				dirtyDeployer:                   scenario.initialDirtyDeployer,
+				dirtyPreflight:                  true,
 				provider:                        provider,
 				preconditionsFulfilledFn:        preconditionsFn,
 				encryptionStatusProvider:        scenario.encryptionStatusProvider,
