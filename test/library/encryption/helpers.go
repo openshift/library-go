@@ -29,6 +29,8 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+
 	oauthapiv1 "github.com/openshift/api/oauth/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/openshift/library-go/test/library"
@@ -73,7 +75,7 @@ type ForceRotationFunc func(t testing.TB, ctx context.Context)
 
 // WaitForRotationCompleteFunc waits until re-migration after rotation has finished.
 // Static encryption waits for the next encryption key secret to be migrated;
-// KMS waits for a new finished entry in KeyRotationStatus, created by the rotation controller.
+// KMS waits until target-remote-key-id and migrated-remote-key-id converge on the new remote key ID.
 type WaitForRotationCompleteFunc func(t testing.TB, clientSet ClientSet, prevKeyMeta EncryptionKeyMeta, scenario BasicScenario)
 
 // StaticEncryptionForceRotation returns a ForceRotationFunc that mints a new key via encryption.reason.
