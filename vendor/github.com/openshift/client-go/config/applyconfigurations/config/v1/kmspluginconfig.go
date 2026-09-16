@@ -14,13 +14,14 @@ import (
 type KMSPluginConfigApplyConfiguration struct {
 	// type defines the kind of platform for the KMS provider.
 	// Allowed values are Vault.
-	// When set to Vault, the plugin connects to a HashiCorp Vault server for key management.
+	// The encryption controllers read the resolved plugin configuration from the status
+	// of the custom resource referenced in pluginConfig.
 	Type *configv1.KMSProviderType `json:"type,omitempty"`
-	// vault defines the configuration for the Vault KMS plugin.
-	// The plugin connects to a Vault Enterprise server that is managed
-	// by the user outside the purview of the control plane.
-	// This field must be set when type is Vault, and must be unset otherwise.
-	Vault *VaultKMSPluginConfigApplyConfiguration `json:"vault,omitempty"`
+	// pluginConfig references a cluster-scoped KMS plugin configuration custom resource.
+	// The referenced resource is reconciled by an OLM operator that publishes the resolved
+	// plugin configuration, including the container image, in the resource status.
+	// It references a provider-specific cluster-scoped custom resource.
+	PluginConfig *KMSPluginConfigReferenceApplyConfiguration `json:"pluginConfig,omitempty"`
 }
 
 // KMSPluginConfigApplyConfiguration constructs a declarative configuration of the KMSPluginConfig type for use with
@@ -37,10 +38,10 @@ func (b *KMSPluginConfigApplyConfiguration) WithType(value configv1.KMSProviderT
 	return b
 }
 
-// WithVault sets the Vault field in the declarative configuration to the given value
+// WithPluginConfig sets the PluginConfig field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Vault field is set to the value of the last call.
-func (b *KMSPluginConfigApplyConfiguration) WithVault(value *VaultKMSPluginConfigApplyConfiguration) *KMSPluginConfigApplyConfiguration {
-	b.Vault = value
+// If called multiple times, the PluginConfig field is set to the value of the last call.
+func (b *KMSPluginConfigApplyConfiguration) WithPluginConfig(value *KMSPluginConfigReferenceApplyConfiguration) *KMSPluginConfigApplyConfiguration {
+	b.PluginConfig = value
 	return b
 }
