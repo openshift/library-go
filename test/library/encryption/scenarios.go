@@ -77,12 +77,24 @@ func TestEncryptionTypeKMS(ctx context.Context, t testing.TB, scenario BasicScen
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	// Snapshot preflight before applying the new config so the assertion can confirm a fresh
 	// preflight ran for it (the remote key id advances when the config genuinely changes).
-	previousPreflight, err := ReadKMSPreflightForOperator(ctx, e, GetClients(e), scenario.OperatorNamespace)
+	previousPreflightStatus, err := ReadKMSPreflightForOperator(ctx, e, GetClients(e), scenario.OperatorNamespace)
 	require.NoError(e, err)
+	// scenario.Namespace is where this scenario's encryption key secrets live
+	// (openshift-config-managed for migration), not where the operator runs the preflight
+	// pod and operand pods. Those run in the operand namespace, which equals the component
+	// label's value (the operator deploys preflight into it), so derive it from the selector.
+	ls, err := metav1.ParseToLabelSelector(scenario.LabelSelector)
+	require.NoError(e, err)
+	operandNamespace := ls.MatchLabels["encryption.apiserver.operator.openshift.io/component"]
+	// Capture the preflight pod as the operator creates it; on success the operator reaps it,
+	// so it cannot be fetched live afterwards for the PodSpec drift check below.
+	capturedPreflightPod, stopCapture := StartCapturingLatestPreflightPod(ctx, e, GetClients(e), operandNamespace)
+	defer stopCapture()
 	clientSet := SetAndWaitForEncryptionType(ctx, e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	stopCapture() // preflight has run; join the watch before reading the capture
 	scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
-	AssertKMSPreflightSucceededForOperator(ctx, e, clientSet, scenario.OperatorNamespace, previousPreflight)
+	AssertKMSPreflight(ctx, e, clientSet, scenario.OperatorNamespace, operandNamespace, "apiserver=true", previousPreflightStatus, capturedPreflightPod.Load())
 }
 
 func TestEncryptionType(ctx context.Context, t testing.TB, scenario BasicScenario, provider EncryptionProvider) {
