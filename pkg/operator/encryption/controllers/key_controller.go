@@ -406,14 +406,15 @@ func modeAndExternalReasonFromAPIServerEncryption(encryption configv1.APIServerE
 }
 
 // modeAndExternalReasonFromAPIServer returns the active encryption mode, any external rotation
-// reason from unsupported config overrides, and the cluster APIServer encryption spec.
-func modeAndExternalReasonFromAPIServer(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
+// reason from unsupported config overrides, the cluster APIServer encryption spec, and its generation.
+func modeAndExternalReasonFromAPIServer(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, int64, error) {
 	apiServer, err := apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return "", "", configv1.APIServerEncryption{}, err
+		return "", "", configv1.APIServerEncryption{}, 0, err
 	}
 
-	return modeAndExternalReasonFromAPIServerEncryption(apiServer.Spec.Encryption, operatorClient, unsupportedConfigPrefix)
+	mode, reason, enc, err := modeAndExternalReasonFromAPIServerEncryption(apiServer.Spec.Encryption, operatorClient, unsupportedConfigPrefix)
+	return mode, reason, enc, apiServer.Generation, err
 }
 
 var _ kmsConfigHasherResourceProvider = &prefetchedKMSConfigHasherResourceProvider{}
@@ -617,8 +618,11 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 // kmsProviderConfig abstracts provider-specific KMS logic so that every
 // provider-type switch lives in a single factory (newKMSProviderConfig).
 type kmsProviderConfig interface {
-	// sourceConfig returns the provider-specific API configuration.
-	sourceConfig() interface{}
+	// sourceConfig returns the provider-specific API configuration and the observed
+	// APIServer metadata.generation, both folded into the KMS config hash so an off/on
+	// toggle forces a fresh preflight (see kmsConfigHasher). The generation is not used
+	// by sameProviderInstance, so it never triggers a rotation on its own.
+	sourceConfig() (interface{}, int64)
 	// referencedSecretName returns the name of the secret referenced by the KMS plugin
 	// config and the specific data keys to carry from that secret. Only the listed keys
 	// are copied into the Key Secret; any other data in the referenced secret is ignored.
@@ -646,23 +650,24 @@ func (noopKMSProviderConfig) referencedConfigMapName() (string, []string, error)
 func (noopKMSProviderConfig) sameProviderInstance(configv1.KMSPluginConfig) (bool, error) {
 	return false, fmt.Errorf("sameProviderInstance called on non-KMS provider")
 }
-func (noopKMSProviderConfig) sourceConfig() interface{} { return nil }
+func (noopKMSProviderConfig) sourceConfig() (interface{}, int64) { return nil, 0 }
 
-func newKMSProviderConfig(plugin configv1.KMSPluginConfig) (kmsProviderConfig, error) {
+func newKMSProviderConfig(plugin configv1.KMSPluginConfig, generation int64) (kmsProviderConfig, error) {
 	switch plugin.Type {
 	case configv1.VaultKMSProvider:
-		return &vaultProviderConfig{plugin.Vault}, nil
+		return &vaultProviderConfig{vault: plugin.Vault, generation: generation}, nil
 	default:
 		return nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
 	}
 }
 
 type vaultProviderConfig struct {
-	vault configv1.VaultKMSPluginConfig
+	vault      configv1.VaultKMSPluginConfig
+	generation int64
 }
 
-func (v *vaultProviderConfig) sourceConfig() interface{} {
-	return v.vault
+func (v *vaultProviderConfig) sourceConfig() (interface{}, int64) {
+	return v.vault, v.generation
 }
 
 func (v *vaultProviderConfig) referencedSecretName() (string, []string, error) {

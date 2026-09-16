@@ -221,7 +221,7 @@ func TestEncryptionPlannerLoadWithPrefetchedKMSPluginConfig(t *testing.T) {
 
 	snap, err := planner.Load(context.TODO(), encryptedGRs, LoadOptions{
 		ListKeysWhileProgressing: true,
-		KMSPluginConfig:          &kmsCfg,
+		KMSPluginConfig:          &KMSPluginConfig{Config: &kmsCfg},
 	})
 	if err != nil {
 		t.Fatalf("Load with prefetched KMS config failed: %v", err)

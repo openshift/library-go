@@ -19,7 +19,7 @@ import (
 // EncryptionConfigurationComputer computes the encryption configuration secret
 // passed to the KMS preflight deployer right before it creates a new deployment.
 type EncryptionConfigurationComputer interface {
-	ComputeEncryptionConfiguration(ctx context.Context, kmsPluginConfig *configv1.KMSPluginConfig) (*corev1.Secret, error)
+	ComputeEncryptionConfiguration(ctx context.Context, kmsPluginConfig *configv1.KMSPluginConfig, generation int64) (*corev1.Secret, error)
 }
 
 // encryptionConfigurationComputer is the default EncryptionConfigurationComputer.
@@ -63,13 +63,17 @@ func NewEncryptionConfigurationComputer(
 	}
 }
 
-func (c *encryptionConfigurationComputer) ComputeEncryptionConfiguration(ctx context.Context, kmsPluginConfig *configv1.KMSPluginConfig) (*corev1.Secret, error) {
+func (c *encryptionConfigurationComputer) ComputeEncryptionConfiguration(ctx context.Context, kmsPluginConfig *configv1.KMSPluginConfig, generation int64) (*corev1.Secret, error) {
 	// ListKeysWhileProgressing=true so preflight can still list keys and compute a plan even when there
 	// is no convergence yet. The key controller sets this to false to avoid extra Lists during rollout.
 	planner := NewEncryptionPlanner(c.instanceName, c.unsupportedConfigPrefix, c.encryptionDeployer, c.secretsClient, c.configMapsClient, c.apiServerClient, c.operatorClient, c.encryptionSecretSelector)
+	var kmsOpt *KMSPluginConfig
+	if kmsPluginConfig != nil {
+		kmsOpt = &KMSPluginConfig{Config: kmsPluginConfig, Generation: generation}
+	}
 	snap, err := planner.Load(ctx, c.provider.EncryptedGRs(), LoadOptions{
 		ListKeysWhileProgressing: true,
-		KMSPluginConfig:          kmsPluginConfig,
+		KMSPluginConfig:          kmsOpt,
 	})
 	if err != nil {
 		return nil, err
