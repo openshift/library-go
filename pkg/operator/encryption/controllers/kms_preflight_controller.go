@@ -214,7 +214,10 @@ type kmsPreflightController struct {
 	// An alternative would be to check a cached lister before issuing Delete
 	// calls, but the encryption controllers do not use informers and have no
 	// shared cache available.
-	dirtyDeployer            bool
+	dirtyDeployer bool
+	// dirtyPreflight is true when Preflight may be set and needs clearing once
+	// encryption is no longer KMS. Mirrors dirtyDeployer; initialized to true.
+	dirtyPreflight           bool
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 	encryptionStatusProvider kms.EncryptionStatusProvider
@@ -319,6 +322,7 @@ func NewKMSPreflightController(
 		encryptionConfigurationComputer: encryptionConfigurationComputer,
 		// assume resources may exist from a previous process run
 		dirtyDeployer:            true,
+		dirtyPreflight:           true,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		encryptionStatusProvider: encryptionStatusProvider,
@@ -719,11 +723,21 @@ func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string,
 		return "", nil, configv1.KMSPluginConfig{}, fmt.Errorf("failed to get apiserver config: %w", err)
 	}
 	if apiServer.Spec.Encryption.Type != configv1.EncryptionTypeKMS {
-		// Encryption is not KMS — nothing to preflight. A stale ObservedConfigHash
-		// (written when KMS was active) is irrelevant; the key controller will
-		// overwrite it when/if KMS is re-enabled.
+		// Not KMS: clear any Preflight left from a prior KMS episode so a later
+		// re-enable (even with an unchanged config) re-runs the reachability check.
+		// Safe under a transient outage: dirtyPreflight stays set until the write
+		// lands, and a re-enable can't proceed until the off migration completes.
+		if c.dirtyPreflight {
+			if err := c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+				s.Preflight = operatorv1.KMSPreflightCheck{}
+			}); err != nil {
+				return "", nil, configv1.KMSPluginConfig{}, err
+			}
+			c.dirtyPreflight = false
+		}
 		return "", nil, configv1.KMSPluginConfig{}, nil
 	}
+	c.dirtyPreflight = true
 
 	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
 	if err != nil {
