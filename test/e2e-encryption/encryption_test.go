@@ -166,6 +166,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		kubeClient.CoreV1(),
 		fakeApiServerClient,
 		operatorClient,
+		dynamicClient,
 		encryptionSecretSelector,
 	)
 
@@ -181,6 +182,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		kubeInformers,
 		deployer, // secret client wrapping kubeClient with encryption-config revision counting
 		kubeClient.CoreV1(),
+		dynamicClient,
 		eventRecorder,
 		nil, // resourceSyncer
 		&dynamicKMSEncryptionStatusProvider{client: dynamicClient.Resource(operatorGVR)},
@@ -541,6 +543,84 @@ func TestEncryptionIntegration(tt *testing.T) {
 	)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
+	t.Logf("Install VaultKMSConfig CRD and prepare provider CR helpers")
+	// The integration test supplies the CRD and provider status without running
+	// the provider operator. Controllers fetch the CR through the real API server.
+	var vaultCRD apiextensionsv1.CustomResourceDefinition
+	require.NoError(t, yaml.Unmarshal([]byte(vaultKMSConfigCRD), &vaultCRD))
+	_, err = apiextensionsClient.CustomResourceDefinitions().Create(ctx, &vaultCRD, metav1.CreateOptions{})
+	if !errors.IsAlreadyExists(err) {
+		require.NoError(t, err)
+		tt.Cleanup(func() {
+			err := apiextensionsClient.CustomResourceDefinitions().Delete(context.Background(), vaultCRD.Name, metav1.DeleteOptions{})
+			if !errors.IsNotFound(err) {
+				require.NoError(t, err)
+			}
+		})
+	}
+	err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+		current, err := apiextensionsClient.CustomResourceDefinitions().Get(ctx, vaultCRD.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, condition := range current.Status.Conditions {
+			if condition.Type == apiextensionsv1.Established {
+				return condition.Status == apiextensionsv1.ConditionTrue, nil
+			}
+		}
+		return false, nil
+	})
+	require.NoError(t, err)
+	vaultKMSClient := dynamicClient.Resource(schema.GroupVersionResource{Group: "kms.openshift.io", Version: "v1alpha1", Resource: "vaultkmsconfigs"})
+	const (
+		kmsPluginImageA = "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+		kmsPluginImageB = "registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	)
+	vaultKMSConfigPrimary := component + "-vault"
+	vaultKMSConfigNew := component + "-vault-new"
+	vaultKMSConfigNewImage := component + "-vault-new-image"
+	vaultKMSConfigFailing := component + "-vault-failing"
+	seedVaultKMSConfig := func(name, image, address string) {
+		t.Helper()
+		_, err := vaultKMSClient.Create(ctx, &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "kms.openshift.io/v1alpha1",
+			"kind":       "VaultKMSConfig",
+			"metadata":   map[string]interface{}{"name": name},
+			"spec": map[string]interface{}{
+				"vaultAddress":   address,
+				"vaultKeyPath":   "transit/keys/test-transit-key",
+				"authentication": map[string]interface{}{"type": "AppRole", "appRole": map[string]interface{}{"secret": map[string]interface{}{"name": "vault-approle-secret"}}},
+				"tls":            map[string]interface{}{"caBundle": map[string]interface{}{"name": "vault-ca-bundle"}},
+			},
+		}}, metav1.CreateOptions{})
+		require.NoError(t, err)
+		tt.Cleanup(func() {
+			err := vaultKMSClient.Delete(context.Background(), name, metav1.DeleteOptions{})
+			if !errors.IsNotFound(err) {
+				require.NoError(t, err)
+			}
+		})
+		// The status subresource must be written separately from spec.
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			obj, err := vaultKMSClient.Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			if err := unstructured.SetNestedField(obj.Object, image, "status", "kmsPluginImage"); err != nil {
+				return err
+			}
+			_, err = vaultKMSClient.UpdateStatus(ctx, obj, metav1.UpdateOptions{})
+			return err
+		})
+		require.NoError(t, err)
+	}
+	patchAPIServerKMSRef := func(name string) {
+		t.Helper()
+		patch := fmt.Sprintf(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","pluginConfig":{"apiVersion":"kms.openshift.io/v1alpha1","resource":"vaultkmsconfigs","name":%q}}}}}`, name)
+		_, err := fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+		require.NoError(t, err)
+	}
+
 	t.Logf("Create vault AppRole secret")
 	_, err = kubeClient.CoreV1().Secrets("openshift-config").Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "vault-approle-secret", Namespace: "openshift-config"},
@@ -564,8 +644,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 	defer kubeClient.CoreV1().ConfigMaps("openshift-config").Delete(ctx, "vault-ca-bundle", metav1.DeleteOptions{})
 
 	t.Logf("Switch to KMS")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
-	require.NoError(t, err)
+	seedVaultKMSConfig(vaultKMSConfigPrimary, kmsPluginImageA, "https://vault.example.com")
+	patchAPIServerKMSRef(vaultKMSConfigPrimary)
 	waitForKeys(7)
 	kms8 := kmsPluginName("kubeapiservers", "8")
 	kms8Sched := kmsPluginName("kubeschedulers", "8")
@@ -587,9 +667,13 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NotEmpty(t, kmsPluginConfigData, "expected kms-plugin-config data to be present in key secret")
 	pluginConfig, err := encoding.DecodeKMSPluginConfig(kmsPluginConfigData)
 	require.NoError(t, err)
-	require.Equal(t, configv1.VaultKMSProvider, pluginConfig.Type)
-	require.Equal(t, "https://vault.example.com", pluginConfig.Vault.VaultAddress)
-	require.Equal(t, "transit/keys/test-transit-key", pluginConfig.Vault.VaultKeyPath)
+	require.Equal(t, "KMSPluginConfig", pluginConfig.Kind)
+	pluginImage := pluginConfig.Vault.KMSPluginImage
+	require.Equal(t, kmsPluginImageA, pluginImage)
+	pluginConfigVaultAddress := pluginConfig.Vault.VaultAddress
+	require.Equal(t, "https://vault.example.com", pluginConfigVaultAddress)
+	pluginConfigVaultKeyPath := pluginConfig.Vault.VaultKeyPath
+	require.Equal(t, "transit/keys/test-transit-key", pluginConfigVaultKeyPath)
 
 	t.Logf("Switch back to aescbc from KMS")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc","kms":null}}}`), metav1.PatchOptions{})
@@ -606,8 +690,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	verifyKMSConfigMapData()
 
 	t.Logf("Switch back to KMS")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
-	require.NoError(t, err)
+	patchAPIServerKMSRef(vaultKMSConfigPrimary)
 	waitForKeys(9)
 	kms10 := kmsPluginName("kubeapiservers", "10")
 	kms10Sched := kmsPluginName("kubeschedulers", "10")
@@ -637,8 +720,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	verifyKMSConfigMapData()
 
 	t.Logf("Switch back to KMS after rotation")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890","vaultAddress":"https://vault.example.com","tls":{"caBundle":{"name":"vault-ca-bundle"}},"authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
-	require.NoError(t, err)
+	patchAPIServerKMSRef(vaultKMSConfigPrimary)
 	waitForKeys(11)
 	kms12 := kmsPluginName("kubeapiservers", "12")
 	kms12Sched := kmsPluginName("kubeschedulers", "12")
@@ -654,8 +736,8 @@ func TestEncryptionIntegration(tt *testing.T) {
 	verifyKMSConfigMapData()
 
 	t.Logf("KMS-to-KMS migration: change VaultAddress")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"kms":{"vault":{"vaultAddress":"https://vault-new.example.com"}}}}}`), metav1.PatchOptions{})
-	require.NoError(t, err)
+	seedVaultKMSConfig(vaultKMSConfigNew, kmsPluginImageA, "https://vault-new.example.com")
+	patchAPIServerKMSRef(vaultKMSConfigNew)
 	waitForKeys(12)
 	kms13 := kmsPluginName("kubeapiservers", "13")
 	kms13Sched := kmsPluginName("kubeschedulers", "13")
@@ -674,20 +756,23 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.NotEmpty(t, kmsPluginConfigData13)
 	pluginConfig13, err := encoding.DecodeKMSPluginConfig(kmsPluginConfigData13)
 	require.NoError(t, err)
-	require.Equal(t, "https://vault-new.example.com", pluginConfig13.Vault.VaultAddress)
-	require.Equal(t, "transit/keys/test-transit-key", pluginConfig13.Vault.VaultKeyPath)
+	pluginConfig13VaultAddress := pluginConfig13.Vault.VaultAddress
+	require.Equal(t, "https://vault-new.example.com", pluginConfig13VaultAddress)
+	pluginConfig13VaultKeyPath := pluginConfig13.Vault.VaultKeyPath
+	require.Equal(t, "transit/keys/test-transit-key", pluginConfig13VaultKeyPath)
 
 	t.Logf("KMS non-migration change: only KMSPluginImage changes (no new key expected)")
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-new.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
-	require.NoError(t, err)
+	// A distinct reference triggers reconciliation without waiting for the periodic resync.
+	seedVaultKMSConfig(vaultKMSConfigNewImage, kmsPluginImageB, "https://vault-new.example.com")
+	patchAPIServerKMSRef(vaultKMSConfigNewImage)
 	time.Sleep(5 * time.Second)
 	waitForKeys(12)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
 	t.Logf("KMS preflight failure: key must not be created when preflight fails")
 	kmsPreflightDeployer.fail.Store(true)
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-failing.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
-	require.NoError(t, err)
+	seedVaultKMSConfig(vaultKMSConfigFailing, kmsPluginImageB, "https://vault-failing.example.com")
+	patchAPIServerKMSRef(vaultKMSConfigFailing)
 	time.Sleep(5 * time.Second)
 	waitForKeys(12) // key count must not advance
 	waitForConditionStatus("EncryptionKeyControllerDegraded", operatorv1.ConditionTrue)
@@ -695,8 +780,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	// The key controller will find an existing key for vault-new and skip creation,
 	// keeping the total at 12.
 	kmsPreflightDeployer.fail.Store(false)
-	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"KMS","kms":{"type":"Vault","vault":{"kmsPluginImage":"registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000","vaultAddress":"https://vault-new.example.com","authentication":{"type":"AppRole","appRole":{"secret":{"name":"vault-approle-secret"}}},"vaultKeyPath":"transit/keys/test-transit-key"}}}}}`), metav1.PatchOptions{})
-	require.NoError(t, err)
+	patchAPIServerKMSRef(vaultKMSConfigNewImage)
 	waitForConditionStatus("EncryptionKeyControllerDegraded", operatorv1.ConditionFalse)
 	time.Sleep(5 * time.Second)
 	waitForKeys(12) // still 12 — no new key needed, config reverted to one that already has kms13
@@ -802,6 +886,72 @@ spec:
               observedGeneration:
                 type: integer
                 format: int64
+`
+
+// vaultKMSConfigCRD defines field types but leaves required-field validation
+// to the encryption controllers.
+const vaultKMSConfigCRD = `
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: vaultkmsconfigs.kms.openshift.io
+spec:
+  group: kms.openshift.io
+  names:
+    kind: VaultKMSConfig
+    listKind: VaultKMSConfigList
+    plural: vaultkmsconfigs
+    singular: vaultkmsconfig
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    subresources:
+      status: {}
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              vaultAddress:
+                type: string
+              vaultNamespace:
+                type: string
+              vaultAuthNamespace:
+                type: string
+              vaultKeyPath:
+                type: string
+              authentication:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  appRole:
+                    type: object
+                    properties:
+                      secret:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+              tls:
+                type: object
+                properties:
+                  caBundle:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                  serverName:
+                    type: string
+          status:
+            type: object
+            properties:
+              kmsPluginImage:
+                type: string
 `
 
 func toString(c *apiserverv1.EncryptionConfiguration) string {

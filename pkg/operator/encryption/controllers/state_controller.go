@@ -129,7 +129,7 @@ type eventWithReason struct {
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
 	// Mode clients are intentionally nil: the state controller only needs
 	// LoadState + ComputeConfig over persisted keys.
-	planner := NewEncryptionPlanner(c.instanceName, nil, c.deployer, c.secretClient, nil, nil, nil, c.encryptionSecretSelector)
+	planner := NewEncryptionPlanner(c.instanceName, nil, c.deployer, c.secretClient, nil, nil, nil, nil, c.encryptionSecretSelector)
 	stateSnap, err := planner.LoadState(ctx, encryptedGRs)
 	if err != nil {
 		return err

@@ -1094,6 +1094,7 @@ func TestKMSPreflightController(t *testing.T) {
 				controllerInstanceName:          factory.ControllerInstanceName("test", "EncryptionKMSPreflight"),
 				operatorClient:                  fakeOperatorClient,
 				apiServerClient:                 fakeApiServerClient,
+				dynamicClient:                   newKMSDynamicClient(t),
 				secretsClient:                   fakeKubeClient.CoreV1(),
 				configMapsClient:                fakeKubeClient.CoreV1(),
 				deployer:                        deployer,

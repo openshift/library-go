@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
 
@@ -198,6 +199,7 @@ type kmsPreflightController struct {
 
 	operatorClient   operatorv1helpers.OperatorClient
 	apiServerClient  configv1client.APIServerInterface
+	dynamicClient    dynamic.Interface
 	secretsClient    corev1client.SecretsGetter
 	configMapsClient corev1client.ConfigMapsGetter
 
@@ -304,6 +306,7 @@ func NewKMSPreflightController(
 	// controller via the operatorClient informer. The minute-based resync covers the rest.
 	secretsClient corev1client.SecretsGetter,
 	configMapsClient corev1client.ConfigMapsGetter,
+	dynamicClient dynamic.Interface,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
 ) factory.Controller {
@@ -312,6 +315,7 @@ func NewKMSPreflightController(
 
 		operatorClient:   operatorClient,
 		apiServerClient:  apiServerClient,
+		dynamicClient:    dynamicClient,
 		secretsClient:    secretsClient,
 		configMapsClient: configMapsClient,
 
@@ -734,8 +738,10 @@ func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string,
 		return "", nil, kms.KMSPluginConfig{}, nil
 	}
 
-	// TODO: Fetch the referenced KMS plugin configuration through the dynamic client and set its TypeMeta.
-	var pluginConfig kms.KMSPluginConfig
+	pluginConfig, err := ResolveKMSConfig(ctx, c.dynamicClient, apiServer.Spec.Encryption.KMS)
+	if err != nil {
+		return "", nil, kms.KMSPluginConfig{}, err
+	}
 	providerCfg, err := newKMSProviderConfig(pluginConfig)
 	if err != nil {
 		return "", nil, kms.KMSPluginConfig{}, fmt.Errorf("failed to create KMS provider config: %w", err)
