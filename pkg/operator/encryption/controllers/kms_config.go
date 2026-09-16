@@ -13,7 +13,11 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-// ResolveKMSConfig fetches the referenced CR and converts it to the internal configuration.
+// ResolveKMSConfig resolves an APIServer KMS reference into the configuration used
+// throughout the existing typed encryption lifecycle, without importing provider API types.
+// Provider settings come from the referenced CR's spec; the plugin image comes from status.
+// Strict conversion rejects unsupported settings instead of silently omitting them.
+// Required fields are checked here because external CRD validation cannot be assumed.
 func ResolveKMSConfig(ctx context.Context, client dynamic.Interface, reference configv1.KMSPluginConfig) (kms.KMSPluginConfig, error) {
 	if client == nil {
 		return kms.KMSPluginConfig{}, fmt.Errorf("dynamic client is required to resolve KMS plugin configuration")
@@ -41,7 +45,8 @@ func ResolveKMSConfig(ctx context.Context, client dynamic.Interface, reference c
 			return kms.KMSPluginConfig{}, fmt.Errorf("failed to read KMS plugin configuration spec: %w", err)
 		}
 		if spec != nil {
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(spec, &config.Vault); err != nil {
+			// Reject unknown fields so provider settings are not silently dropped from the internal configuration.
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(spec, &config.Vault, true); err != nil {
 				return kms.KMSPluginConfig{}, fmt.Errorf("failed to convert Vault KMS plugin configuration spec: %w", err)
 			}
 		}
@@ -50,6 +55,21 @@ func ResolveKMSConfig(ctx context.Context, client dynamic.Interface, reference c
 			return kms.KMSPluginConfig{}, fmt.Errorf("failed to read KMS plugin image: %w", err)
 		}
 		config.Vault.KMSPluginImage = image
+		if config.Vault.KMSPluginImage == "" {
+			return kms.KMSPluginConfig{}, fmt.Errorf("KMS plugin configuration status.kmsPluginImage must not be empty")
+		}
+		if config.Vault.VaultAddress == "" {
+			return kms.KMSPluginConfig{}, fmt.Errorf("KMS plugin configuration spec.vaultAddress must not be empty")
+		}
+		if config.Vault.VaultKeyPath == "" {
+			return kms.KMSPluginConfig{}, fmt.Errorf("KMS plugin configuration spec.vaultKeyPath must not be empty")
+		}
+		if config.Vault.Authentication.Type == "" {
+			return kms.KMSPluginConfig{}, fmt.Errorf("KMS plugin configuration spec.authentication.type must not be empty")
+		}
+		if config.Vault.Authentication.Type == kms.VaultAuthenticationTypeAppRole && config.Vault.Authentication.AppRole.Secret.Name == "" {
+			return kms.KMSPluginConfig{}, fmt.Errorf("KMS plugin configuration spec.authentication.appRole.secret.name must not be empty")
+		}
 	default:
 		return kms.KMSPluginConfig{}, fmt.Errorf("unsupported KMS provider type %q", reference.Type)
 	}

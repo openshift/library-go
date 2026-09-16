@@ -3,14 +3,13 @@ package controllers
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
-	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,7 +26,7 @@ func TestResolveKMSConfig(t *testing.T) {
 	obj := vaultPluginConfig(t, expected)
 	obj.SetName("custom-config")
 	obj.SetAnnotations(map[string]string{"note": "ignored"})
-	require.NoError(t, unstructured.SetNestedField(obj.Object, "ignored", "spec", "futureField"))
+	require.NoError(t, unstructured.SetNestedField(obj.Object, "ignored", "status", "futureField"))
 	require.NoError(t, unstructured.SetNestedField(obj.Object, "wrong-image", "spec", "kmsPluginImage"))
 	before := obj.DeepCopy()
 	ref := kmsConfigReference(expected)
@@ -100,8 +99,99 @@ func TestResolveKMSConfigImageComesOnlyFromStatus(t *testing.T) {
 	require.NoError(t, unstructured.SetNestedField(obj.Object, "wrong-image", "spec", "kmsPluginImage"))
 	delete(obj.Object, "status")
 	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
-	config, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
-	require.NoError(t, err)
-	require.Empty(t, config.Vault.KMSPluginImage)
-	require.Equal(t, metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, config.TypeMeta)
+	_, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+	require.ErrorContains(t, err, "status.kmsPluginImage must not be empty")
+}
+
+func TestResolveKMSConfigRequiredFields(t *testing.T) {
+	for _, path := range [][]string{
+		{"status", "kmsPluginImage"},
+		{"spec", "vaultAddress"},
+		{"spec", "vaultKeyPath"},
+		{"spec", "authentication", "type"},
+		{"spec", "authentication", "appRole", "secret", "name"},
+	} {
+		for _, variant := range []string{"missing", "empty", "null", "wrong type"} {
+			t.Run(strings.Join(path, ".")+"/"+variant, func(t *testing.T) {
+				obj := vaultPluginConfig(t, encryptiontesting.DefaultKMSPluginConfig)
+				switch variant {
+				case "missing":
+					unstructured.RemoveNestedField(obj.Object, path...)
+				case "empty":
+					require.NoError(t, unstructured.SetNestedField(obj.Object, "", path...))
+				case "null":
+					require.NoError(t, unstructured.SetNestedField(obj.Object, nil, path...))
+				case "wrong type":
+					require.NoError(t, unstructured.SetNestedField(obj.Object, int64(1), path...))
+				}
+				client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
+				config, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+				require.Error(t, err)
+				require.Empty(t, config)
+				if variant == "missing" || variant == "empty" {
+					require.ErrorContains(t, err, strings.Join(path, ".")+" must not be empty")
+				}
+			})
+		}
+	}
+}
+
+func TestResolveKMSConfigRequiredSections(t *testing.T) {
+	for _, path := range [][]string{
+		{"spec"}, {"status"}, {"spec", "authentication"},
+		{"spec", "authentication", "appRole"}, {"spec", "authentication", "appRole", "secret"},
+	} {
+		t.Run(strings.Join(path, "."), func(t *testing.T) {
+			obj := vaultPluginConfig(t, encryptiontesting.DefaultKMSPluginConfig)
+			unstructured.RemoveNestedField(obj.Object, path...)
+			client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
+			_, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestResolveKMSConfigOptionalTLS(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		tls       map[string]interface{}
+		wantError bool
+	}{
+		{name: "absent"},
+		{name: "empty TLS", tls: map[string]interface{}{}},
+		{name: "server name only", tls: map[string]interface{}{"serverName": "vault.example.com"}},
+		{name: "empty CA reference", tls: map[string]interface{}{"caBundle": map[string]interface{}{}}},
+		{name: "null CA reference", tls: map[string]interface{}{"caBundle": nil}},
+		{name: "empty CA name", tls: map[string]interface{}{"caBundle": map[string]interface{}{"name": ""}}},
+		{name: "null CA name", tls: map[string]interface{}{"caBundle": map[string]interface{}{"name": nil}}},
+		{name: "invalid CA name type", tls: map[string]interface{}{"caBundle": map[string]interface{}{"name": int64(1)}}, wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := vaultPluginConfig(t, encryptiontesting.DefaultKMSPluginConfig)
+			unstructured.RemoveNestedField(obj.Object, "spec", "tls")
+			if tc.tls != nil {
+				require.NoError(t, unstructured.SetNestedMap(obj.Object, tc.tls, "spec", "tls"))
+			}
+			client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
+			_, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+			if tc.wantError {
+				require.ErrorContains(t, err, "failed to convert Vault KMS plugin configuration spec")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestResolveKMSConfigRejectsUnknownSpecFields(t *testing.T) {
+	for _, path := range [][]string{{"futureField"}, {"authentication", "futureField"}, {"tls", "futureField"}} {
+		t.Run(strings.Join(path, "."), func(t *testing.T) {
+			obj := vaultPluginConfig(t, encryptiontesting.DefaultKMSPluginConfig)
+			require.NoError(t, unstructured.SetNestedField(obj.Object, "unsupported", append([]string{"spec"}, path...)...))
+			client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
+			config, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+			require.ErrorContains(t, err, `unknown field "`+strings.Join(path, ".")+`"`)
+			require.Empty(t, config)
+		})
+	}
 }
