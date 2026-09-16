@@ -140,7 +140,7 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 	}
 
 	// Resolve mode before reading deployer/key state so callers fail fast on APIServer/operator errors.
-	currentMode, externalReason, apiEncryption, err := p.modeAndExternalReason(ctx, opts.KMSPluginConfig)
+	currentMode, externalReason, pluginConfig, err := p.modeAndExternalReason(ctx, opts.KMSPluginConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -165,12 +165,12 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 		State:              *stateSnap,
 		CurrentMode:        currentMode,
 		ExternalReason:     externalReason,
-		PluginConfig:       apiEncryption,
+		PluginConfig:       pluginConfig,
 		desiredProviderCfg: noopKMSProviderConfig{},
 	}
 
 	if currentMode == state.KMS {
-		desiredProviderCfg, err := newKMSProviderConfig(apiEncryption)
+		desiredProviderCfg, err := newKMSProviderConfig(pluginConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +183,7 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 func (p *EncryptionPlanner) modeAndExternalReason(ctx context.Context, kmsPluginConfig *kms.KMSPluginConfig) (state.Mode, string, kms.KMSPluginConfig, error) {
 	if kmsPluginConfig != nil {
 		apiEncryption := configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS}
-		mode, reason, _, err := modeAndExternalReasonFromAPIServerEncryption(apiEncryption, p.operatorClient, p.unsupportedConfigPrefix)
+		mode, reason, err := modeAndExternalReasonFromAPIServerEncryption(apiEncryption, p.operatorClient, p.unsupportedConfigPrefix)
 		return mode, reason, *kmsPluginConfig, err
 	}
 	mode, reason, apiEncryption, err := modeAndExternalReasonFromAPIServer(ctx, p.apiServerClient, p.operatorClient, p.unsupportedConfigPrefix)

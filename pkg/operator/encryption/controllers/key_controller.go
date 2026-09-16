@@ -377,27 +377,27 @@ func fetchReferencedResources(ctx context.Context, providerCfg kmsProviderConfig
 	return refSecret, refCM, nil
 }
 
-func modeAndExternalReasonFromAPIServerEncryption(encryption configv1.APIServerEncryption, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
+func modeAndExternalReasonFromAPIServerEncryption(encryption configv1.APIServerEncryption, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, error) {
 	operatorSpec, _, _, err := operatorClient.GetOperatorState()
 	if err != nil {
-		return "", "", configv1.APIServerEncryption{}, err
+		return "", "", err
 	}
 
 	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, unsupportedConfigPrefix)
 	if err != nil {
-		return "", "", configv1.APIServerEncryption{}, err
+		return "", "", err
 	}
 
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(encryption.Type); currentMode {
 	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
-		return currentMode, reason, encryption, nil
+		return currentMode, reason, nil
 	case state.KMS:
-		return currentMode, reason, encryption, nil
+		return currentMode, reason, nil
 	case "": // unspecified means use the default (which can change over time)
-		return state.DefaultMode, reason, encryption, nil
+		return state.DefaultMode, reason, nil
 	default:
-		return "", "", configv1.APIServerEncryption{}, fmt.Errorf("unknown encryption mode configured: %s", currentMode)
+		return "", "", fmt.Errorf("unknown encryption mode configured: %s", currentMode)
 	}
 }
 
@@ -409,7 +409,11 @@ func modeAndExternalReasonFromAPIServer(ctx context.Context, apiServerClient con
 		return "", "", configv1.APIServerEncryption{}, err
 	}
 
-	return modeAndExternalReasonFromAPIServerEncryption(apiServer.Spec.Encryption, operatorClient, unsupportedConfigPrefix)
+	mode, reason, err := modeAndExternalReasonFromAPIServerEncryption(apiServer.Spec.Encryption, operatorClient, unsupportedConfigPrefix)
+	if err != nil {
+		return "", "", configv1.APIServerEncryption{}, err
+	}
+	return mode, reason, apiServer.Spec.Encryption, nil
 }
 
 var _ kmsConfigHasherResourceProvider = &prefetchedKMSConfigHasherResourceProvider{}
