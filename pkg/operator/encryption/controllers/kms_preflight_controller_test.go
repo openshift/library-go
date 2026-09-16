@@ -66,6 +66,7 @@ func TestKMSConfigHasher(t *testing.T) {
 		name          string
 		vaultConfig   configv1.VaultKMSPluginConfig
 		resources     []runtime.Object
+		generation    int64
 		expectedHash  string
 		expectedError string
 	}{
@@ -73,7 +74,14 @@ func TestKMSConfigHasher(t *testing.T) {
 			name:         "same config and resources produce the same hash",
 			vaultConfig:  wellKnownBaseVaultConfig,
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "cuZm_g==",
+			expectedHash: "XmPfZQ==",
+		},
+		{
+			name:         "a different APIServer generation with the same config produces a different hash",
+			vaultConfig:  wellKnownBaseVaultConfig,
+			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			generation:   1,
+			expectedHash: "vKaKkg==",
 		},
 		{
 			name: "changing KMSPluginImage",
@@ -83,7 +91,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "DP-Bbg==",
+			expectedHash: "htGJnw==",
 		},
 		{
 			name: "changing VaultAddress",
@@ -93,7 +101,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "oHX1jw==",
+			expectedHash: "J5RMfA==",
 		},
 		{
 			name: "changing VaultNamespace",
@@ -103,7 +111,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "lmrlhQ==",
+			expectedHash: "XkiPBg==",
 		},
 		{
 			name: "changing VaultAuthNamespace",
@@ -113,7 +121,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "TZa3aA==",
+			expectedHash: "uu7L6Q==",
 		},
 		{
 			name: "changing VaultKeyPath",
@@ -123,7 +131,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "BihuJg==",
+			expectedHash: "CHQQkw==",
 		},
 		{
 			name: "changing TLS.ServerName",
@@ -133,7 +141,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			expectedHash: "d8Xvrw==",
+			expectedHash: "aDuxWg==",
 		},
 		{
 			name: "changing TLS.CABundle.Name",
@@ -146,7 +154,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "other-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{"ca-bundle.crt": "test-ca-cert"},
 			}},
-			expectedHash: "2UnFwA==",
+			expectedHash: "U-YhTw==",
 		},
 		{
 			name: "changing Authentication.AppRole.Secret.Name",
@@ -162,7 +170,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"secret-id": []byte("secret-456"),
 				},
 			}},
-			expectedHash: "yHXRJw==",
+			expectedHash: "RL4-Sg==",
 		},
 		{
 			name:        "changing role-id value",
@@ -174,7 +182,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"secret-id": []byte("secret-456"),
 				},
 			}},
-			expectedHash: "5Fa5pQ==",
+			expectedHash: "Uf7bgg==",
 		},
 		{
 			name:        "changing secret-id value",
@@ -186,7 +194,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"secret-id": []byte("secret-999"),
 				},
 			}},
-			expectedHash: "vmQmnA==",
+			expectedHash: "A3hhCw==",
 		},
 		{
 			name:        "extra key in secret does not change hash",
@@ -199,7 +207,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"extra":     []byte("ignored"),
 				},
 			}},
-			expectedHash: "cuZm_g==",
+			expectedHash: "XmPfZQ==",
 		},
 		{
 			name:        "extra key in configmap does not change hash",
@@ -208,7 +216,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{"ca-bundle.crt": "test-ca-cert", "extra": "ignored"},
 			}},
-			expectedHash: "cuZm_g==",
+			expectedHash: "XmPfZQ==",
 		},
 		{
 			name:        "changing ca-bundle.crt value",
@@ -217,7 +225,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
 				Data:       map[string]string{"ca-bundle.crt": "different-ca-cert"},
 			}},
-			expectedHash: "BeRfNQ==",
+			expectedHash: "brHNeA==",
 		},
 		{
 			name: "no configmap configured",
@@ -227,7 +235,7 @@ func TestKMSConfigHasher(t *testing.T) {
 				return c
 			}(),
 			resources:    []runtime.Object{&wellKnownBaseSecret},
-			expectedHash: "CWffWA==",
+			expectedHash: "3X3TJQ==",
 		},
 		{
 			name:        "shifting bytes between secret keys produces a different hash",
@@ -239,7 +247,7 @@ func TestKMSConfigHasher(t *testing.T) {
 					"secret-id": []byte("3secret-456"),
 				},
 			}},
-			expectedHash: "XV8KpA==",
+			expectedHash: "10Wj5w==",
 		},
 		{
 			name:          "missing secret returns error",
@@ -280,7 +288,7 @@ func TestKMSConfigHasher(t *testing.T) {
 			provider, err := newKMSProviderConfig(configv1.KMSPluginConfig{
 				Type:  configv1.VaultKMSProvider,
 				Vault: scenario.vaultConfig,
-			})
+			}, scenario.generation)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -381,7 +389,7 @@ type fakeEncryptionConfigurationComputer struct {
 	callCount int
 }
 
-func (f *fakeEncryptionConfigurationComputer) ComputeEncryptionConfiguration(_ context.Context, _ *configv1.KMSPluginConfig) (*corev1.Secret, error) {
+func (f *fakeEncryptionConfigurationComputer) ComputeEncryptionConfiguration(_ context.Context, _ *configv1.KMSPluginConfig, _ int64) (*corev1.Secret, error) {
 	f.callCount++
 	return f.secret, f.err
 }
@@ -403,8 +411,9 @@ func TestKMSPreflightController(t *testing.T) {
 	}
 
 	// Hash produced by kmsConfigHasher over wellKnownBaseVaultConfig, wellKnownBaseSecret,
-	// and wellKnownBaseConfigMap. Verified by TestKMSConfigHasher.
-	const wellKnownMatchingHashForBaseVaultConfig = "cuZm_g=="
+	// and wellKnownBaseConfigMap at APIServer generation 0 (what the fake apiServer objects
+	// below carry). Verified by TestKMSConfigHasher.
+	const wellKnownMatchingHashForBaseVaultConfig = "XmPfZQ=="
 
 	scenarios := []struct {
 		name                                        string
@@ -473,9 +482,9 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:          []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer: true,
 			preconditionsMet:     true,
-			expectedError:        "preflight check failed for hash cuZm_g==: pod was removed but failure is recorded in status",
+			expectedError:        "preflight check failed for hash XmPfZQ==: pod was removed but failure is recorded in status",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash cuZm_g==: pod was removed but failure is recorded in status"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash XmPfZQ==: pod was removed but failure is recorded in status"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
@@ -498,7 +507,7 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedComputerCallCount: 1,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Deploying preflight pod for hash cuZm_g=="},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Deploying preflight pod for hash XmPfZQ=="},
 			},
 		},
 		{
@@ -523,7 +532,7 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedComputerCallCount: 1,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Deploying preflight pod for hash cuZm_g=="},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Deploying preflight pod for hash XmPfZQ=="},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
 				Status:     operatorv1.KMSPreflightResultSucceeded,
@@ -558,9 +567,9 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod completed without reporting result for hash cuZm_g==",
+			expectedError:            "preflight pod completed without reporting result for hash XmPfZQ==",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash cuZm_g=="},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PodCompletedWithoutResult", Message: "preflight pod completed without reporting result for hash XmPfZQ=="},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
@@ -604,9 +613,9 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight check failed for hash cuZm_g==: encrypt call failed",
+			expectedError:            "preflight check failed for hash XmPfZQ==: encrypt call failed",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash cuZm_g==: encrypt call failed"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash XmPfZQ==: encrypt call failed"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedEncryptionStatusProviderUpdateCalls: 1,
@@ -666,9 +675,9 @@ func TestKMSPreflightController(t *testing.T) {
 			initialDirtyDeployer: true,
 			preconditionsMet:     true,
 			expectedEncryptionStatusProviderUpdateCalls: 0,
-			expectedError: "preflight check failed for hash cuZm_g==: encrypt call failed",
+			expectedError: "preflight check failed for hash XmPfZQ==: encrypt call failed",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash cuZm_g==: encrypt call failed"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash XmPfZQ==: encrypt call failed"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
@@ -769,9 +778,9 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused",
+			expectedError:            "preflight pod failed for hash XmPfZQ==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash XmPfZQ==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
@@ -788,7 +797,7 @@ func TestKMSPreflightController(t *testing.T) {
 			preconditionsMet:         true,
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "False"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting for preflight pod to report result for cuZm_g=="},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting for preflight pod to report result for XmPfZQ=="},
 			},
 		},
 		{
@@ -939,9 +948,9 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod failed for hash cuZm_g==: node lost",
+			expectedError:            "preflight pod failed for hash XmPfZQ==: node lost",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash cuZm_g==: node lost"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash XmPfZQ==: node lost"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
@@ -966,9 +975,9 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 137 (Unknown)",
+			expectedError:            "preflight pod failed for hash XmPfZQ==: at least one container kms-preflight-check exited with 137 (Unknown)",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash cuZm_g==: at least one container kms-preflight-check exited with 137 (Unknown)"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash XmPfZQ==: at least one container kms-preflight-check exited with 137 (Unknown)"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
