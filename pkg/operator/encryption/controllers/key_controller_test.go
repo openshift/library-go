@@ -1088,7 +1088,7 @@ func preflightSucceededForHash(configHash string) *fakeKMSStatusProvider {
 func newPreflightSucceededProvider(t *testing.T, pluginConfig configv1.KMSPluginConfig, objects ...runtime.Object) *fakeKMSStatusProvider {
 	t.Helper()
 	scratch := fake.NewSimpleClientset(objects...)
-	providerCfg, err := newKMSProviderConfig(pluginConfig)
+	providerCfg, err := newKMSProviderConfig(pluginConfig, 0)
 	require.NoError(t, err)
 	hasher, err := newKMSConfigHasher(providerCfg, newCoreClientKMSConfigHasherResourceProvider(scratch.CoreV1(), scratch.CoreV1()), openshiftConfigNS)
 	require.NoError(t, err)
@@ -1172,7 +1172,7 @@ func TestReferencedSecretName(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			providerCfg, factoryErr := newKMSProviderConfig(scenario.plugin)
+			providerCfg, factoryErr := newKMSProviderConfig(scenario.plugin, 0)
 			if factoryErr != nil {
 				if scenario.expectedError {
 					return
@@ -1248,7 +1248,7 @@ func TestReferencedConfigMapName(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			providerCfg, factoryErr := newKMSProviderConfig(scenario.plugin)
+			providerCfg, factoryErr := newKMSProviderConfig(scenario.plugin, 0)
 			if factoryErr != nil {
 				if scenario.expectedError {
 					return
@@ -1392,7 +1392,7 @@ func TestModeAndExternalReasonFromAPIServer(t *testing.T) {
 			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 
 			// act
-			currentMode, externalReason, encryption, err := modeAndExternalReasonFromAPIServer(context.TODO(), fakeApiServerClient, fakeOperatorClient, scenario.prefix)
+			currentMode, externalReason, encryption, _, err := modeAndExternalReasonFromAPIServer(context.TODO(), fakeApiServerClient, fakeOperatorClient, scenario.prefix)
 
 			// validate
 			if err != nil {
@@ -1503,7 +1503,7 @@ func TestSameProviderInstance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			providerCfg, err := newKMSProviderConfig(*tt.current)
+			providerCfg, err := newKMSProviderConfig(*tt.current, 0)
 			require.NoError(t, err)
 			got, err := providerCfg.sameProviderInstance(*tt.latest)
 			require.NoError(t, err)
