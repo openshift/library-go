@@ -3,8 +3,8 @@ package pluginlifecycle
 import (
 	"testing"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +30,7 @@ func newVaultCABundleConfigMapData(t *testing.T, caBundleCrt string) state.KMSRe
 func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 	tests := []struct {
 		name               string
-		vaultConfig        configv1.VaultKMSPluginConfig
+		vaultConfig        kms.VaultKMSPluginConfig
 		secretData         state.KMSReferenceData
 		configMapData      state.KMSReferenceData
 		referenceDataDir   string
@@ -43,19 +43,19 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 	}{
 		{
 			name: "builds container with correct args",
-			vaultConfig: configv1.VaultKMSPluginConfig{
+			vaultConfig: kms.VaultKMSPluginConfig{
 				KMSPluginImage:     "quay.io/test/vault:v2",
 				VaultAddress:       "https://vault.example.com:8200",
 				VaultNamespace:     "my-namespace",
 				VaultAuthNamespace: "my-auth-namespace",
 				VaultKeyPath:       "transit/keys/my-key",
-				Authentication: configv1.VaultAuthentication{
-					AppRole: configv1.VaultAppRoleAuthentication{
-						Secret: configv1.VaultSecretReference{Name: "vault-approle"},
+				Authentication: kms.VaultAuthentication{
+					AppRole: kms.VaultAppRoleAuthentication{
+						Secret: kms.VaultSecretReference{Name: "vault-approle"},
 					},
 				},
-				TLS: configv1.VaultTLSConfig{
-					CABundle:   configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+				TLS: kms.VaultTLSConfig{
+					CABundle:   kms.VaultConfigMapReference{Name: "vault-ca-bundle"},
 					ServerName: "vault.internal.example.com",
 				},
 			},
@@ -102,18 +102,18 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		},
 		{
 			name: "appends to existing containers",
-			vaultConfig: configv1.VaultKMSPluginConfig{
+			vaultConfig: kms.VaultKMSPluginConfig{
 				KMSPluginImage: "quay.io/test/vault:v2",
 				VaultAddress:   "https://vault.example.com:8200",
 				VaultNamespace: "my-namespace",
 				VaultKeyPath:   "transit/keys/my-key",
-				Authentication: configv1.VaultAuthentication{
-					AppRole: configv1.VaultAppRoleAuthentication{
-						Secret: configv1.VaultSecretReference{Name: "vault-approle"},
+				Authentication: kms.VaultAuthentication{
+					AppRole: kms.VaultAppRoleAuthentication{
+						Secret: kms.VaultSecretReference{Name: "vault-approle"},
 					},
 				},
-				TLS: configv1.VaultTLSConfig{
-					CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+				TLS: kms.VaultTLSConfig{
+					CABundle: kms.VaultConfigMapReference{Name: "vault-ca-bundle"},
 				},
 			},
 			secretData:       newVaultAppRoleSecretData(t, "test-role-id", "test-secret-id"),
@@ -166,14 +166,14 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		},
 		{
 			name: "empty optional fields",
-			vaultConfig: configv1.VaultKMSPluginConfig{
+			vaultConfig: kms.VaultKMSPluginConfig{
 				KMSPluginImage: "quay.io/test/vault:v2",
 				VaultAddress:   "https://vault.example.com:8200",
 				VaultKeyPath:   "transit/keys/my-key",
 				VaultNamespace: "",
-				Authentication: configv1.VaultAuthentication{
-					AppRole: configv1.VaultAppRoleAuthentication{
-						Secret: configv1.VaultSecretReference{Name: "vault-approle"},
+				Authentication: kms.VaultAuthentication{
+					AppRole: kms.VaultAppRoleAuthentication{
+						Secret: kms.VaultSecretReference{Name: "vault-approle"},
 					},
 				},
 			},
@@ -215,10 +215,10 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 		},
 		{
 			name: "empty secret name",
-			vaultConfig: configv1.VaultKMSPluginConfig{
-				Authentication: configv1.VaultAuthentication{
-					AppRole: configv1.VaultAppRoleAuthentication{
-						Secret: configv1.VaultSecretReference{Name: ""},
+			vaultConfig: kms.VaultKMSPluginConfig{
+				Authentication: kms.VaultAuthentication{
+					AppRole: kms.VaultAppRoleAuthentication{
+						Secret: kms.VaultSecretReference{Name: ""},
 					},
 				},
 			},

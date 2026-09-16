@@ -11,23 +11,24 @@ import (
 	v1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/utils/diff"
 
-	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
-var defaultKMSPluginConfig = configv1.KMSPluginConfig{
-	Type: configv1.VaultKMSProvider,
-	Vault: configv1.VaultKMSPluginConfig{
+var defaultKMSPluginConfig = kms.KMSPluginConfig{
+	TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+	Type:     kms.VaultKMSProvider,
+	Vault: kms.VaultKMSPluginConfig{
 		KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 		VaultAddress:   "https://vault.example.com",
-		Authentication: configv1.VaultAuthentication{
-			Type: configv1.VaultAuthenticationTypeAppRole,
-			AppRole: configv1.VaultAppRoleAuthentication{
-				Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+		Authentication: kms.VaultAuthentication{
+			Type: kms.VaultAuthenticationTypeAppRole,
+			AppRole: kms.VaultAppRoleAuthentication{
+				Secret: kms.VaultSecretReference{Name: "vault-approle-secret"},
 			},
 		},
-		TLS: configv1.VaultTLSConfig{
-			CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+		TLS: kms.VaultTLSConfig{
+			CABundle: kms.VaultConfigMapReference{Name: "vault-ca-bundle"},
 		},
 		VaultKeyPath: "transit/keys/test-transit-key",
 	},

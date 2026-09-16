@@ -6,11 +6,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -19,7 +20,7 @@ import (
 // EncryptionConfigurationComputer computes the encryption configuration secret
 // passed to the KMS preflight deployer right before it creates a new deployment.
 type EncryptionConfigurationComputer interface {
-	ComputeEncryptionConfiguration(ctx context.Context, kmsPluginConfig *configv1.KMSPluginConfig) (*corev1.Secret, error)
+	ComputeEncryptionConfiguration(ctx context.Context, kmsPluginConfig *kms.KMSPluginConfig) (*corev1.Secret, error)
 }
 
 // encryptionConfigurationComputer is the default EncryptionConfigurationComputer.
@@ -33,6 +34,7 @@ type encryptionConfigurationComputer struct {
 	secretsClient            corev1client.SecretsGetter
 	configMapsClient         corev1client.ConfigMapsGetter
 	apiServerClient          configv1client.APIServerInterface
+	dynamicClient            dynamic.Interface
 	operatorClient           operatorv1helpers.OperatorClient
 	encryptionSecretSelector metav1.ListOptions
 }
@@ -48,6 +50,7 @@ func NewEncryptionConfigurationComputer(
 	configMapsClient corev1client.ConfigMapsGetter,
 	apiServerClient configv1client.APIServerInterface,
 	operatorClient operatorv1helpers.OperatorClient,
+	dynamicClient dynamic.Interface,
 	encryptionSecretSelector metav1.ListOptions,
 ) EncryptionConfigurationComputer {
 	return &encryptionConfigurationComputer{
@@ -58,15 +61,16 @@ func NewEncryptionConfigurationComputer(
 		secretsClient:            secretsClient,
 		configMapsClient:         configMapsClient,
 		apiServerClient:          apiServerClient,
+		dynamicClient:            dynamicClient,
 		operatorClient:           operatorClient,
 		encryptionSecretSelector: encryptionSecretSelector,
 	}
 }
 
-func (c *encryptionConfigurationComputer) ComputeEncryptionConfiguration(ctx context.Context, kmsPluginConfig *configv1.KMSPluginConfig) (*corev1.Secret, error) {
+func (c *encryptionConfigurationComputer) ComputeEncryptionConfiguration(ctx context.Context, kmsPluginConfig *kms.KMSPluginConfig) (*corev1.Secret, error) {
 	// ListKeysWhileProgressing=true so preflight can still list keys and compute a plan even when there
 	// is no convergence yet. The key controller sets this to false to avoid extra Lists during rollout.
-	planner := NewEncryptionPlanner(c.instanceName, c.unsupportedConfigPrefix, c.encryptionDeployer, c.secretsClient, c.configMapsClient, c.apiServerClient, c.operatorClient, c.encryptionSecretSelector)
+	planner := NewEncryptionPlanner(c.instanceName, c.unsupportedConfigPrefix, c.encryptionDeployer, c.secretsClient, c.configMapsClient, c.apiServerClient, c.operatorClient, c.dynamicClient, c.encryptionSecretSelector)
 	snap, err := planner.Load(ctx, c.provider.EncryptedGRs(), LoadOptions{
 		ListKeysWhileProgressing: true,
 		KMSPluginConfig:          kmsPluginConfig,
