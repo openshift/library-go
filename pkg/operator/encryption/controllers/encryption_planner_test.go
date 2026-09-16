@@ -18,6 +18,7 @@ import (
 	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -204,7 +205,7 @@ func TestEncryptionPlannerDecideVsMaterialize(t *testing.T) {
 
 func TestEncryptionPlannerLoadWithPrefetchedKMSPluginConfig(t *testing.T) {
 	apiServerWithKMS := newKMSVaultAPIServer()
-	kmsCfg := apiServerWithKMS.Spec.Encryption.KMS
+	kmsCfg := kms.KMSPluginConfig{TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, Type: kms.VaultKMSProvider, Vault: wellKnownBaseVaultConfig}
 	encryptedGRs := []schema.GroupResource{{Group: "", Resource: "secrets"}}
 	fakeKubeClient := fake.NewSimpleClientset(&wellKnownBaseSecret, &wellKnownBaseConfigMap)
 	fakeConfigClient := configv1clientfake.NewSimpleClientset(apiServerWithKMS)
@@ -229,8 +230,8 @@ func TestEncryptionPlannerLoadWithPrefetchedKMSPluginConfig(t *testing.T) {
 	if snap.CurrentMode != state.KMS {
 		t.Fatalf("expected KMS mode, got %q", snap.CurrentMode)
 	}
-	if snap.APIEncryption.Type != configv1.EncryptionTypeKMS {
-		t.Fatalf("expected KMS encryption type, got %q", snap.APIEncryption.Type)
+	if snap.PluginConfig != kmsCfg {
+		t.Fatal("expected the prefetched KMS plugin configuration")
 	}
 }
 

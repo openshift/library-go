@@ -48,7 +48,7 @@ func TestKeyController(t *testing.T) {
 	apiServerWithAESGCM.Spec.Encryption = configv1.APIServerEncryption{Type: "aesgcm"}
 
 	apiServerWithKMS := simpleAPIServer.DeepCopy()
-	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: encryptiontesting.DefaultKMSPluginConfig}
+	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig)}
 
 	kmsCreateKeyStatusProvider := newPreflightSucceededProvider(t, encryptiontesting.DefaultKMSPluginConfig,
 		encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
@@ -845,7 +845,7 @@ func TestKeyController(t *testing.T) {
 				s := simpleAPIServer.DeepCopy()
 				changedConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
 				changedConfig.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: *changedConfig}
+				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(*changedConfig)}
 				return s
 			}()},
 			targetNamespace: "kms",
@@ -865,7 +865,7 @@ func TestKeyController(t *testing.T) {
 				s := simpleAPIServer.DeepCopy()
 				changedConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
 				changedConfig.Vault.Authentication.AppRole.Secret.Name = "new-approle-secret"
-				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: *changedConfig}
+				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(*changedConfig)}
 				return s
 			}()},
 			targetNamespace: "kms",
@@ -884,10 +884,10 @@ func TestKeyController(t *testing.T) {
 			apiServerObjects: []runtime.Object{func() runtime.Object {
 				s := simpleAPIServer.DeepCopy()
 				changedConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
-				changedConfig.Vault.TLS = configv1.VaultTLSConfig{
-					CABundle: configv1.VaultConfigMapReference{Name: "my-ca"},
+				changedConfig.Vault.TLS = kms.VaultTLSConfig{
+					CABundle: kms.VaultConfigMapReference{Name: "my-ca"},
 				}
-				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: *changedConfig}
+				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(*changedConfig)}
 				return s
 			}()},
 			targetNamespace: "kms",
@@ -976,19 +976,19 @@ func TestKMSMigrationTriggeredFields(t *testing.T) {
 
 	scenarios := []struct {
 		name   string
-		mutate func(cfg *configv1.KMSPluginConfig)
+		mutate func(cfg *kms.KMSPluginConfig)
 	}{
 		{
 			name:   "VaultAddress",
-			mutate: func(cfg *configv1.KMSPluginConfig) { cfg.Vault.VaultAddress = "https://vault-new.example.com" },
+			mutate: func(cfg *kms.KMSPluginConfig) { cfg.Vault.VaultAddress = "https://vault-new.example.com" },
 		},
 		{
 			name:   "VaultNamespace",
-			mutate: func(cfg *configv1.KMSPluginConfig) { cfg.Vault.VaultNamespace = "new-namespace" },
+			mutate: func(cfg *kms.KMSPluginConfig) { cfg.Vault.VaultNamespace = "new-namespace" },
 		},
 		{
 			name:   "VaultKeyPath",
-			mutate: func(cfg *configv1.KMSPluginConfig) { cfg.Vault.VaultKeyPath = "transit/keys/new-key" },
+			mutate: func(cfg *kms.KMSPluginConfig) { cfg.Vault.VaultKeyPath = "transit/keys/new-key" },
 		},
 	}
 
@@ -998,7 +998,7 @@ func TestKMSMigrationTriggeredFields(t *testing.T) {
 			scenario.mutate(changedConfig)
 
 			apiServerWithChangedKMS := simpleAPIServer.DeepCopy()
-			apiServerWithChangedKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: *changedConfig}
+			apiServerWithChangedKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(*changedConfig)}
 
 			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.StaticPodOperatorSpec{
@@ -1085,7 +1085,7 @@ func preflightSucceededForHash(configHash string) *fakeKMSStatusProvider {
 // newPreflightSucceededProvider builds a fakeKMSStatusProvider pre-seeded with a
 // Succeeded preflight result for the given KMS plugin config and referenced objects.
 // It uses a scratch client so the reads do not pollute any test's action log.
-func newPreflightSucceededProvider(t *testing.T, pluginConfig configv1.KMSPluginConfig, objects ...runtime.Object) *fakeKMSStatusProvider {
+func newPreflightSucceededProvider(t *testing.T, pluginConfig kms.KMSPluginConfig, objects ...runtime.Object) *fakeKMSStatusProvider {
 	t.Helper()
 	scratch := fake.NewSimpleClientset(objects...)
 	providerCfg, err := newKMSProviderConfig(pluginConfig)
@@ -1117,20 +1117,21 @@ func (f *fakeKMSStatusProvider) UpdateKMSEncryptionStatus(_ context.Context, mut
 func TestReferencedSecretName(t *testing.T) {
 	scenarios := []struct {
 		name             string
-		plugin           configv1.KMSPluginConfig
+		plugin           kms.KMSPluginConfig
 		expectedName     string
 		expectedDataKeys []string
 		expectedError    bool
 	}{
 		{
 			name: "Vault with AppRole authentication returns secret name and keys",
-			plugin: configv1.KMSPluginConfig{
-				Type: configv1.VaultKMSProvider,
-				Vault: configv1.VaultKMSPluginConfig{
-					Authentication: configv1.VaultAuthentication{
-						Type: configv1.VaultAuthenticationTypeAppRole,
-						AppRole: configv1.VaultAppRoleAuthentication{
-							Secret: configv1.VaultSecretReference{Name: "my-approle-secret"},
+			plugin: kms.KMSPluginConfig{
+				TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+				Type:     kms.VaultKMSProvider,
+				Vault: kms.VaultKMSPluginConfig{
+					Authentication: kms.VaultAuthentication{
+						Type: kms.VaultAuthenticationTypeAppRole,
+						AppRole: kms.VaultAppRoleAuthentication{
+							Secret: kms.VaultSecretReference{Name: "my-approle-secret"},
 						},
 					},
 				},
@@ -1140,10 +1141,11 @@ func TestReferencedSecretName(t *testing.T) {
 		},
 		{
 			name: "Vault with unknown authentication type returns error",
-			plugin: configv1.KMSPluginConfig{
-				Type: configv1.VaultKMSProvider,
-				Vault: configv1.VaultKMSPluginConfig{
-					Authentication: configv1.VaultAuthentication{
+			plugin: kms.KMSPluginConfig{
+				TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+				Type:     kms.VaultKMSProvider,
+				Vault: kms.VaultKMSPluginConfig{
+					Authentication: kms.VaultAuthentication{
 						Type: "UnknownAuth",
 					},
 				},
@@ -1152,20 +1154,21 @@ func TestReferencedSecretName(t *testing.T) {
 		},
 		{
 			name: "Vault with empty authentication type returns error",
-			plugin: configv1.KMSPluginConfig{
-				Type:  configv1.VaultKMSProvider,
-				Vault: configv1.VaultKMSPluginConfig{},
+			plugin: kms.KMSPluginConfig{
+				TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+				Type:     kms.VaultKMSProvider,
+				Vault:    kms.VaultKMSPluginConfig{},
 			},
 			expectedError: true,
 		},
 		{
 			name:          "unknown KMS provider returns error",
-			plugin:        configv1.KMSPluginConfig{Type: "UnknownProvider"},
+			plugin:        kms.KMSPluginConfig{TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, Type: "UnknownProvider"},
 			expectedError: true,
 		},
 		{
 			name:          "empty plugin config returns error",
-			plugin:        configv1.KMSPluginConfig{},
+			plugin:        kms.KMSPluginConfig{},
 			expectedError: true,
 		},
 	}
@@ -1207,18 +1210,19 @@ func TestReferencedSecretName(t *testing.T) {
 func TestReferencedConfigMapName(t *testing.T) {
 	scenarios := []struct {
 		name             string
-		plugin           configv1.KMSPluginConfig
+		plugin           kms.KMSPluginConfig
 		expectedName     string
 		expectedDataKeys []string
 		expectedError    bool
 	}{
 		{
 			name: "Vault with TLS CA bundle returns configmap name and keys",
-			plugin: configv1.KMSPluginConfig{
-				Type: configv1.VaultKMSProvider,
-				Vault: configv1.VaultKMSPluginConfig{
-					TLS: configv1.VaultTLSConfig{
-						CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+			plugin: kms.KMSPluginConfig{
+				TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+				Type:     kms.VaultKMSProvider,
+				Vault: kms.VaultKMSPluginConfig{
+					TLS: kms.VaultTLSConfig{
+						CABundle: kms.VaultConfigMapReference{Name: "vault-ca-bundle"},
 					},
 				},
 			},
@@ -1227,21 +1231,22 @@ func TestReferencedConfigMapName(t *testing.T) {
 		},
 		{
 			name: "Vault without TLS CA bundle returns empty",
-			plugin: configv1.KMSPluginConfig{
-				Type:  configv1.VaultKMSProvider,
-				Vault: configv1.VaultKMSPluginConfig{},
+			plugin: kms.KMSPluginConfig{
+				TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+				Type:     kms.VaultKMSProvider,
+				Vault:    kms.VaultKMSPluginConfig{},
 			},
 			expectedName:     "",
 			expectedDataKeys: nil,
 		},
 		{
 			name:          "unknown KMS provider returns error",
-			plugin:        configv1.KMSPluginConfig{Type: "UnknownProvider"},
+			plugin:        kms.KMSPluginConfig{TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, Type: "UnknownProvider"},
 			expectedError: true,
 		},
 		{
 			name:          "empty plugin config returns error",
-			plugin:        configv1.KMSPluginConfig{},
+			plugin:        kms.KMSPluginConfig{},
 			expectedError: true,
 		},
 	}
@@ -1358,23 +1363,24 @@ func TestModeAndExternalReasonFromAPIServer(t *testing.T) {
 		},
 		{
 			name: "kms encryption mode",
-			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.APIServerSpec{Encryption: configv1.APIServerEncryption{Type: "KMS", KMS: configv1.KMSPluginConfig{
-				Type: configv1.VaultKMSProvider,
-				Vault: configv1.VaultKMSPluginConfig{
+			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.APIServerSpec{Encryption: configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(kms.KMSPluginConfig{
+				TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+				Type:     kms.VaultKMSProvider,
+				Vault: kms.VaultKMSPluginConfig{
 					KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 					VaultAddress:   "https://vault.example.com",
-					Authentication: configv1.VaultAuthentication{
-						Type: configv1.VaultAuthenticationTypeAppRole,
-						AppRole: configv1.VaultAppRoleAuthentication{
-							Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+					Authentication: kms.VaultAuthentication{
+						Type: kms.VaultAuthenticationTypeAppRole,
+						AppRole: kms.VaultAppRoleAuthentication{
+							Secret: kms.VaultSecretReference{Name: "vault-approle-secret"},
 						},
 					},
-					TLS: configv1.VaultTLSConfig{
-						CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+					TLS: kms.VaultTLSConfig{
+						CABundle: kms.VaultConfigMapReference{Name: "vault-ca-bundle"},
 					},
 					VaultKeyPath: "transit/keys/test-transit-key",
 				},
-			}}}}},
+			})}}}},
 		},
 	}
 
@@ -1409,17 +1415,18 @@ func TestModeAndExternalReasonFromAPIServer(t *testing.T) {
 }
 
 func TestSameProviderInstance(t *testing.T) {
-	baseConfig := &configv1.KMSPluginConfig{
-		Type: configv1.VaultKMSProvider,
-		Vault: configv1.VaultKMSPluginConfig{
+	baseConfig := &kms.KMSPluginConfig{
+		TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+		Type:     kms.VaultKMSProvider,
+		Vault: kms.VaultKMSPluginConfig{
 			KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 			VaultAddress:   "https://vault.example.com",
 			VaultNamespace: "ns1",
 			VaultKeyPath:   "transit/keys/my-key",
-			Authentication: configv1.VaultAuthentication{
-				Type: configv1.VaultAuthenticationTypeAppRole,
-				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+			Authentication: kms.VaultAuthentication{
+				Type: kms.VaultAuthenticationTypeAppRole,
+				AppRole: kms.VaultAppRoleAuthentication{
+					Secret: kms.VaultSecretReference{Name: "vault-approle-secret"},
 				},
 			},
 		},
@@ -1427,8 +1434,8 @@ func TestSameProviderInstance(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		latest   *configv1.KMSPluginConfig
-		current  *configv1.KMSPluginConfig
+		latest   *kms.KMSPluginConfig
+		current  *kms.KMSPluginConfig
 		expected bool
 	}{
 		{
@@ -1440,7 +1447,7 @@ func TestSameProviderInstance(t *testing.T) {
 		{
 			name:   "different VaultAddress",
 			latest: baseConfig.DeepCopy(),
-			current: func() *configv1.KMSPluginConfig {
+			current: func() *kms.KMSPluginConfig {
 				c := baseConfig.DeepCopy()
 				c.Vault.VaultAddress = "https://vault-new.example.com"
 				return c
@@ -1450,7 +1457,7 @@ func TestSameProviderInstance(t *testing.T) {
 		{
 			name:   "different VaultNamespace",
 			latest: baseConfig.DeepCopy(),
-			current: func() *configv1.KMSPluginConfig {
+			current: func() *kms.KMSPluginConfig {
 				c := baseConfig.DeepCopy()
 				c.Vault.VaultNamespace = "ns2"
 				return c
@@ -1460,7 +1467,7 @@ func TestSameProviderInstance(t *testing.T) {
 		{
 			name:   "different VaultKeyPath",
 			latest: baseConfig.DeepCopy(),
-			current: func() *configv1.KMSPluginConfig {
+			current: func() *kms.KMSPluginConfig {
 				c := baseConfig.DeepCopy()
 				c.Vault.VaultKeyPath = "transit/keys/new-key"
 				return c
@@ -1470,7 +1477,7 @@ func TestSameProviderInstance(t *testing.T) {
 		{
 			name:   "different KMSPluginImage only",
 			latest: baseConfig.DeepCopy(),
-			current: func() *configv1.KMSPluginConfig {
+			current: func() *kms.KMSPluginConfig {
 				c := baseConfig.DeepCopy()
 				c.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 				return c
@@ -1480,10 +1487,10 @@ func TestSameProviderInstance(t *testing.T) {
 		{
 			name:   "different TLS only",
 			latest: baseConfig.DeepCopy(),
-			current: func() *configv1.KMSPluginConfig {
+			current: func() *kms.KMSPluginConfig {
 				c := baseConfig.DeepCopy()
-				c.Vault.TLS = configv1.VaultTLSConfig{
-					CABundle: configv1.VaultConfigMapReference{Name: "my-ca"},
+				c.Vault.TLS = kms.VaultTLSConfig{
+					CABundle: kms.VaultConfigMapReference{Name: "my-ca"},
 				}
 				return c
 			}(),
@@ -1492,7 +1499,7 @@ func TestSameProviderInstance(t *testing.T) {
 		{
 			name:   "different Authentication only",
 			latest: baseConfig.DeepCopy(),
-			current: func() *configv1.KMSPluginConfig {
+			current: func() *kms.KMSPluginConfig {
 				c := baseConfig.DeepCopy()
 				c.Vault.Authentication.AppRole.Secret.Name = "new-secret"
 				return c

@@ -3,7 +3,7 @@ package pluginlifecycle
 import (
 	"fmt"
 
-	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
@@ -11,7 +11,7 @@ import (
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin data.
 // It assumes the input data has been already been validated.
-func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, refData *referenceDataResolver) (*vault, error) {
+func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig kms.VaultKMSPluginConfig, refData *referenceDataResolver) (*vault, error) {
 	secretName := vaultConfig.Authentication.AppRole.Secret.Name
 	if secretName == "" {
 		return nil, fmt.Errorf("vault AppRole authentication secret name cannot be empty")
@@ -59,7 +59,7 @@ type vault struct {
 	name         string
 	keyID        string
 	udsPath      string
-	config       configv1.VaultKMSPluginConfig
+	config       kms.VaultKMSPluginConfig
 	roleID       string
 	secretIDPath string
 	caBundlePath string
