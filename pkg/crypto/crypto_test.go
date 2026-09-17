@@ -782,6 +782,43 @@ func TestTLSGroupsToCurveIDs(t *testing.T) {
 	}
 }
 
+func TestTLSGroupsToCurvePreferences(t *testing.T) {
+	want := []int32{int32(tls.X25519), int32(tls.CurveP256)}
+	t.Run("TLSGroup values", func(t *testing.T) {
+		groups := []configv1.TLSGroup{configv1.TLSGroupX25519, configv1.TLSGroupSecP256r1}
+		got, unrecognized := TLSGroupsToCurvePreferences(groups)
+		require.Equal(t, want, got)
+		require.Empty(t, unrecognized)
+	})
+
+	tests := []struct {
+		name             string
+		groups           []string
+		want             []int32
+		wantUnrecognized []string
+	}{
+		{
+			name:   "TLS group values",
+			groups: []string{string(configv1.TLSGroupX25519), string(configv1.TLSGroupSecP256r1)},
+			want:   want,
+		},
+		{
+			name:             "unrecognized group is omitted",
+			groups:           []string{string(configv1.TLSGroupX25519), "FutureGroup"},
+			want:             []int32{int32(tls.X25519)},
+			wantUnrecognized: []string{"FutureGroup"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, unrecognized := TLSGroupsToCurvePreferences(tt.groups)
+			require.Equal(t, tt.want, got)
+			require.Equal(t, tt.wantUnrecognized, unrecognized)
+		})
+	}
+}
+
 func TestValidTLSGroups(t *testing.T) {
 	groups := ValidTLSGroups()
 	if len(groups) != len(tlsGroupToCurveID) {
