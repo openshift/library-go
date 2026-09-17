@@ -474,7 +474,8 @@ func AssertKMSPreflightSucceededForOperator(ctx context.Context, t testing.TB, c
 
 // assertKMSPreflightSucceeded asserts preflight passed for the CR's current config: degraded is
 // False, preflight reports Succeeded for the observed config hash, remoteKeyID is set (proving a
-// live KMS check ran), and remoteKeyID advanced when the config changed since previous.
+// live KMS check ran), and the config hash is different from the previous snapshot (proving
+// preflight executed fresh in response to the config change).
 func assertKMSPreflightSucceeded(ctx context.Context, t testing.TB, dynamicClient dynamic.Interface, cr kmsOperatorCR, name string, previous operatorv1.KMSPreflightCheck) {
 	t.Helper()
 
@@ -493,7 +494,7 @@ func assertKMSPreflightSucceeded(ctx context.Context, t testing.TB, dynamicClien
 		result := preflight.Result
 		degradedFalse = v1helpers.IsOperatorConditionFalse(status.Conditions, preflightDegradedConditionType)
 		passed := result.Status == operatorv1.KMSPreflightResultSucceeded && result.ConfigHash != "" && result.ConfigHash == preflight.ObservedConfigHash
-		fresh := preflight.ObservedConfigHash == previous.ObservedConfigHash || result.RemoteKeyID != previous.Result.RemoteKeyID
+		fresh := preflight.ObservedConfigHash != previous.ObservedConfigHash
 		ran := result.RemoteKeyID != ""
 		return degradedFalse && passed && ran && fresh, nil
 	})
