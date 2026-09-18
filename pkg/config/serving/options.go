@@ -32,6 +32,7 @@ func ToServingOptions(servingInfo configv1.HTTPServingInfo) (*genericapiserverop
 	servingOptions.ServerCert.CertKey.KeyFile = servingInfo.KeyFile
 	servingOptions.CipherSuites = servingInfo.CipherSuites
 	servingOptions.MinTLSVersion = servingInfo.MinTLSVersion
+	servingOptions.CurvePreferences = servingInfo.CurvePreferences
 
 	for _, namedCert := range servingInfo.NamedCertificates {
 		genericNamedCertKey := utilflag.NamedCertKey{
