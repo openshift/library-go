@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	mathrand "math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -633,16 +632,24 @@ type RandomSerialGenerator struct {
 }
 
 func (s *RandomSerialGenerator) Next(template *x509.Certificate) (int64, error) {
-	return randomSerialNumber(), nil
+	return randomSerialNumber()
 }
 
-// randomSerialNumber returns a random int64 serial number based on
-// time.Now. It is defined separately from the generator interface so
-// that the caller doesn't have to worry about an input template or
-// error - these are unnecessary when creating a random serial.
-func randomSerialNumber() int64 {
-	r := mathrand.New(mathrand.NewSource(time.Now().UTC().UnixNano()))
-	return r.Int63()
+// randomSerialNumber returns a cryptographically random serial number in
+// [1, 2^63-1]. RFC 5280 requires a positive serial; the int64 cap comes from
+// SerialFileGenerator, which persists the serial as an OpenSSL-style hex int64.
+func randomSerialNumber() (int64, error) {
+	// TODO(CNTRLPLANE-4476): Go 1.24 lets x509.CreateCertificate generate a
+	// conformant serial for a nil SerialNumber, superseding SerialFileGenerator
+	// and this int64 cap; remove them once consumers migrate.
+	// rand.Int is exclusive of its bound, so draw from [0, 2^63-1) and add one
+	// to land in [1, 2^63-1], never zero.
+	limit := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 63), big.NewInt(1))
+	serial, err := rand.Int(rand.Reader, limit)
+	if err != nil {
+		return 0, fmt.Errorf("failed to generate serial number: %w", err)
+	}
+	return serial.Int64() + 1, nil
 }
 
 // EnsureCA returns a CA, whether it was created (as opposed to pre-existing), and any error
@@ -758,7 +765,10 @@ func makeSelfSignedCAConfigForSubjectAndDuration(subject pkix.Name, currentTime 
 	// AuthorityKeyId and SubjectKeyId should match for a self-signed CA
 	authorityKeyId := publicKeyHash
 	subjectKeyId := publicKeyHash
-	rootcaTemplate := newSigningCertificateTemplateForDuration(subject, caLifetime, currentTime, authorityKeyId, subjectKeyId)
+	rootcaTemplate, err := newSigningCertificateTemplateForDuration(subject, caLifetime, currentTime, authorityKeyId, subjectKeyId)
+	if err != nil {
+		return nil, err
+	}
 	rootcaCert, err := signCertificate(rootcaTemplate, rootcaPublicKey, rootcaTemplate, rootcaPrivateKey)
 	if err != nil {
 		return nil, err
@@ -778,7 +788,10 @@ func MakeCAConfigForDuration(name string, caLifetime time.Duration, issuer *CA) 
 	}
 	authorityKeyId := issuer.Config.Certs[0].SubjectKeyId
 	subjectKeyId := publicKeyHash
-	signerTemplate := newSigningCertificateTemplateForDuration(pkix.Name{CommonName: name}, caLifetime, time.Now, authorityKeyId, subjectKeyId)
+	signerTemplate, err := newSigningCertificateTemplateForDuration(pkix.Name{CommonName: name}, caLifetime, time.Now, authorityKeyId, subjectKeyId)
+	if err != nil {
+		return nil, err
+	}
 	signerCert, err := issuer.SignCertificate(signerTemplate, signerPublicKey)
 	if err != nil {
 		return nil, err
@@ -1092,7 +1105,11 @@ func newRSAKeyPair() (*rsa.PublicKey, *rsa.PrivateKey, error) {
 }
 
 // Can be used for CA or intermediate signing certs
-func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte) *x509.Certificate {
+func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte) (*x509.Certificate, error) {
+	serial, err := randomSerialNumber()
+	if err != nil {
+		return nil, err
+	}
 	return &x509.Certificate{
 		Subject: subject,
 
@@ -1104,7 +1121,7 @@ func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time
 		// Specify a random serial number to avoid the same issuer+serial
 		// number referring to different certs in a chain of trust if the
 		// signing certificate is ever rotated.
-		SerialNumber: big.NewInt(randomSerialNumber()),
+		SerialNumber: big.NewInt(serial),
 
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
@@ -1112,7 +1129,7 @@ func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time
 
 		AuthorityKeyId: authorityKeyId,
 		SubjectKeyId:   subjectKeyId,
-	}
+	}, nil
 }
 
 // Can be used for ListenAndServeTLS
