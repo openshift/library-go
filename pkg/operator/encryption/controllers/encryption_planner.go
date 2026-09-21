@@ -91,7 +91,14 @@ type LoadOptions struct {
 	ListKeysWhileProgressing bool
 	// KMSPluginConfig, when set, skips the APIServer GET in Load.
 	// Callers must only set this when encryption type is already known to be KMS.
-	KMSPluginConfig *configv1.KMSPluginConfig
+	KMSPluginConfig *KMSPluginConfig
+}
+
+// KMSPluginConfig is the caller-supplied KMS config for the Load fast-path,
+// with the APIServer generation folded into the config hash alongside it.
+type KMSPluginConfig struct {
+	Config     *configv1.KMSPluginConfig
+	Generation int64
 }
 
 // EncryptionPlanResult is returned by ComputeConfig.
@@ -136,7 +143,7 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 	}
 
 	// Resolve mode before reading deployer/key state so callers fail fast on APIServer/operator errors.
-	currentMode, externalReason, apiEncryption, err := p.modeAndExternalReason(ctx, opts.KMSPluginConfig)
+	currentMode, externalReason, apiEncryption, generation, err := p.modeAndExternalReason(ctx, opts.KMSPluginConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +173,7 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 	}
 
 	if currentMode == state.KMS {
-		desiredProviderCfg, err := newKMSProviderConfig(apiEncryption.KMS)
+		desiredProviderCfg, err := newKMSProviderConfig(apiEncryption.KMS, generation)
 		if err != nil {
 			return nil, err
 		}
@@ -176,10 +183,12 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 	return snap, nil
 }
 
-func (p *EncryptionPlanner) modeAndExternalReason(ctx context.Context, kmsPluginConfig *configv1.KMSPluginConfig) (state.Mode, string, configv1.APIServerEncryption, error) {
+// For the KMSPluginConfig fast-path the caller supplies both the config and its generation.
+func (p *EncryptionPlanner) modeAndExternalReason(ctx context.Context, kmsPluginConfig *KMSPluginConfig) (state.Mode, string, configv1.APIServerEncryption, int64, error) {
 	if kmsPluginConfig != nil {
-		apiEncryption := configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: *kmsPluginConfig}
-		return modeAndExternalReasonFromAPIServerEncryption(apiEncryption, p.operatorClient, p.unsupportedConfigPrefix)
+		apiEncryption := configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: *kmsPluginConfig.Config}
+		mode, reason, enc, err := modeAndExternalReasonFromAPIServerEncryption(apiEncryption, p.operatorClient, p.unsupportedConfigPrefix)
+		return mode, reason, enc, kmsPluginConfig.Generation, err
 	}
 	return modeAndExternalReasonFromAPIServer(ctx, p.apiServerClient, p.operatorClient, p.unsupportedConfigPrefix)
 }
