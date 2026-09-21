@@ -93,11 +93,10 @@ func TestApplyRemoteKeyAnnotations(t *testing.T) {
 		encryptionSecretRemoteKeyConvergedAt: nowStr,
 	}
 	err := applyRemoteKeyAnnotations(annotations, state.RemoteKeyState{
-		TargetRemoteKeyID:   "", // should remove
+		TargetRemoteKeyID:   "",
 		MigratedRemoteKeyID: "keep",
 		ConvergedAt:         now,
-		// updated with a new key
-		ConvergedID: "new-key",
+		ConvergedID:         "new-key",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -113,5 +112,69 @@ func TestApplyRemoteKeyAnnotations(t *testing.T) {
 	}
 	if annotations[encryptionSecretRemoteKeyConvergedAt] != nowStr {
 		t.Fatalf("expected annotation %s to stay", encryptionSecretRemoteKeyConvergedAt)
+	}
+}
+
+func TestMigrationWriteKeyName(t *testing.T) {
+	scenarios := []struct {
+		name    string
+		keyName string
+		rk      state.RemoteKeyState
+		want    string
+	}{
+		{
+			name:    "first enablement",
+			keyName: "3",
+			rk:      state.RemoteKeyState{TargetRemoteKeyID: "remote-old"},
+			want:    "3-remote-old",
+		},
+		{
+			name:    "no target",
+			keyName: "3",
+			rk:      state.RemoteKeyState{},
+			want:    "3",
+		},
+		{
+			name:    "steady state",
+			keyName: "3",
+			rk:      state.RemoteKeyState{TargetRemoteKeyID: "remote-old", MigratedRemoteKeyID: "remote-old"},
+			want:    "3-remote-old",
+		},
+		{
+			name:    "rotation",
+			keyName: "3",
+			rk:      state.RemoteKeyState{TargetRemoteKeyID: "remote-new", MigratedRemoteKeyID: "remote-old"},
+			want:    "3-remote-new",
+		},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			if got := MigrationWriteKeyName(scenario.keyName, scenario.rk); got != scenario.want {
+				t.Fatalf("got %q want %q", got, scenario.want)
+			}
+		})
+	}
+}
+
+func TestRemoteKeyIDFromMigrationWriteKey(t *testing.T) {
+	got, ok := RemoteKeyIDFromMigrationWriteKey("3", "3-remote-new")
+	if !ok || got != "remote-new" {
+		t.Fatalf("got %q ok=%v", got, ok)
+	}
+	_, ok = RemoteKeyIDFromMigrationWriteKey("3", "3")
+	if ok {
+		t.Fatal("expected false for plain key name")
+	}
+}
+
+func TestApplyRemoteKeyAnnotationsClearsEmptyValues(t *testing.T) {
+	annotations := map[string]string{
+		encryptionSecretTargetRemoteKeyID: "old",
+	}
+	if err := applyRemoteKeyAnnotations(annotations, state.RemoteKeyState{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := annotations[encryptionSecretTargetRemoteKeyID]; ok {
+		t.Fatal("expected target annotation to be removed")
 	}
 }

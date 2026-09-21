@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -67,6 +68,30 @@ func applyRemoteKeyAnnotations(annotations map[string]string, rk state.RemoteKey
 	}
 
 	return nil
+}
+
+// MigrationWriteKeyName returns the StorageVersionMigration write-key annotation value.
+// When target-remote-key-id is set, the write-key is always suffixed with that ID
+// (first enablement and remote-key rotation). Plain keyName is used only when
+// target-remote-key-id is unset.
+func MigrationWriteKeyName(keyName string, rk state.RemoteKeyState) string {
+	if len(rk.TargetRemoteKeyID) == 0 {
+		return keyName
+	}
+	return keyName + "-" + rk.TargetRemoteKeyID
+}
+
+// RemoteKeyIDFromMigrationWriteKey extracts the remote key ID suffix from a migration write-key value.
+func RemoteKeyIDFromMigrationWriteKey(keyName, migrationWriteKey string) (string, bool) {
+	prefix := keyName + "-"
+	if !strings.HasPrefix(migrationWriteKey, prefix) {
+		return "", false
+	}
+	remoteKeyID := strings.TrimPrefix(migrationWriteKey, prefix)
+	if len(remoteKeyID) == 0 {
+		return "", false
+	}
+	return remoteKeyID, true
 }
 
 // PatchRemoteKeyState updates remote key annotations on a key secret using
