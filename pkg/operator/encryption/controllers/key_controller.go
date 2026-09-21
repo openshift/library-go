@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -29,6 +30,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/health"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -44,6 +46,7 @@ const (
 	kmsEndpointFormat                 = "unix:///var/run/kmsplugin/kms-%d.sock"
 	defaultKMSTimeout                 = 10 * time.Second
 	openshiftConfigNS                 = "openshift-config"
+	remoteKeyConvergenceDuration      = 5 * time.Minute
 )
 
 // keyController creates new keys if necessary. It
@@ -197,6 +200,12 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
+	if snap.CurrentMode == state.KMS {
+		if err := c.reconcileRemoteKeyRotationFromSnap(ctx, snap); err != nil {
+			return err
+		}
+	}
+
 	plan, err := planner.PlanNextKey(snap)
 	if err != nil {
 		return err
@@ -226,6 +235,24 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	syncContext.Recorder().Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, plan.Reasons)
 
 	return nil
+}
+
+func (c *keyController) reconcileRemoteKeyRotationFromSnap(ctx context.Context, snap *KeyPlanningSnapshot) error {
+	writeKey, ok := writeKeyForRemoteKeyRotation(snap.State.DesiredBeforePlan)
+	if !ok || writeKey.RemoteKey().TargetRemoteKeyID == "" {
+		return nil
+	}
+
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get KMS encryption status for remote key rotation: %w", err)
+	}
+
+	if encryptionStatus == nil {
+		return nil
+	}
+
+	return reconcileRemoteKeyRotation(ctx, c.secretClient, c.instanceName, snap.State.EncryptedGRs, *encryptionStatus, writeKey, clock.RealClock{})
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
@@ -592,12 +619,18 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	}
 
 	if currentMode == state.KMS {
-		// We are here because Encryption Mode is not changed
-		// However, we need to create a new key if migration-triggering fields
-		// in the KMS provider configuration have changed.
 		if latestKey.KMS == nil {
 			return 0, "", false, fmt.Errorf("KMS-mode key %q has nil KMS state, possibly corrupted key secret", latestKey.Key.Name)
 		}
+		// Block all new encryption-key minting while remote-key migration is in flight,
+		// including kms-provider-changed. Remote-key rotation must finish on the current
+		// write key before a provider migration can mint another secret.
+		if latestKey.RemoteKey().NeedsRemoteKeyMigration() {
+			return 0, "", false, nil
+		}
+		// We are here because Encryption Mode is not changed
+		// However, we need to create a new key if migration-triggering fields
+		// in the KMS provider configuration have changed.
 		same, err := desiredProviderCfg.sameProviderInstance(latestKey.KMS.Plugin)
 		if err != nil {
 			return 0, "", false, fmt.Errorf("failed to check KMS provider instance: %w", err)
@@ -760,4 +793,151 @@ func unstructuredUnsupportedConfigFromWithPrefix(rawConfig []byte, prefix []stri
 	}
 
 	return json.Marshal(actualConfig)
+}
+
+// reconcileRemoteKeyRotation maintains KMS remote key rotation annotations on the
+// encryption key secret for the current KMS write key. External remote-key rotation
+// does not mint a new encryption key secret or trigger stateController; only
+// migrationController re-encrypts etcd data.
+func reconcileRemoteKeyRotation(
+	ctx context.Context,
+	secretClient corev1client.SecretsGetter,
+	instanceName string,
+	encryptedGRs []schema.GroupResource,
+	encryptionStatus operatorv1.KMSEncryptionStatus,
+	writeKey state.KeyState,
+	clk clock.Clock,
+) error {
+	secretName := fmt.Sprintf("encryption-key-%s-%s", instanceName, writeKey.Key.Name)
+	rk, err := readRemoteKeyStateFromSecret(ctx, secretClient, secretName)
+	if err != nil {
+		return err
+	}
+	if len(rk.TargetRemoteKeyID) == 0 {
+		return nil
+	}
+
+	// During KMS-to-KMS migration multiple plugin key IDs can report at once; scope
+	// convergence to the current write key's keyID so backup/read-only plugins are ignored.
+	// TODO(thomas): we need to ensure the amount of reports match the number of operand pods
+	reports := health.ReportsForKeyID(encryptionStatus.HealthReports, writeKey.Key.Name)
+	convergedRemoteKeyID := health.ConvergedRemoteKeyID(reports)
+	if convergedRemoteKeyID == "" {
+		return nil
+	}
+
+	if !rk.IsBootstrapped() {
+		allMigrated, _, _ := state.MigratedFor(encryptedGRs, writeKey)
+		if !allMigrated {
+			return nil
+		}
+		return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
+			return bootstrapRemoteKey(rk)
+		})
+	}
+
+	if convergedRemoteKeyID == rk.TargetRemoteKeyID {
+		return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
+			return clearRemoteKeyConvergence(rk)
+		})
+	}
+
+	now := clk.Now()
+	if shouldPromoteConvergedKeyID(rk, convergedRemoteKeyID, now) {
+		return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
+			return promoteRemoteKeyTarget(rk, convergedRemoteKeyID)
+		})
+	}
+
+	return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
+		return recordRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
+	})
+}
+
+func writeKeyForRemoteKeyRotation(desiredState map[schema.GroupResource]state.GroupResourceState) (state.KeyState, bool) {
+	for _, grState := range desiredState {
+		if grState.HasWriteKey() && grState.WriteKey.Mode == state.KMS {
+			return grState.WriteKey, true
+		}
+	}
+	return state.KeyState{}, false
+}
+
+func readRemoteKeyStateFromSecret(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string) (state.RemoteKeyState, error) {
+	s, err := secretClient.Secrets("openshift-config-managed").Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		return state.RemoteKeyState{}, err
+	}
+	return secrets.ReadRemoteKeyStateFromSecret(s)
+}
+
+func patchRemoteKeyState(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string, mutate func(state.RemoteKeyState) (state.RemoteKeyState, bool)) error {
+	return secrets.PatchRemoteKeyState(ctx, secretClient.Secrets("openshift-config-managed"), secretName, func(rk *state.RemoteKeyState) (bool, error) {
+		next, changed := mutate(*rk)
+		if !changed {
+			return false, nil
+		}
+		*rk = next
+		return true, nil
+	})
+}
+
+// recordRemoteKeyConvergence stamps ConvergedID/ConvergedAt for a newly observed
+// unanimous remote key ID. Returns false when the candidate is already recorded.
+func recordRemoteKeyConvergence(rk state.RemoteKeyState, candidateRemoteKeyID string, now time.Time) (state.RemoteKeyState, bool) {
+	if rk.ConvergedID == candidateRemoteKeyID && !rk.ConvergedAt.IsZero() {
+		return rk, false
+	}
+	rk.ConvergedID = candidateRemoteKeyID
+	rk.ConvergedAt = now
+	return rk, true
+}
+
+// clearRemoteKeyConvergence removes ConvergedID/ConvergedAt when the write key is
+// already on the converged remote key. Returns false when already clear.
+func clearRemoteKeyConvergence(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
+	if rk.ConvergedID == "" && rk.ConvergedAt.IsZero() {
+		return rk, false
+	}
+	rk.ConvergedID = ""
+	rk.ConvergedAt = time.Time{}
+	return rk, true
+}
+
+// promoteRemoteKeyTarget advances TargetRemoteKeyID to the converged candidate and
+// clears convergence markers. Returns false when already on the candidate or while
+// a remote-key migration is still in flight.
+func promoteRemoteKeyTarget(rk state.RemoteKeyState, candidateRemoteKeyID string) (state.RemoteKeyState, bool) {
+	if rk.TargetRemoteKeyID == candidateRemoteKeyID {
+		return rk, false
+	}
+	if rk.NeedsRemoteKeyMigration() {
+		return rk, false
+	}
+	rk.TargetRemoteKeyID = candidateRemoteKeyID
+	rk.ConvergedID = ""
+	rk.ConvergedAt = time.Time{}
+	return rk, true
+}
+
+// bootstrapRemoteKey sets MigratedRemoteKeyID to TargetRemoteKeyID after the first
+// enablement migration. Returns false when already bootstrapped or target is unset.
+func bootstrapRemoteKey(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
+	if rk.IsBootstrapped() || len(rk.TargetRemoteKeyID) == 0 {
+		return rk, false
+	}
+	rk.MigratedRemoteKeyID = rk.TargetRemoteKeyID
+	return rk, true
+}
+
+// shouldPromoteConvergedKeyID reports whether the grace period has elapsed for the
+// same converged candidate and no remote-key migration is in flight.
+func shouldPromoteConvergedKeyID(rk state.RemoteKeyState, candidateRemoteKeyID string, now time.Time) bool {
+	if rk.ConvergedID != candidateRemoteKeyID || rk.ConvergedAt.IsZero() {
+		return false
+	}
+	if now.Sub(rk.ConvergedAt) < remoteKeyConvergenceDuration {
+		return false
+	}
+	return !rk.NeedsRemoteKeyMigration()
 }
