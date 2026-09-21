@@ -215,27 +215,50 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 	// we never want to migrate during an intermediate state because that could lead to one API server
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
+	//
+	// KMS remote-key rotation (needsMigration) cannot reuse migrated-resources:
+	// that annotation already lists every GR after first enablement on the same
+	// encryption-key secret, so MigratedFor would short-circuit and never re-run
+	// SVMs. Progress is tracked only via StorageVersionMigration write-key =
+	// {keyName}-{targetRemoteKeyID}. When every GR has a succeeded suffixed SVM
+	// we stamp migrated-remote-key-id from that write-key suffix (not from a
+	// fresh target read, and not from migrated-resources). A later sync/restart
+	// re-discovers finished SVMs and stamps without process-local state.
+	var remoteKeyExpected int
+	for _, gr := range grs {
+		ks := currentState[gr]
+		if ks.HasWriteKey() && ks.WriteKey.RemoteKey().NeedsRemoteKeyMigration() {
+			remoteKeyExpected++
+		}
+	}
+
 	var errs []error
+	var remoteKeyFinished int
 	for _, gr := range grs {
 		grActualKeys := currentState[gr]
 		if !grActualKeys.HasWriteKey() {
 			continue // no write key to migrate to
 		}
 
-		if alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey); alreadyMigrated {
-			continue
+		rk := grActualKeys.WriteKey.RemoteKey()
+		migrationWriteKey := secrets.MigrationWriteKeyName(grActualKeys.WriteKey.Key.Name, rk)
+		remoteKeyMigration := rk.NeedsRemoteKeyMigration()
+		if !remoteKeyMigration {
+			if alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey); alreadyMigrated {
+				continue
+			}
 		}
 
 		// idem-potent migration start
-		finished, result, when, err := c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
+		finished, result, when, err := c.migrator.EnsureMigration(gr, migrationWriteKey)
 		if err == nil && finished && result != nil && time.Since(when) > migrationRetryDuration {
 			// last migration error is far enough ago. Prune and retry.
 			if err := c.migrator.PruneMigration(gr); err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			finished, result, when, err = c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
-
+			// when is not used anymore below
+			finished, result, _, err = c.migrator.EnsureMigration(gr, migrationWriteKey)
 		}
 		if err != nil {
 			errs = append(errs, err)
@@ -248,6 +271,16 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 
 		if !finished {
 			migratingResources = append(migratingResources, gr)
+			continue
+		}
+
+		if remoteKeyMigration {
+			remoteKeyFinished++
+			if remoteKeyFinished == remoteKeyExpected {
+				if err := c.stampMigratedRemoteKeyID(ctx, grActualKeys.WriteKey, migrationWriteKey); err != nil {
+					errs = append(errs, err)
+				}
+			}
 			continue
 		}
 
@@ -284,6 +317,28 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 	}
 
 	return migratingResources, errors.NewAggregate(errs)
+}
+
+// stampMigratedRemoteKeyID sets migrated-remote-key-id from the RemoteKeyId encoded in
+// the completed SVM write-key once all encrypted GRs have finished their suffixed migration.
+// See the needsMigration comment in migrateKeysIfNeededAndRevisionStable for why this is
+// separate from migrated-resources bookkeeping.
+func (c *migrationController) stampMigratedRemoteKeyID(ctx context.Context, writeKey state.KeyState, migrationWriteKey string) error {
+	remoteKeyID, ok := secrets.RemoteKeyIDFromMigrationWriteKey(writeKey.Key.Name, migrationWriteKey)
+	if !ok {
+		return nil
+	}
+	writeKeySecret, err := secrets.FromKeyState(c.instanceName, writeKey)
+	if err != nil {
+		return err
+	}
+	return secrets.PatchRemoteKeyState(ctx, c.secretClient.Secrets("openshift-config-managed"), writeKeySecret.Name, func(rk *state.RemoteKeyState) (bool, error) {
+		if !rk.NeedsRemoteKeyMigration() || rk.MigratedRemoteKeyID == remoteKeyID {
+			return false, nil
+		}
+		rk.MigratedRemoteKeyID = remoteKeyID
+		return true, nil
+	})
 }
 
 func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error) {
