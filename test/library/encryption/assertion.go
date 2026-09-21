@@ -507,3 +507,58 @@ func assertKMSPreflightSucceeded(ctx context.Context, t testing.TB, dynamicClien
 		cr.gvr.Resource, name, degradedFalse, preflight.Result.Status, preflight.Result.ConfigHash, preflight.ObservedConfigHash, preflight.Result.RemoteKeyID,
 		previous.ObservedConfigHash, previous.Result.RemoteKeyID)
 }
+
+// AssertKMSPreflightFailedForOperator waits until preflight has observed a config newer than
+// previous and reports failure for that config (Result=Failed with matching hash, and/or
+// EncryptionKMSPreflightControllerDegraded=True). previous is the pre-apply snapshot
+// (see ReadKMSPreflightForOperator) so a stale Degraded from an earlier case cannot pass.
+func AssertKMSPreflightFailedForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, previous operatorv1.KMSPreflightCheck) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	var preflight operatorv1.KMSPreflightCheck
+	var degradedTrue bool
+	err := wait.PollUntilContextTimeout(ctx, waitPollInterval, waitPollTimeout, true, func(ctx context.Context) (bool, error) {
+		obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		status, err := cr.decodeKMSOperatorStatus(obj.Object)
+		if err != nil {
+			return false, err
+		}
+		preflight = status.EncryptionStatus.Preflight
+		degradedTrue = v1helpers.IsOperatorConditionTrue(status.Conditions, preflightDegradedConditionType)
+		// Require the operator to have moved on from the pre-apply snapshot so a leftover
+		// Degraded/Failed from a prior negative case cannot satisfy this wait early.
+		observedAdvanced := preflight.ObservedConfigHash != "" && preflight.ObservedConfigHash != previous.ObservedConfigHash
+		failed := preflight.Result.Status == operatorv1.KMSPreflightResultFailed &&
+			preflight.Result.ConfigHash != "" && preflight.Result.ConfigHash == preflight.ObservedConfigHash
+		return observedAdvanced && (degradedTrue || failed), nil
+	})
+	require.NoErrorf(t, err,
+		"KMS preflight failure not observed for %s/cluster: degradedTrue=%t result.status=%q configHash=%q observed=%q (previous observed=%q)",
+		cr.gvr.Resource, degradedTrue, preflight.Result.Status, preflight.Result.ConfigHash, preflight.ObservedConfigHash, previous.ObservedConfigHash)
+}
+
+// WaitForKMSPreflightNotDegradedForOperator waits until EncryptionKMSPreflightControllerDegraded
+// is not True. Call after restoring non-KMS encryption so later tests do not start Degraded.
+func WaitForKMSPreflightNotDegradedForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	var degradedTrue bool
+	err := wait.PollUntilContextTimeout(ctx, waitPollInterval, waitPollTimeout, true, func(ctx context.Context) (bool, error) {
+		obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		status, err := cr.decodeKMSOperatorStatus(obj.Object)
+		if err != nil {
+			return false, err
+		}
+		degradedTrue = v1helpers.IsOperatorConditionTrue(status.Conditions, preflightDegradedConditionType)
+		return !degradedTrue, nil
+	})
+	require.NoErrorf(t, err,
+		"KMS preflight still degraded for %s/cluster after restore (degradedTrue=%t)",
+		cr.gvr.Resource, degradedTrue)
+}
