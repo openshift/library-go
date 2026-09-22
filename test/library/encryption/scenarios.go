@@ -120,6 +120,9 @@ func TestEncryptionTurnOnAndOff(ctx context.Context, t testing.TB, onOffScenario
 		t.Fatalf("TestEncryptionTurnOnAndOff requires at least one scenario")
 	}
 
+	t.Errorf("failing the test")
+	return
+
 	// Only one scenario should provide EncryptionProvider (shared cluster-wide APIServer config).
 	var providers []EncryptionProvider
 	for _, scenario := range onOffScenarios {
