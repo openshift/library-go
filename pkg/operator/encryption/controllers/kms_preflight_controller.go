@@ -719,38 +719,40 @@ func FindPodCondition(conditions []corev1.PodCondition, condType corev1.PodCondi
 // preflightRequired returns the config hash that needs preflight validation
 // and any existing result already recorded for that hash, or an empty string
 // when no preflight is needed.
-func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string, *operatorv1.KMSPreflightResult, configv1.KMSPluginConfig, int64, error) {
+func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string, *operatorv1.KMSPreflightResult, kms.KMSPluginConfig, int64, error) {
 	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return "", nil, configv1.KMSPluginConfig{}, 0, fmt.Errorf("failed to get apiserver config: %w", err)
+		return "", nil, kms.KMSPluginConfig{}, 0, fmt.Errorf("failed to get apiserver config: %w", err)
 	}
 	if apiServer.Spec.Encryption.Type != configv1.EncryptionTypeKMS {
 		// Encryption is not KMS — nothing to preflight. A stale ObservedConfigHash
 		// (written when KMS was active) is irrelevant; the key controller will
 		// overwrite it when/if KMS is re-enabled.
-		return "", nil, configv1.KMSPluginConfig{}, 0, nil
+		return "", nil, kms.KMSPluginConfig{}, 0, nil
 	}
 
 	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
 	if err != nil {
-		return "", nil, configv1.KMSPluginConfig{}, 0, fmt.Errorf("failed to get KMS encryption status: %w", err)
+		return "", nil, kms.KMSPluginConfig{}, 0, fmt.Errorf("failed to get KMS encryption status: %w", err)
 	}
 	requiredHash := encryptionStatus.Preflight.ObservedConfigHash
 	if requiredHash == "" {
-		return "", nil, configv1.KMSPluginConfig{}, 0, nil
+		return "", nil, kms.KMSPluginConfig{}, 0, nil
 	}
 
-	providerCfg, err := newKMSProviderConfig(apiServer.Spec.Encryption.KMS, apiServer.Generation)
+	// TODO: Fetch the referenced KMS plugin configuration through the dynamic client and set its TypeMeta.
+	var pluginConfig kms.KMSPluginConfig
+	providerCfg, err := newKMSProviderConfig(pluginConfig, apiServer.Generation)
 	if err != nil {
-		return "", nil, configv1.KMSPluginConfig{}, 0, fmt.Errorf("failed to create KMS provider config: %w", err)
+		return "", nil, kms.KMSPluginConfig{}, 0, fmt.Errorf("failed to create KMS provider config: %w", err)
 	}
 	hasher, err := newKMSConfigHasher(providerCfg, newCoreClientKMSConfigHasherResourceProvider(c.secretsClient, c.configMapsClient), openshiftConfigNS)
 	if err != nil {
-		return "", nil, configv1.KMSPluginConfig{}, 0, fmt.Errorf("failed to create KMS config hasher: %w", err)
+		return "", nil, kms.KMSPluginConfig{}, 0, fmt.Errorf("failed to create KMS config hasher: %w", err)
 	}
 	currentHash, err := hasher.hash(ctx)
 	if err != nil {
-		return "", nil, configv1.KMSPluginConfig{}, 0, fmt.Errorf("failed to compute KMS config hash: %w", err)
+		return "", nil, kms.KMSPluginConfig{}, 0, fmt.Errorf("failed to compute KMS config hash: %w", err)
 	}
 
 	// No requeue needed: the key-controller will update ObservedConfigHash when it
@@ -758,8 +760,8 @@ func (c *kmsPreflightController) preflightRequired(ctx context.Context) (string,
 	// The minute-based resync is a backstop.
 	if currentHash != requiredHash {
 		klog.V(4).Infof("KMS config hash changed: required=%s, current=%s; waiting for the key-controller to update ObservedConfigHash", requiredHash, currentHash)
-		return "", nil, configv1.KMSPluginConfig{}, 0, nil
+		return "", nil, kms.KMSPluginConfig{}, 0, nil
 	}
 
-	return requiredHash, &encryptionStatus.Preflight.Result, apiServer.Spec.Encryption.KMS, apiServer.Generation, nil
+	return requiredHash, &encryptionStatus.Preflight.Result, pluginConfig, apiServer.Generation, nil
 }

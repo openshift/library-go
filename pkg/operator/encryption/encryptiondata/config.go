@@ -12,9 +12,8 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/klog/v2"
 
-	configv1 "github.com/openshift/api/config/v1"
-
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
@@ -29,7 +28,7 @@ type Config struct {
 	Encryption *apiserverconfigv1.EncryptionConfiguration
 	// KMSPlugins maps keyID to plugin-specific configuration,
 	// carried from Key Secrets into the encryption-config Secret.
-	KMSPlugins map[string]configv1.KMSPluginConfig
+	KMSPlugins map[string]kms.KMSPluginConfig
 	// KMSPluginsSecretData maps keyID to secret data carried from
 	// Key Secrets into the encryption-config Secret.
 	// Structure: keyID → referenceName → dataKey → value.
@@ -95,7 +94,7 @@ func (c *Config) HasEncryptionConfiguration() bool {
 // FromEncryptionState converts encryption state to Config.
 func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) (*Config, error) {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
-	var kmsPlugins map[string]configv1.KMSPluginConfig
+	var kmsPlugins map[string]kms.KMSPluginConfig
 	var kmsPluginsSecretData KMSPluginsReferenceData
 	var kmsPluginsConfigMapData KMSPluginsReferenceData
 
@@ -113,7 +112,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 		for _, key := range grKeys.ReadKeys {
 			if key.HasKMSPlugin() {
 				if kmsPlugins == nil {
-					kmsPlugins = map[string]configv1.KMSPluginConfig{}
+					kmsPlugins = map[string]kms.KMSPluginConfig{}
 				}
 				if plugin, exists := kmsPlugins[key.Key.Name]; exists {
 					// Sanity check: the same keyID seen from a different resource must carry

@@ -7,19 +7,18 @@ import (
 	"testing"
 	"time"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	clientgotesting "k8s.io/client-go/testing"
-
-	configv1 "github.com/openshift/api/config/v1"
-	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
-	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
-	"github.com/openshift/library-go/pkg/operator/encryption/state"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
@@ -98,19 +97,20 @@ func CreateExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []s
 	return CreateMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
-var DefaultKMSPluginConfig = configv1.KMSPluginConfig{
-	Type: configv1.VaultKMSProvider,
-	Vault: configv1.VaultKMSPluginConfig{
+var DefaultKMSPluginConfig = kms.KMSPluginConfig{
+	TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+	Type:     kms.VaultKMSProvider,
+	Vault: kms.VaultKMSPluginConfig{
 		KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 		VaultAddress:   "https://vault.example.com",
-		Authentication: configv1.VaultAuthentication{
-			Type: configv1.VaultAuthenticationTypeAppRole,
-			AppRole: configv1.VaultAppRoleAuthentication{
-				Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+		Authentication: kms.VaultAuthentication{
+			Type: kms.VaultAuthenticationTypeAppRole,
+			AppRole: kms.VaultAppRoleAuthentication{
+				Secret: kms.VaultSecretReference{Name: "vault-approle-secret"},
 			},
 		},
-		TLS: configv1.VaultTLSConfig{
-			CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+		TLS: kms.VaultTLSConfig{
+			CABundle: kms.VaultConfigMapReference{Name: "vault-ca-bundle"},
 		},
 		VaultKeyPath: "transit/keys/test-transit-key",
 	},
@@ -130,7 +130,7 @@ func CreateExpiredMigratedEncryptionKeySecretWithKMSPluginConfig(targetNS string
 	return CreateMigratedEncryptionKeySecretWithKMSPluginConfig(targetNS, grs, keyID, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
-func CreateEncryptionKeySecretWithCustomKMSPluginConfig(targetNS string, grs []schema.GroupResource, keyID uint64, pluginConfig configv1.KMSPluginConfig) *corev1.Secret {
+func CreateEncryptionKeySecretWithCustomKMSPluginConfig(targetNS string, grs []schema.GroupResource, keyID uint64, pluginConfig kms.KMSPluginConfig) *corev1.Secret {
 	emptyKey := make([]byte, 16)
 	secret := CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, emptyKey, "KMS")
 	kmsConfig := &apiserverconfigv1.KMSConfiguration{

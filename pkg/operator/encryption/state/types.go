@@ -6,9 +6,10 @@ import (
 	"strings"
 	"time"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 )
 
 // These annotations try to scare anyone away from editing the encryption secrets.  It is trivial for
@@ -58,7 +59,7 @@ func (k *KeyState) HasKMSEncryption() bool {
 }
 
 func (k *KeyState) HasKMSPlugin() bool {
-	return k != nil && k.KMS != nil && k.KMS.Plugin != (configv1.KMSPluginConfig{})
+	return k != nil && k.KMS != nil && k.KMS.Plugin != (kms.KMSPluginConfig{})
 }
 
 func (k *KeyState) HasKMSSecretData() bool {
@@ -109,7 +110,7 @@ type KMSState struct {
 	Encryption *apiserverconfigv1.KMSConfiguration
 
 	// Plugin stores KMS plugin specific configurations
-	Plugin configv1.KMSPluginConfig
+	Plugin kms.KMSPluginConfig
 
 	// PluginSecretData stores data key-value pairs fetched from referenced secrets.
 	PluginSecretData KMSReferenceData

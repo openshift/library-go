@@ -22,6 +22,7 @@ import (
 	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -80,7 +81,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 					Endpoint:   "unix:///var/run/kmsplugin/kms-1.sock",
 					Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 				},
-				Plugin: apiServerWithKMS.Spec.Encryption.KMS,
+				Plugin: kms.KMSPluginConfig{TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, Type: kms.VaultKMSProvider, Vault: wellKnownBaseVaultConfig},
 			},
 		})
 		if err != nil {
@@ -151,7 +152,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			t.Fatalf("failed to parse new key: %v", err)
 		}
 		ks.KMS.Encryption.Endpoint = "unix:///var/run/kmsplugin/kms-4.sock"
-		ks.KMS.Plugin = apiServerWithKMS.Spec.Encryption.KMS
+		ks.KMS.Plugin = kms.KMSPluginConfig{TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, Type: kms.VaultKMSProvider, Vault: wellKnownBaseVaultConfig}
 		_ = ks.KMS.PluginSecretData.Set("vault-approle", "role-id", []byte("role-123"))
 		_ = ks.KMS.PluginSecretData.Set("vault-approle", "secret-id", []byte("secret-456"))
 		_ = ks.KMS.PluginConfigMapData.Set("vault-ca-bundle", "ca-bundle.crt", []byte("test-ca-cert"))
@@ -210,7 +211,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 					Endpoint:   "unix:///var/run/kmsplugin/kms-5.sock",
 					Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 				},
-				Plugin: apiServerWithKMS.Spec.Encryption.KMS,
+				Plugin: kms.KMSPluginConfig{TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, Type: kms.VaultKMSProvider, Vault: wellKnownBaseVaultConfig},
 			},
 		}
 		cfg, err := encryptiondata.FromEncryptionState(map[schema.GroupResource]state.GroupResourceState{
@@ -327,7 +328,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 					Endpoint:   "unix:///var/run/kmsplugin/kms-3.sock",
 					Timeout:    &metav1.Duration{Duration: 10 * time.Second},
 				},
-				Plugin: apiServerWithKMS.Spec.Encryption.KMS,
+				Plugin: kms.KMSPluginConfig{TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, Type: kms.VaultKMSProvider, Vault: wellKnownBaseVaultConfig},
 			},
 		}
 		if err := ks.KMS.PluginSecretData.Set("vault-approle", "role-id", []byte("role-123")); err != nil {

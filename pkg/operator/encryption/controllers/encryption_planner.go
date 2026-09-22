@@ -12,6 +12,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -63,7 +64,7 @@ type KeyPlanningSnapshot struct {
 	State              EncryptionStateSnapshot
 	CurrentMode        state.Mode
 	ExternalReason     string
-	APIEncryption      configv1.APIServerEncryption
+	PluginConfig       kms.KMSPluginConfig
 	desiredProviderCfg kmsProviderConfig
 }
 
@@ -97,7 +98,7 @@ type LoadOptions struct {
 // KMSPluginConfig is the caller-supplied KMS config for the Load fast-path,
 // with the APIServer generation folded into the config hash alongside it.
 type KMSPluginConfig struct {
-	Config     *configv1.KMSPluginConfig
+	Config     *kms.KMSPluginConfig
 	Generation int64
 }
 
@@ -168,12 +169,12 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 		State:              *stateSnap,
 		CurrentMode:        currentMode,
 		ExternalReason:     externalReason,
-		APIEncryption:      apiEncryption,
+		PluginConfig:       apiEncryption,
 		desiredProviderCfg: noopKMSProviderConfig{},
 	}
 
 	if currentMode == state.KMS {
-		desiredProviderCfg, err := newKMSProviderConfig(apiEncryption.KMS, generation)
+		desiredProviderCfg, err := newKMSProviderConfig(apiEncryption, generation)
 		if err != nil {
 			return nil, err
 		}
@@ -184,13 +185,15 @@ func (p *EncryptionPlanner) Load(ctx context.Context, encryptedGRs []schema.Grou
 }
 
 // For the KMSPluginConfig fast-path the caller supplies both the config and its generation.
-func (p *EncryptionPlanner) modeAndExternalReason(ctx context.Context, kmsPluginConfig *KMSPluginConfig) (state.Mode, string, configv1.APIServerEncryption, int64, error) {
+func (p *EncryptionPlanner) modeAndExternalReason(ctx context.Context, kmsPluginConfig *KMSPluginConfig) (state.Mode, string, kms.KMSPluginConfig, int64, error) {
 	if kmsPluginConfig != nil {
-		apiEncryption := configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: *kmsPluginConfig.Config}
-		mode, reason, enc, err := modeAndExternalReasonFromAPIServerEncryption(apiEncryption, p.operatorClient, p.unsupportedConfigPrefix)
-		return mode, reason, enc, kmsPluginConfig.Generation, err
+		apiEncryption := configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS}
+		mode, reason, _, err := modeAndExternalReasonFromAPIServerEncryption(apiEncryption, p.operatorClient, p.unsupportedConfigPrefix)
+		return mode, reason, *kmsPluginConfig.Config, kmsPluginConfig.Generation, err
 	}
-	return modeAndExternalReasonFromAPIServer(ctx, p.apiServerClient, p.operatorClient, p.unsupportedConfigPrefix)
+	mode, reason, _, generation, err := modeAndExternalReasonFromAPIServer(ctx, p.apiServerClient, p.operatorClient, p.unsupportedConfigPrefix)
+	// TODO: Fetch the referenced KMS plugin configuration through the dynamic client and set its TypeMeta.
+	return mode, reason, kms.KMSPluginConfig{}, generation, err
 }
 
 // PlanNextKey deterministically decides whether a new key is needed. It does not generate key material.
@@ -228,7 +231,7 @@ func (p *EncryptionPlanner) MaterializeKey(ctx context.Context, snap *KeyPlannin
 		return nil, fmt.Errorf("configMapClient is required for MaterializeKey")
 	}
 
-	ks, _, _, err := buildEncryptionKeyState(ctx, plan.KeyID, snap.CurrentMode, snap.APIEncryption, snap.desiredProviderCfg, p.secretClient, p.configMapClient, plan.InternalReason, snap.ExternalReason)
+	ks, _, _, err := buildEncryptionKeyState(ctx, plan.KeyID, snap.CurrentMode, snap.PluginConfig, snap.desiredProviderCfg, p.secretClient, p.configMapClient, plan.InternalReason, snap.ExternalReason)
 	if err != nil {
 		return nil, plannedKeyBuildError{err: err}
 	}

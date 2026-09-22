@@ -17,6 +17,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -75,10 +76,11 @@ func newKMSVaultAPIServer() *configv1.APIServer {
 		Spec: configv1.APIServerSpec{
 			Encryption: configv1.APIServerEncryption{
 				Type: configv1.EncryptionTypeKMS,
-				KMS: configv1.KMSPluginConfig{
-					Type:  configv1.VaultKMSProvider,
-					Vault: wellKnownBaseVaultConfig,
-				},
+				KMS: kmsConfigReference(kms.KMSPluginConfig{
+					TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+					Type:     kms.VaultKMSProvider,
+					Vault:    wellKnownBaseVaultConfig,
+				}),
 			},
 		},
 	}
@@ -89,7 +91,7 @@ func newKMSVaultAPIServer() *configv1.APIServer {
 func newExistingKMSKeySecret(t *testing.T, instanceName string, apiServer *configv1.APIServer, encryptedGRs []schema.GroupResource, keyID string) *corev1.Secret {
 	t.Helper()
 
-	oldPlugin := apiServer.Spec.Encryption.KMS
+	oldPlugin := kms.KMSPluginConfig{TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, Type: kms.VaultKMSProvider, Vault: wellKnownBaseVaultConfig}
 	oldPlugin.Vault.VaultKeyPath = "transit/keys/old-key"
 	ks := state.KeyState{
 		Key:  apiserverconfigv1.Key{Name: keyID, Secret: base64.StdEncoding.EncodeToString(make([]byte, 16))},
@@ -143,4 +145,15 @@ func newDeployedKMSEncryptionConfig(t *testing.T, instanceName string, encrypted
 		t.Fatalf("failed to serialize deployed encryption config: %v", err)
 	}
 	return secret
+}
+
+// TODO: Store the plugin fields in an external CR fixture when dynamic resolution is added.
+func kmsConfigReference(config kms.KMSPluginConfig) configv1.KMSPluginConfig {
+	return configv1.KMSPluginConfig{
+		PluginConfig: configv1.KMSPluginConfigReference{
+			APIVersion: "kms.openshift.io/v1alpha1",
+			Resource:   "vaultkmsconfigs",
+			Name:       "cluster",
+		},
+	}
 }
