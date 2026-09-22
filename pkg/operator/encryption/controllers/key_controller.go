@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
+	"k8s.io/client-go/dynamic"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
 
@@ -68,6 +69,7 @@ const (
 type keyController struct {
 	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
+	dynamicClient   dynamic.Interface
 
 	controllerInstanceName   string
 	instanceName             string
@@ -97,6 +99,7 @@ func NewKeyController(
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	configMapClient corev1client.ConfigMapsGetter,
+	dynamicClient dynamic.Interface,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 	// encryptionStatusProvider is required for KMS operators; it gates key creation on a preflight check.
@@ -105,6 +108,7 @@ func NewKeyController(
 	c := &keyController{
 		operatorClient:  operatorClient,
 		apiServerClient: apiServerClient,
+		dynamicClient:   dynamicClient,
 
 		instanceName:            instanceName,
 		controllerInstanceName:  factory.ControllerInstanceName(instanceName, "EncryptionKey"),
@@ -183,7 +187,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 }
 
 func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	planner := NewEncryptionPlanner(c.instanceName, c.unsupportedConfigPrefix, c.deployer, c.secretClient, c.configMapClient, c.apiServerClient, c.operatorClient, c.encryptionSecretSelector)
+	planner := NewEncryptionPlanner(c.instanceName, c.unsupportedConfigPrefix, c.deployer, c.secretClient, c.configMapClient, c.apiServerClient, c.operatorClient, c.dynamicClient, c.encryptionSecretSelector)
 	snap, err := planner.Load(ctx, encryptedGRs, LoadOptions{})
 	if err != nil {
 		return err

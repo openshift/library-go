@@ -8,8 +8,11 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/tools/cache"
 
 	corev1 "k8s.io/api/core/v1"
@@ -147,13 +150,32 @@ func newDeployedKMSEncryptionConfig(t *testing.T, instanceName string, encrypted
 	return secret
 }
 
-// TODO: Store the plugin fields in an external CR fixture when dynamic resolution is added.
 func kmsConfigReference(config kms.KMSPluginConfig) configv1.KMSPluginConfig {
-	return configv1.KMSPluginConfig{
-		PluginConfig: configv1.KMSPluginConfigReference{
-			APIVersion: "kms.openshift.io/v1alpha1",
-			Resource:   "vaultkmsconfigs",
-			Name:       "cluster",
-		},
+	return configv1.KMSPluginConfig{PluginConfig: configv1.KMSPluginConfigReference{APIVersion: "kms.openshift.io/v1alpha1", Resource: "vaultkmsconfigs", Name: "cluster"}}
+}
+
+func vaultPluginConfig(t *testing.T, config kms.KMSPluginConfig) *unstructured.Unstructured {
+	t.Helper()
+	spec, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&config.Vault)
+	if err != nil {
+		t.Fatal(err)
 	}
+	delete(spec, "kmsPluginImage")
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "kms.openshift.io/v1alpha1", "kind": "VaultKMSConfig",
+		"metadata": map[string]interface{}{"name": "cluster"}, "spec": spec,
+		"status": map[string]interface{}{"kmsPluginImage": config.Vault.KMSPluginImage},
+	}}
+}
+
+func newKMSDynamicClient(t *testing.T, configs ...kms.KMSPluginConfig) *dynamicfake.FakeDynamicClient {
+	t.Helper()
+	if len(configs) == 0 {
+		configs = []kms.KMSPluginConfig{{Type: kms.VaultKMSProvider, Vault: wellKnownBaseVaultConfig}}
+	}
+	objects := make([]runtime.Object, 0, len(configs))
+	for _, config := range configs {
+		objects = append(objects, vaultPluginConfig(t, config))
+	}
+	return dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), objects...)
 }

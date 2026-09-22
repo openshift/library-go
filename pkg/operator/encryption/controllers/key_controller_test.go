@@ -66,6 +66,7 @@ func TestKeyController(t *testing.T) {
 		name                     string
 		initialObjects           []runtime.Object
 		apiServerObjects         []runtime.Object
+		pluginConfig             *kms.KMSPluginConfig
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
 		targetGRs                []schema.GroupResource
@@ -841,13 +842,12 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, time.Now()),
 			},
-			apiServerObjects: []runtime.Object{func() runtime.Object {
-				s := simpleAPIServer.DeepCopy()
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			pluginConfig: func() *kms.KMSPluginConfig {
 				changedConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
 				changedConfig.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(*changedConfig)}
-				return s
-			}()},
+				return changedConfig
+			}(),
 			targetNamespace: "kms",
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
@@ -861,13 +861,12 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, time.Now()),
 			},
-			apiServerObjects: []runtime.Object{func() runtime.Object {
-				s := simpleAPIServer.DeepCopy()
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			pluginConfig: func() *kms.KMSPluginConfig {
 				changedConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
 				changedConfig.Vault.Authentication.AppRole.Secret.Name = "new-approle-secret"
-				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(*changedConfig)}
-				return s
-			}()},
+				return changedConfig
+			}(),
 			targetNamespace: "kms",
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
@@ -881,15 +880,14 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
 				encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, time.Now()),
 			},
-			apiServerObjects: []runtime.Object{func() runtime.Object {
-				s := simpleAPIServer.DeepCopy()
+			apiServerObjects: []runtime.Object{apiServerWithKMS},
+			pluginConfig: func() *kms.KMSPluginConfig {
 				changedConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
 				changedConfig.Vault.TLS = kms.VaultTLSConfig{
 					CABundle: kms.VaultConfigMapReference{Name: "my-ca"},
 				}
-				s.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(*changedConfig)}
-				return s
-			}()},
+				return changedConfig
+			}(),
 			targetNamespace: "kms",
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
@@ -933,6 +931,11 @@ func TestKeyController(t *testing.T) {
 			fakeSecretClient := fakeKubeClient.CoreV1()
 			fakeConfigMapClient := fakeKubeClient.CoreV1()
 			fakePodClient := fakeKubeClient.CoreV1()
+			pluginConfig := scenario.pluginConfig
+			if pluginConfig == nil {
+				pluginConfig = &encryptiontesting.DefaultKMSPluginConfig
+			}
+			fakeDynamicClient := newKMSDynamicClient(t, *pluginConfig)
 			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)
 			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 			fakeApiServerInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute).Config().V1().APIServers()
@@ -943,7 +946,7 @@ func TestKeyController(t *testing.T) {
 			}
 			provider := newTestProvider(scenario.targetGRs)
 
-			target := NewKeyController(scenario.targetNamespace, nil, provider, deployer, alwaysFulfilledPreconditions, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, fakeConfigMapClient, scenario.encryptionSecretSelector, eventRecorder, scenario.encryptionStatusProvider)
+			target := NewKeyController(scenario.targetNamespace, nil, provider, deployer, alwaysFulfilledPreconditions, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, fakeConfigMapClient, fakeDynamicClient, scenario.encryptionSecretSelector, eventRecorder, scenario.encryptionStatusProvider)
 
 			// act
 			err = target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
@@ -1038,7 +1041,7 @@ func TestKMSMigrationTriggeredFields(t *testing.T) {
 			provider := newTestProvider([]schema.GroupResource{{Group: "", Resource: "secrets"}})
 			sp := newPreflightSucceededProvider(t, *changedConfig, initialObjects...)
 
-			target := NewKeyController("kms", nil, provider, deployer, alwaysFulfilledPreconditions, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, fakeConfigMapClient, metav1.ListOptions{}, eventRecorder, sp)
+			target := NewKeyController("kms", nil, provider, deployer, alwaysFulfilledPreconditions, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, fakeConfigMapClient, newKMSDynamicClient(t, *changedConfig), metav1.ListOptions{}, eventRecorder, sp)
 
 			err = target.Sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))
 			require.NoError(t, err)

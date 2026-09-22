@@ -35,7 +35,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 	instanceName := "test"
 
 	t.Run("first key, no existing secrets, produces key ID 1", func(t *testing.T) {
-		computer := newKMSPreflightComputeComputer(
+		computer := newKMSPreflightComputeComputer(t,
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			&fakeEncryptionDeployer{converged: true},
 			apiServerWithKMS,
@@ -104,7 +104,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 	t.Run("existing key with deployed config, uses next key ID and retains credentials", func(t *testing.T) {
 		existingKeySecret := newExistingKMSKeySecret(t, instanceName, apiServerWithKMS, encryptedGRs, "3")
 		deployed := newDeployedKMSEncryptionConfig(t, instanceName, encryptedGRs, existingKeySecret)
-		computer := newKMSPreflightComputeComputer(
+		computer := newKMSPreflightComputeComputer(t,
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, existingKeySecret},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -170,7 +170,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 	t.Run("new candidate key and existing key both use production endpoints", func(t *testing.T) {
 		existingKeySecret := newExistingKMSKeySecret(t, instanceName, apiServerWithKMS, encryptedGRs, "3")
 		deployed := newDeployedKMSEncryptionConfig(t, instanceName, encryptedGRs, existingKeySecret)
-		computer := newKMSPreflightComputeComputer(
+		computer := newKMSPreflightComputeComputer(t,
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, existingKeySecret},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -225,7 +225,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			t.Fatalf("failed to serialize unbacked encryption config: %v", err)
 		}
 
-		computer := newKMSPreflightComputeComputer(
+		computer := newKMSPreflightComputeComputer(t,
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, key3},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -276,7 +276,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			},
 		}
 		deployed := newDeployedKMSEncryptionConfig(t, instanceName, encryptedGRs, validKeySecret)
-		computer := newKMSPreflightComputeComputer(
+		computer := newKMSPreflightComputeComputer(t,
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, validKeySecret, invalidKeySecret},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -345,7 +345,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 			t.Fatalf("failed to build existing key secret: %v", err)
 		}
 		deployed := newDeployedKMSEncryptionConfig(t, instanceName, encryptedGRs, existingKeySecret)
-		computer := newKMSPreflightComputeComputer(
+		computer := newKMSPreflightComputeComputer(t,
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, existingKeySecret},
 			&fakeEncryptionDeployer{converged: true, secret: deployed},
 			apiServerWithKMS,
@@ -382,7 +382,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 	})
 
 	t.Run("API server revisions not converged, still computes preflight config", func(t *testing.T) {
-		computer := newKMSPreflightComputeComputer(
+		computer := newKMSPreflightComputeComputer(t,
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			&fakeEncryptionDeployer{converged: false},
 			apiServerWithKMS,
@@ -401,7 +401,7 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 
 	t.Run("EncryptedGRs are read at compute time", func(t *testing.T) {
 		provider := &testProvider{encryptedGRs: []schema.GroupResource{{Resource: "secrets"}}}
-		computer := newKMSPreflightComputeComputer(
+		computer := newKMSPreflightComputeComputer(t,
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			&fakeEncryptionDeployer{converged: true},
 			apiServerWithKMS,
@@ -496,7 +496,7 @@ func TestKMSPreflightComputeEncryptionConfigurationErrors(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			computer := newKMSPreflightComputeComputer(
+			computer := newKMSPreflightComputeComputer(t,
 				scenario.coreObjects,
 				scenario.deployer,
 				scenario.apiServer,
@@ -515,7 +515,7 @@ func TestKMSPreflightComputeEncryptionConfigurationErrors(t *testing.T) {
 	}
 }
 
-func newKMSPreflightComputeComputer(
+func newKMSPreflightComputeComputer(t *testing.T,
 	coreObjects []runtime.Object,
 	encryptionDeployer statemachine.Deployer,
 	apiServer *configv1.APIServer,
@@ -539,6 +539,7 @@ func newKMSPreflightComputeComputer(
 		fakeKubeClient.CoreV1(),
 		fakeConfigClient.ConfigV1().APIServers(),
 		fakeOperatorClient,
+		newKMSDynamicClient(t),
 		metav1.ListOptions{},
 	)
 }
