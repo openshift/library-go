@@ -85,7 +85,7 @@ github.com/go-asn1-ber/asn1-ber
 # github.com/go-ldap/ldap/v3 v3.4.3
 ## explicit; go 1.13
 github.com/go-ldap/ldap/v3
-# github.com/go-logr/logr v1.4.2
+# github.com/go-logr/logr v1.4.3
 ## explicit; go 1.18
 github.com/go-logr/logr
 github.com/go-logr/logr/funcr
@@ -188,8 +188,8 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db
-## explicit; go 1.22
+# github.com/google/pprof v0.0.0-20250403155104-27863c87afa6
+## explicit; go 1.23
 github.com/google/pprof/profile
 # github.com/google/uuid v1.6.0
 ## explicit
@@ -238,6 +238,19 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
+# github.com/onsi/gomega v1.38.2
+## explicit; go 1.23.0
+github.com/onsi/gomega
+github.com/onsi/gomega/format
+github.com/onsi/gomega/internal
+github.com/onsi/gomega/internal/gutil
+github.com/onsi/gomega/matchers
+github.com/onsi/gomega/matchers/internal/miter
+github.com/onsi/gomega/matchers/support/goraph/bipartitegraph
+github.com/onsi/gomega/matchers/support/goraph/edge
+github.com/onsi/gomega/matchers/support/goraph/node
+github.com/onsi/gomega/matchers/support/goraph/util
+github.com/onsi/gomega/types
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
@@ -588,7 +601,10 @@ go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
-# golang.org/x/crypto v0.36.0
+# go.yaml.in/yaml/v3 v3.0.4
+## explicit; go 1.16
+go.yaml.in/yaml/v3
+# golang.org/x/crypto v0.41.0
 ## explicit; go 1.23.0
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
@@ -611,9 +627,12 @@ golang.org/x/crypto/salsa20/salsa
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
-# golang.org/x/net v0.38.0
+# golang.org/x/net v0.43.0
 ## explicit; go 1.23.0
 golang.org/x/net/context
+golang.org/x/net/html
+golang.org/x/net/html/atom
+golang.org/x/net/html/charset
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
@@ -628,21 +647,31 @@ golang.org/x/net/websocket
 ## explicit; go 1.23.0
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.12.0
+# golang.org/x/sync v0.16.0
 ## explicit; go 1.23.0
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.31.0
+# golang.org/x/sys v0.35.0
 ## explicit; go 1.23.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.30.0
+# golang.org/x/term v0.34.0
 ## explicit; go 1.23.0
 golang.org/x/term
-# golang.org/x/text v0.23.0
+# golang.org/x/text v0.28.0
 ## explicit; go 1.23.0
+golang.org/x/text/encoding
+golang.org/x/text/encoding/charmap
+golang.org/x/text/encoding/htmlindex
+golang.org/x/text/encoding/internal
+golang.org/x/text/encoding/internal/identifier
+golang.org/x/text/encoding/japanese
+golang.org/x/text/encoding/korean
+golang.org/x/text/encoding/simplifiedchinese
+golang.org/x/text/encoding/traditionalchinese
+golang.org/x/text/encoding/unicode
 golang.org/x/text/feature/plural
 golang.org/x/text/internal
 golang.org/x/text/internal/catmsg
@@ -652,9 +681,11 @@ golang.org/x/text/internal/language/compact
 golang.org/x/text/internal/number
 golang.org/x/text/internal/stringset
 golang.org/x/text/internal/tag
+golang.org/x/text/internal/utf8internal
 golang.org/x/text/language
 golang.org/x/text/message
 golang.org/x/text/message/catalog
+golang.org/x/text/runes
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
@@ -662,8 +693,8 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.9.0
 ## explicit; go 1.18
 golang.org/x/time/rate
-# golang.org/x/tools v0.26.0
-## explicit; go 1.22.0
+# golang.org/x/tools v0.36.0
+## explicit; go 1.23.0
 golang.org/x/tools/container/intsets
 # google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576
 ## explicit; go 1.21
@@ -737,8 +768,8 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.36.5
-## explicit; go 1.21
+# google.golang.org/protobuf v1.36.7
+## explicit; go 1.22
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
@@ -785,12 +816,21 @@ google.golang.org/protobuf/types/known/wrapperspb
 # gopkg.in/evanphx/json-patch.v4 v4.12.0
 ## explicit
 gopkg.in/evanphx/json-patch.v4
+# gopkg.in/gcfg.v1 v1.2.3
+## explicit
+gopkg.in/gcfg.v1
+gopkg.in/gcfg.v1/scanner
+gopkg.in/gcfg.v1/token
+gopkg.in/gcfg.v1/types
 # gopkg.in/inf.v0 v0.9.1
 ## explicit
 gopkg.in/inf.v0
 # gopkg.in/natefinch/lumberjack.v2 v2.2.1
 ## explicit; go 1.13
 gopkg.in/natefinch/lumberjack.v2
+# gopkg.in/warnings.v0 v0.1.2
+## explicit
+gopkg.in/warnings.v0
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
