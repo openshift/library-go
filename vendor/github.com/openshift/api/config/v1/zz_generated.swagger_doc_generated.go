@@ -239,6 +239,7 @@ var map_ServingInfo = map[string]string{
 	"namedCertificates": "namedCertificates is a list of certificates to use to secure requests to specific hostnames",
 	"minTLSVersion":     "minTLSVersion is the minimum TLS version supported. Values must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants",
 	"cipherSuites":      "cipherSuites contains an overridden list of ciphers for the server to support. Values must match cipher suite IDs from https://golang.org/pkg/crypto/tls/#pkg-constants",
+	"curvePreferences":  "curvePreferences contains the allowed TLS key-exchange groups for the server. Values must match curve IDs from https://golang.org/pkg/crypto/tls/#pkg-constants. When omitted, the Go TLS implementation uses its default curve set.",
 }
 
 func (ServingInfo) SwaggerDoc() map[string]string {
@@ -2216,7 +2217,7 @@ func (VSpherePlatformNodeNetworkingSpec) SwaggerDoc() map[string]string {
 
 var map_VSpherePlatformSpec = map[string]string{
 	"":                     "VSpherePlatformSpec holds the desired state of the vSphere infrastructure provider. In the future the cloud provider operator, storage operator and machine operator will use these fields for configuration.",
-	"vcenters":             "vcenters holds the connection details for services to communicate with vCenter. Up to 3 vCenters are supported. Once the cluster has been installed, you are unable to change the current number of defined vCenters except when 1.) the cluster has been upgraded from a version of OpenShift where the vsphere platform spec was not present or 2.) in TechPreview you are able to add and remove vCenters but may not remove all vCenters.  You may make modifications to the existing vCenters that are defined in the vcenters list in order to match with any added or modified failure domains.",
+	"vcenters":             "vcenters holds the connection details for services to communicate with vCenter. Up to 3 vCenters are supported. After installation, you can add or change vCenters, or remove some of them, but you must keep at least one and may not add and remove vCenters during the same update.  You may make modifications to the existing vCenters that are defined in the vcenters list in order to match with any added or modified failure domains.",
 	"failureDomains":       "failureDomains contains the definition of region, zone and the vCenter topology. If this is omitted failure domains (regions and zones) will not be used. Each failure domain's server must match the server field of an entry in the vcenters list.",
 	"nodeNetworking":       "nodeNetworking contains the definition of internal and external network constraints for assigning the node's networking. If this field is omitted, networking defaults to the legacy address selection behavior which is to only support a single address and return the first one found.",
 	"apiServerInternalIPs": "apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IP addresses, one from IPv4 family and one from IPv6. In single stack clusters a single IP address is expected. When omitted, values from the status.apiServerInternalIPs will be used. Once set, the list cannot be completely removed (but its second entry can).",
@@ -2465,13 +2466,23 @@ func (Storage) SwaggerDoc() map[string]string {
 }
 
 var map_KMSPluginConfig = map[string]string{
-	"":      "KMSPluginConfig defines the configuration for the KMS instance that will be used with KMS encryption",
-	"type":  "type defines the kind of platform for the KMS provider. Allowed values are Vault. When set to Vault, the plugin connects to a HashiCorp Vault server for key management.",
-	"vault": "vault defines the configuration for the Vault KMS plugin. The plugin connects to a Vault Enterprise server that is managed by the user outside the purview of the control plane. This field must be set when type is Vault, and must be unset otherwise.",
+	"":             "KMSPluginConfig defines the configuration for the KMS instance that will be used with KMS encryption",
+	"pluginConfig": "pluginConfig is a required reference to a cluster-scoped resource with a status subresource that satisfies the OpenShift KMS plugin configuration status interface.",
 }
 
 func (KMSPluginConfig) SwaggerDoc() map[string]string {
 	return map_KMSPluginConfig
+}
+
+var map_KMSPluginConfigReference = map[string]string{
+	"":           "KMSPluginConfigReference identifies a cluster-scoped KMS plugin configuration custom resource.",
+	"apiVersion": "apiVersion is required and identifies the API version of the referenced KMS plugin configuration resource. The value must be in the format <group>/<version>, where group is a DNS subdomain and version is a Kubernetes API version (for example, v1 or v1alpha1). It must contain between 1 and 64 characters.",
+	"resource":   "resource is required and is the resource name of the referenced KMS plugin configuration custom resource. This is the plural name used in the Kubernetes API (for example, vaultkmsconfigs), not the Kind (for example, VaultKMSConfig). The value must be between 1 and 63 characters, contain only lowercase alphanumeric characters or '-', and start and end with an alphanumeric character.",
+	"name":       "name is required and is the metadata.name of the referenced KMS plugin configuration resource. The referenced resource must be cluster-scoped. The name must be a valid DNS subdomain name: it must contain between 1 and 253 characters, contain only lowercase alphanumeric characters, '-' or '.', and start and end with an alphanumeric character.",
+}
+
+func (KMSPluginConfigReference) SwaggerDoc() map[string]string {
+	return map_KMSPluginConfigReference
 }
 
 var map_VaultAppRoleAuthentication = map[string]string{
