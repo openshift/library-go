@@ -543,7 +543,34 @@ func TestEncryptionIntegration(tt *testing.T) {
 	)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
 
-	t.Logf("Prepare VaultKMSConfig resources using the CRD installed by CI")
+	t.Logf("Install VaultKMSConfig CRD and prepare provider CR helpers")
+	// This integration job does not run the CI Vault setup step. Install the mock
+	// CRD when absent and leave any existing provider CRD untouched.
+	var vaultCRD apiextensionsv1.CustomResourceDefinition
+	require.NoError(t, yaml.Unmarshal([]byte(vaultKMSConfigCRD), &vaultCRD))
+	_, err = apiextensionsClient.CustomResourceDefinitions().Create(ctx, &vaultCRD, metav1.CreateOptions{})
+	if !errors.IsAlreadyExists(err) {
+		require.NoError(t, err)
+		tt.Cleanup(func() {
+			err := apiextensionsClient.CustomResourceDefinitions().Delete(context.Background(), vaultCRD.Name, metav1.DeleteOptions{})
+			if !errors.IsNotFound(err) {
+				require.NoError(t, err)
+			}
+		})
+	}
+	err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+		current, err := apiextensionsClient.CustomResourceDefinitions().Get(ctx, vaultCRD.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, condition := range current.Status.Conditions {
+			if condition.Type == apiextensionsv1.Established {
+				return condition.Status == apiextensionsv1.ConditionTrue, nil
+			}
+		}
+		return false, nil
+	})
+	require.NoError(t, err)
 	vaultKMSClient := dynamicClient.Resource(schema.GroupVersionResource{Group: "kms.openshift.io", Version: "v1alpha1", Resource: "vaultkmsconfigs"})
 	const (
 		kmsPluginImageA = "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
@@ -788,6 +815,72 @@ func TestEncryptionIntegration(tt *testing.T) {
 	)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionFalse)
 }
+
+// vaultKMSConfigCRD defines field types but leaves required-field validation
+// to the encryption controllers.
+const vaultKMSConfigCRD = `
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: vaultkmsconfigs.kms.openshift.io
+spec:
+  group: kms.openshift.io
+  names:
+    kind: VaultKMSConfig
+    listKind: VaultKMSConfigList
+    plural: vaultkmsconfigs
+    singular: vaultkmsconfig
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    subresources:
+      status: {}
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              vaultAddress:
+                type: string
+              vaultNamespace:
+                type: string
+              vaultAuthNamespace:
+                type: string
+              vaultKeyPath:
+                type: string
+              authentication:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  appRole:
+                    type: object
+                    properties:
+                      secret:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+              tls:
+                type: object
+                properties:
+                  caBundle:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                  serverName:
+                    type: string
+          status:
+            type: object
+            properties:
+              kmsPluginImage:
+                type: string
+`
 
 const encryptionTestOperatorCRD = `
 apiVersion: apiextensions.k8s.io/v1
