@@ -16,6 +16,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -79,13 +82,17 @@ const (
 // and bundles the AppRole secret setup.
 func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
 	cfg := DefaultVaultKMSPluginConfig
-	cfg.KMS.Vault.KMSPluginImage = resolveVaultKMSPluginImage(t)
+	vault := defaultVaultConfig.DeepCopy()
+	require.NoError(t, unstructured.SetNestedField(vault.Object, resolveVaultKMSPluginImage(t), "status", "kmsPluginImage"))
 	// Use the Service ClusterIP instead of DNS name because kube-apiserver pods
 	// cannot resolve cluster-local Service names (they use host network DNS).
-	cfg.KMS.Vault.VaultAddress = getVaultServiceAddress(ctx, t, defaultVaultNamespace, defaultVaultServiceName)
+	require.NoError(t, unstructured.SetNestedField(vault.Object, getVaultServiceAddress(ctx, t, defaultVaultNamespace, defaultVaultServiceName), "spec", "vaultAddress"))
 	return library.EncryptionProvider{
 		APIServerEncryption: cfg,
-		Setup:               ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName),
+		Setup: func(ctx context.Context, t testing.TB) {
+			ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName)(ctx, t)
+			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
+		},
 	}
 }
 
@@ -93,64 +100,110 @@ func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.E
 // used by CI e2e tests.
 var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{
 	Type: configv1.EncryptionTypeKMS,
-	KMS: configv1.KMSPluginConfig{
-		Type: configv1.VaultKMSProvider,
-		Vault: configv1.VaultKMSPluginConfig{
-			VaultAddress:   defaultVaultAddress,
-			VaultNamespace: defaultVaultEnterpriseNS,
-			VaultKeyPath:   defaultVaultKeyPath,
-			Authentication: configv1.VaultAuthentication{
-				Type: configv1.VaultAuthenticationTypeAppRole,
-				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: defaultVaultAppRoleSecretName},
+	KMS:  configv1.KMSPluginConfig{PluginConfig: configv1.KMSPluginConfigReference{APIVersion: "kms.openshift.io/v1alpha1", Resource: "vaultkmsconfigs", Name: "vault"}},
+}
+
+var defaultVaultConfig = &unstructured.Unstructured{Object: map[string]interface{}{
+	"apiVersion": "kms.openshift.io/v1alpha1",
+	"kind":       "VaultKMSConfig",
+	"spec": map[string]interface{}{
+		"vaultAddress":   defaultVaultAddress,
+		"vaultNamespace": defaultVaultEnterpriseNS,
+		"vaultKeyPath":   defaultVaultKeyPath,
+		"authentication": map[string]interface{}{
+			"type": "AppRole",
+			"appRole": map[string]interface{}{
+				"secret": map[string]interface{}{
+					"name": defaultVaultAppRoleSecretName,
 				},
-			},
-			TLS: configv1.VaultTLSConfig{
-				CABundle: configv1.VaultConfigMapReference{
-					Name: defaultVaultConfigMapName,
-				},
-				ServerName: fmt.Sprintf("vault.%s.svc", defaultVaultNamespace),
 			},
 		},
+		"tls": map[string]interface{}{
+			"caBundle": map[string]interface{}{
+				"name": defaultVaultConfigMapName,
+			},
+			"serverName": fmt.Sprintf("vault.%s.svc", defaultVaultNamespace),
+		},
 	},
-}
+	"status": map[string]interface{}{},
+}}
 
 // SecondaryVaultKMSPluginConfig is the Vault KMS encryption config for the
 // secondary Vault instance, used in KMS-to-KMS migration e2e tests.
 var SecondaryVaultKMSPluginConfig = configv1.APIServerEncryption{
 	Type: configv1.EncryptionTypeKMS,
-	KMS: configv1.KMSPluginConfig{
-		Type: configv1.VaultKMSProvider,
-		Vault: configv1.VaultKMSPluginConfig{
-			VaultAddress:   secondaryVaultAddress,
-			VaultNamespace: defaultVaultEnterpriseNS,
-			VaultKeyPath:   secondaryVaultKeyPath,
-			Authentication: configv1.VaultAuthentication{
-				Type: configv1.VaultAuthenticationTypeAppRole,
-				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: secondaryVaultAppRoleSecretName},
+	KMS:  configv1.KMSPluginConfig{PluginConfig: configv1.KMSPluginConfigReference{APIVersion: "kms.openshift.io/v1alpha1", Resource: "vaultkmsconfigs", Name: "vault-secondary"}},
+}
+
+var secondaryVaultConfig = &unstructured.Unstructured{Object: map[string]interface{}{
+	"apiVersion": "kms.openshift.io/v1alpha1",
+	"kind":       "VaultKMSConfig",
+	"spec": map[string]interface{}{
+		"vaultAddress":   secondaryVaultAddress,
+		"vaultNamespace": defaultVaultEnterpriseNS,
+		"vaultKeyPath":   secondaryVaultKeyPath,
+		"authentication": map[string]interface{}{
+			"type": "AppRole",
+			"appRole": map[string]interface{}{
+				"secret": map[string]interface{}{
+					"name": secondaryVaultAppRoleSecretName,
 				},
-			},
-			TLS: configv1.VaultTLSConfig{
-				CABundle: configv1.VaultConfigMapReference{
-					Name: secondaryVaultConfigMapName,
-				},
-				ServerName: fmt.Sprintf("vault-secondary.%s.svc", secondaryVaultNamespace),
 			},
 		},
+		"tls": map[string]interface{}{
+			"caBundle": map[string]interface{}{
+				"name": secondaryVaultConfigMapName,
+			},
+			"serverName": fmt.Sprintf("vault-secondary.%s.svc", secondaryVaultNamespace),
+		},
 	},
-}
+	"status": map[string]interface{}{},
+}}
 
 // SecondaryVaultEncryptionProvider returns a ready-to-use Vault KMS EncryptionProvider
 // for the secondary Vault instance, used in KMS-to-KMS migration e2e tests.
 func SecondaryVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
 	cfg := SecondaryVaultKMSPluginConfig
-	cfg.KMS.Vault.KMSPluginImage = resolveVaultKMSPluginImage(t)
-	cfg.KMS.Vault.VaultAddress = getVaultServiceAddress(ctx, t, secondaryVaultNamespace, secondaryVaultServiceName)
+	vault := secondaryVaultConfig.DeepCopy()
+	require.NoError(t, unstructured.SetNestedField(vault.Object, resolveVaultKMSPluginImage(t), "status", "kmsPluginImage"))
+	require.NoError(t, unstructured.SetNestedField(vault.Object, getVaultServiceAddress(ctx, t, secondaryVaultNamespace, secondaryVaultServiceName), "spec", "vaultAddress"))
 	return library.EncryptionProvider{
 		APIServerEncryption: cfg,
-		Setup:               ensureVaultAppRoleSecret(secondaryVaultNamespace, secondaryVaultAppRoleSecretName),
+		Setup: func(ctx context.Context, t testing.TB) {
+			ensureVaultAppRoleSecret(secondaryVaultNamespace, secondaryVaultAppRoleSecretName)(ctx, t)
+			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
+		},
 	}
+}
+
+// ensureVaultKMSConfig publishes the e2e fixture using the external CRD, which
+// must be installed on the test cluster. The test image remains supplied by CI.
+func ensureVaultKMSConfig(ctx context.Context, t testing.TB, name string, vault *unstructured.Unstructured) {
+	t.Helper()
+	spec, _, err := unstructured.NestedMap(vault.Object, "spec")
+	require.NoError(t, err)
+	image, _, err := unstructured.NestedString(vault.Object, "status", "kmsPluginImage")
+	require.NoError(t, err)
+	client := library.GetClients(t).DynamicClient.Resource(schema.GroupVersionResource{Group: "kms.openshift.io", Version: "v1alpha1", Resource: "vaultkmsconfigs"})
+	err = retry.OnError(retry.DefaultRetry, func(err error) bool { return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) }, func() error {
+		obj, err := client.Get(ctx, name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			obj = &unstructured.Unstructured{Object: map[string]interface{}{"apiVersion": "kms.openshift.io/v1alpha1", "kind": "VaultKMSConfig", "metadata": map[string]interface{}{"name": name}, "spec": spec}}
+			obj, err = client.Create(ctx, obj, metav1.CreateOptions{})
+		} else if err == nil {
+			obj.Object["spec"] = spec
+			obj, err = client.Update(ctx, obj, metav1.UpdateOptions{})
+		}
+		if err != nil {
+			return err
+		}
+		if err := unstructured.SetNestedField(obj.Object, image, "status", "kmsPluginImage"); err != nil {
+			return err
+		}
+		_, err = client.UpdateStatus(ctx, obj, metav1.UpdateOptions{})
+		return err
+	})
+	require.NoError(t, err, "failed to apply VaultKMSConfig %s", name)
 }
 
 func ensureVaultAppRoleSecret(vaultNamespace, appRoleSecretName string) func(ctx context.Context, t testing.TB) {

@@ -18,6 +18,7 @@ import (
 	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -42,7 +43,7 @@ func TestEncryptionPlannerDriftGuard(t *testing.T) {
 	deployer := &fakeEncryptionDeployer{converged: true, secret: deployed}
 	secretSelector := metav1.ListOptions{}
 
-	planner := NewEncryptionPlanner(instanceName, nil, deployer, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, secretSelector)
+	planner := NewEncryptionPlanner(instanceName, nil, deployer, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, newKMSDynamicClient(t), secretSelector)
 
 	// Preflight/candidate path via snapshot API.
 	snap, err := planner.Load(context.TODO(), encryptedGRs, LoadOptions{ListKeysWhileProgressing: true})
@@ -73,7 +74,7 @@ func TestEncryptionPlannerDriftGuard(t *testing.T) {
 		t.Fatalf("failed to persist planned key: %v", err)
 	}
 
-	statePlanner := NewEncryptionPlanner(instanceName, nil, deployer, fakeKubeClient.CoreV1(), nil, nil, nil, secretSelector)
+	statePlanner := NewEncryptionPlanner(instanceName, nil, deployer, fakeKubeClient.CoreV1(), nil, nil, nil, nil, secretSelector)
 	stateSnap, err := statePlanner.LoadState(context.TODO(), encryptedGRs)
 	if err != nil {
 		t.Fatalf("LoadState (state) failed: %v", err)
@@ -103,7 +104,7 @@ func TestEncryptionPlannerFirstKey(t *testing.T) {
 		nil,
 	)
 
-	planner := NewEncryptionPlanner("test", nil, &fakeEncryptionDeployer{converged: true}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, metav1.ListOptions{})
+	planner := NewEncryptionPlanner("test", nil, &fakeEncryptionDeployer{converged: true}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, newKMSDynamicClient(t), metav1.ListOptions{})
 
 	snap, err := planner.Load(context.TODO(), encryptedGRs, LoadOptions{ListKeysWhileProgressing: true})
 	if err != nil {
@@ -164,7 +165,7 @@ func TestEncryptionPlannerDecideVsMaterialize(t *testing.T) {
 		nil,
 		nil,
 	)
-	planner := NewEncryptionPlanner("test", nil, &fakeEncryptionDeployer{converged: true}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, metav1.ListOptions{})
+	planner := NewEncryptionPlanner("test", nil, &fakeEncryptionDeployer{converged: true}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, newKMSDynamicClient(t), metav1.ListOptions{})
 
 	snap, err := planner.Load(context.TODO(), encryptedGRs, LoadOptions{})
 	if err != nil {
@@ -204,7 +205,7 @@ func TestEncryptionPlannerDecideVsMaterialize(t *testing.T) {
 
 func TestEncryptionPlannerLoadWithPrefetchedKMSPluginConfig(t *testing.T) {
 	apiServerWithKMS := newKMSVaultAPIServer()
-	kmsCfg := apiServerWithKMS.Spec.Encryption.KMS
+	kmsCfg := kms.KMSPluginConfig{TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"}, Type: kms.VaultKMSProvider, Vault: wellKnownBaseVaultConfig}
 	encryptedGRs := []schema.GroupResource{{Group: "", Resource: "secrets"}}
 	fakeKubeClient := fake.NewSimpleClientset(&wellKnownBaseSecret, &wellKnownBaseConfigMap)
 	fakeConfigClient := configv1clientfake.NewSimpleClientset(apiServerWithKMS)
@@ -217,20 +218,28 @@ func TestEncryptionPlannerLoadWithPrefetchedKMSPluginConfig(t *testing.T) {
 		nil,
 		nil,
 	)
-	planner := NewEncryptionPlanner("test", nil, &fakeEncryptionDeployer{converged: true}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, metav1.ListOptions{})
+	pluginClient := newKMSDynamicClient(t)
+	planner := NewEncryptionPlanner("test", nil, &fakeEncryptionDeployer{converged: true}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, pluginClient, metav1.ListOptions{})
 
 	snap, err := planner.Load(context.TODO(), encryptedGRs, LoadOptions{
 		ListKeysWhileProgressing: true,
-		KMSPluginConfig:          &KMSPluginConfig{Config: &kmsCfg},
+		KMSPluginConfig:          &KMSPluginConfig{Config: &kmsCfg, Generation: 7},
 	})
 	if err != nil {
 		t.Fatalf("Load with prefetched KMS config failed: %v", err)
 	}
+	if len(pluginClient.Actions()) != 0 {
+		t.Fatal("prefetched configuration must not query the dynamic client")
+	}
 	if snap.CurrentMode != state.KMS {
 		t.Fatalf("expected KMS mode, got %q", snap.CurrentMode)
 	}
-	if snap.APIEncryption.Type != configv1.EncryptionTypeKMS {
-		t.Fatalf("expected KMS encryption type, got %q", snap.APIEncryption.Type)
+	if snap.PluginConfig != kmsCfg {
+		t.Fatal("expected the prefetched KMS plugin configuration")
+	}
+	_, generation := snap.desiredProviderCfg.sourceConfig()
+	if generation != 7 {
+		t.Fatalf("expected prefetched APIServer generation 7, got %d", generation)
 	}
 }
 
@@ -249,7 +258,7 @@ func TestEncryptionPlannerLoadListKeysWhileProgressing(t *testing.T) {
 		nil,
 		nil,
 	)
-	planner := NewEncryptionPlanner("test", nil, &fakeEncryptionDeployer{converged: false}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, metav1.ListOptions{})
+	planner := NewEncryptionPlanner("test", nil, &fakeEncryptionDeployer{converged: false}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, newKMSDynamicClient(t), metav1.ListOptions{})
 
 	shortcut, err := planner.Load(context.TODO(), encryptedGRs, LoadOptions{})
 	if err != nil {

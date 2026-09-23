@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -36,6 +37,7 @@ func NewControllers(
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretsClient corev1.SecretsGetter,
 	configMapClient corev1.ConfigMapsGetter,
+	dynamicClient dynamic.Interface,
 	eventRecorder events.Recorder,
 	resourceSyncer *resourcesynccontroller.ResourceSyncController,
 	encryptionStatusProvider kms.EncryptionStatusProvider,
@@ -77,6 +79,7 @@ func NewControllers(
 			kubeInformersForNamespaces,
 			secretsClient,
 			configMapClient,
+			dynamicClient,
 			encryptionSecretSelector,
 			eventRecorder,
 			encryptionStatusProvider,
@@ -142,6 +145,7 @@ func NewControllers(
 		apiServerClient,
 		secretsClient,
 		configMapClient,
+		dynamicClient,
 		encryptionStatusProvider,
 		eventRecorder,
 	))

@@ -8,11 +8,6 @@ import (
 	"testing"
 	"time"
 
-	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
-	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,6 +17,12 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/utils/clock"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 )
 
 const (
@@ -406,7 +407,7 @@ func testPreflightEncryptionConfigFromData(
 	}
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(keyIDs)+1)
-	plugins := map[string]configv1.KMSPluginConfig{}
+	plugins := map[string]kms.KMSPluginConfig{}
 	for _, keyID := range keyIDs {
 		providers = append(providers, apiserverconfigv1.ProviderConfiguration{
 			KMS: &apiserverconfigv1.KMSConfiguration{

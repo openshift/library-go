@@ -7,18 +7,17 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
-	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
+	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 )
 
 func TestToEncryptionState(t *testing.T) {
@@ -748,9 +747,10 @@ func TestFromEncryptionStateKMSPluginConfigValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin: configv1.KMSPluginConfig{
-								Type: configv1.VaultKMSProvider,
-								Vault: configv1.VaultKMSPluginConfig{
+							Plugin: kms.KMSPluginConfig{
+								TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+								Type:     kms.VaultKMSProvider,
+								Vault: kms.VaultKMSPluginConfig{
 									VaultAddress: "https://vault-a.example.com",
 									VaultKeyPath: "transit/keys/key-a",
 								},
@@ -764,9 +764,10 @@ func TestFromEncryptionStateKMSPluginConfigValidation(t *testing.T) {
 						Mode: state.KMS,
 						KMS: &state.KMSState{
 							Encryption: &apiserverconfigv1.KMSConfiguration{APIVersion: "v2", Name: "1", Endpoint: "unix:///var/run/kmsplugin/kms-1.sock"},
-							Plugin: configv1.KMSPluginConfig{
-								Type: configv1.VaultKMSProvider,
-								Vault: configv1.VaultKMSPluginConfig{
+							Plugin: kms.KMSPluginConfig{
+								TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+								Type:     kms.VaultKMSProvider,
+								Vault: kms.VaultKMSPluginConfig{
 									VaultAddress: "https://vault-b.example.com",
 									VaultKeyPath: "transit/keys/key-b",
 								},
@@ -972,7 +973,7 @@ func TestSecretRoundtrip(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{
+				KMSPlugins: map[string]kms.KMSPluginConfig{
 					"1": encryptiontesting.DefaultKMSPluginConfig,
 				},
 			},
@@ -999,7 +1000,7 @@ func TestSecretRoundtrip(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{
+				KMSPlugins: map[string]kms.KMSPluginConfig{
 					"1": encryptiontesting.DefaultKMSPluginConfig,
 				},
 				KMSPluginsSecretData: func() encryptiondata.KMSPluginsReferenceData {
@@ -1039,7 +1040,7 @@ func TestSecretRoundtrip(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{
+				KMSPlugins: map[string]kms.KMSPluginConfig{
 					"1": encryptiontesting.DefaultKMSPluginConfig,
 					"2": encryptiontesting.DefaultKMSPluginConfig,
 				},
@@ -1082,7 +1083,7 @@ func TestSecretRoundtrip(t *testing.T) {
 						}},
 					}},
 				},
-				KMSPlugins: map[string]configv1.KMSPluginConfig{
+				KMSPlugins: map[string]kms.KMSPluginConfig{
 					"1": encryptiontesting.DefaultKMSPluginConfig,
 					"2": encryptiontesting.DefaultKMSPluginConfig,
 				},
@@ -1120,7 +1121,7 @@ func TestToSecretSecretDataEdgeCases(t *testing.T) {
 				},
 			}},
 		},
-		KMSPlugins: map[string]configv1.KMSPluginConfig{
+		KMSPlugins: map[string]kms.KMSPluginConfig{
 			"1": encryptiontesting.DefaultKMSPluginConfig,
 		},
 	}
@@ -1208,7 +1209,7 @@ func TestFromSecretSecretData(t *testing.T) {
 				},
 			}},
 		},
-		KMSPlugins: map[string]configv1.KMSPluginConfig{
+		KMSPlugins: map[string]kms.KMSPluginConfig{
 			"1": encryptiontesting.DefaultKMSPluginConfig,
 		},
 	}

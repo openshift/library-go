@@ -3,7 +3,6 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/clock"
 	"regexp"
 	"time"
 
@@ -35,12 +34,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
+	"k8s.io/utils/clock"
 )
 
 type preparedAPIServerControllerSet struct {
@@ -366,6 +367,7 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 	migrator migrators.Migrator,
 	secretsClient corev1.SecretsGetter,
 	configMapClient corev1.ConfigMapsGetter,
+	dynamicClient dynamic.Interface,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
@@ -388,6 +390,7 @@ func (cs *APIServerControllerSet) WithEncryptionControllers(
 		kubeInformersForNamespaces:      kubeInformersForNamespaces,
 		secretsClient:                   secretsClient,
 		configMapClient:                 configMapClient,
+		dynamicClient:                   dynamicClient,
 		resourceSyncer:                  resourceSyncer,
 		encryptionStatusProvider:        encryptionStatusProvider,
 		preflightDeployer:               preflightDeployer,
@@ -495,6 +498,7 @@ type encryptionControllerBuilder struct {
 	migrator                        migrators.Migrator
 	secretsClient                   corev1.SecretsGetter
 	configMapClient                 corev1.ConfigMapsGetter
+	dynamicClient                   dynamic.Interface
 	apiServerClient                 configv1client.APIServerInterface
 	apiServerInformer               configv1informers.APIServerInformer
 	kubeInformersForNamespaces      v1helpers.KubeInformersForNamespaces
@@ -523,6 +527,7 @@ func (e *encryptionControllerBuilder) build() []controllerWrapper {
 		e.kubeInformersForNamespaces,
 		e.secretsClient,
 		e.configMapClient,
+		e.dynamicClient,
 		e.eventRecorder,
 		e.resourceSyncer,
 		e.encryptionStatusProvider,

@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -31,22 +32,23 @@ type sidecarTestFixtures struct {
 func newSidecarTestFixtures(t *testing.T) sidecarTestFixtures {
 	t.Helper()
 
-	vaultConfig := &configv1.KMSPluginConfig{
-		Type: configv1.VaultKMSProvider,
-		Vault: configv1.VaultKMSPluginConfig{
+	vaultConfig := &kms.KMSPluginConfig{
+		TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+		Type:     kms.VaultKMSProvider,
+		Vault: kms.VaultKMSPluginConfig{
 			KMSPluginImage:     "quay.io/test/vault:v1",
 			VaultAddress:       "https://vault.example.com:8200",
 			VaultNamespace:     "my-namespace",
 			VaultAuthNamespace: "my-auth-namespace",
 			VaultKeyPath:       "transit/keys/my-key",
-			Authentication: configv1.VaultAuthentication{
-				Type: configv1.VaultAuthenticationTypeAppRole,
-				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: "vault-approle"},
+			Authentication: kms.VaultAuthentication{
+				Type: kms.VaultAuthenticationTypeAppRole,
+				AppRole: kms.VaultAppRoleAuthentication{
+					Secret: kms.VaultSecretReference{Name: "vault-approle"},
 				},
 			},
-			TLS: configv1.VaultTLSConfig{
-				CABundle:   configv1.VaultConfigMapReference{Name: "vault-ca-bundle"},
+			TLS: kms.VaultTLSConfig{
+				CABundle:   kms.VaultConfigMapReference{Name: "vault-ca-bundle"},
 				ServerName: "vault.internal.example.com",
 			},
 		},
@@ -317,21 +319,22 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 				Volumes: []corev1.Volume{f.resourceDirVolume, socketVolume, refDataVolume},
 			},
 			secretClient: func() corev1client.SecretsGetter {
-				vaultConfig2 := &configv1.KMSPluginConfig{
-					Type: configv1.VaultKMSProvider,
-					Vault: configv1.VaultKMSPluginConfig{
+				vaultConfig2 := &kms.KMSPluginConfig{
+					TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+					Type:     kms.VaultKMSProvider,
+					Vault: kms.VaultKMSPluginConfig{
 						KMSPluginImage: "quay.io/test/vault:v2",
 						VaultAddress:   "https://vault2.example.com:8200",
 						VaultNamespace: "other-namespace",
 						VaultKeyPath:   "transit2/keys/other-key",
-						Authentication: configv1.VaultAuthentication{
-							Type: configv1.VaultAuthenticationTypeAppRole,
-							AppRole: configv1.VaultAppRoleAuthentication{
-								Secret: configv1.VaultSecretReference{Name: "vault-approle-2"},
+						Authentication: kms.VaultAuthentication{
+							Type: kms.VaultAuthenticationTypeAppRole,
+							AppRole: kms.VaultAppRoleAuthentication{
+								Secret: kms.VaultSecretReference{Name: "vault-approle-2"},
 							},
 						},
-						TLS: configv1.VaultTLSConfig{
-							CABundle: configv1.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
+						TLS: kms.VaultTLSConfig{
+							CABundle: kms.VaultConfigMapReference{Name: "vault-ca-bundle-2"},
 						},
 					},
 				}
