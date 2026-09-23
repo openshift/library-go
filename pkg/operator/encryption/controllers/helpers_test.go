@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,8 +15,6 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/tools/cache"
-
-	corev1 "k8s.io/api/core/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
 
@@ -79,11 +78,7 @@ func newKMSVaultAPIServer() *configv1.APIServer {
 		Spec: configv1.APIServerSpec{
 			Encryption: configv1.APIServerEncryption{
 				Type: configv1.EncryptionTypeKMS,
-				KMS: kmsConfigReference(kms.KMSPluginConfig{
-					TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
-					Type:     kms.VaultKMSProvider,
-					Vault:    wellKnownBaseVaultConfig,
-				}),
+				KMS:  defaultKMSConfigReference,
 			},
 		},
 	}
@@ -150,8 +145,12 @@ func newDeployedKMSEncryptionConfig(t *testing.T, instanceName string, encrypted
 	return secret
 }
 
-func kmsConfigReference(config kms.KMSPluginConfig) configv1.KMSPluginConfig {
-	return configv1.KMSPluginConfig{PluginConfig: configv1.KMSPluginConfigReference{APIVersion: "kms.openshift.io/v1alpha1", Resource: "vaultkmsconfigs", Name: "cluster"}}
+var defaultKMSConfigReference = configv1.KMSPluginConfig{
+	PluginConfig: configv1.KMSPluginConfigReference{
+		APIVersion: "kms.openshift.io/v1alpha1",
+		Resource:   "vaultkmsconfigs",
+		Name:       "cluster",
+	},
 }
 
 func vaultPluginConfig(t *testing.T, config kms.KMSPluginConfig) *unstructured.Unstructured {

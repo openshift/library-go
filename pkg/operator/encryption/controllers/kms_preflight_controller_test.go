@@ -8,14 +8,13 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	clocktesting "k8s.io/utils/clock/testing"
-
-	"k8s.io/apimachinery/pkg/api/equality"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -404,11 +403,7 @@ func TestKMSPreflightController(t *testing.T) {
 		Spec: configv1.APIServerSpec{
 			Encryption: configv1.APIServerEncryption{
 				Type: configv1.EncryptionTypeKMS,
-				KMS: kmsConfigReference(kms.KMSPluginConfig{
-					TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
-					Type:     kms.VaultKMSProvider,
-					Vault:    wellKnownBaseVaultConfig,
-				}),
+				KMS:  defaultKMSConfigReference,
 			},
 		},
 	}

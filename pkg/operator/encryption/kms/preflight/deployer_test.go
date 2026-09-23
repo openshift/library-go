@@ -3,11 +3,11 @@ package preflight
 import (
 	"context"
 	"fmt"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
-	"github.com/openshift/library-go/pkg/operator/encryption/kms"
-	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,10 +17,12 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/utils/clock"
-	"strconv"
-	"strings"
-	"testing"
-	"time"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 )
 
 const (

@@ -7,18 +7,17 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
-	"github.com/openshift/library-go/pkg/operator/encryption/kms"
-	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
+	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 )
 
 func TestToEncryptionState(t *testing.T) {

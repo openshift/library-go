@@ -48,7 +48,7 @@ func TestKeyController(t *testing.T) {
 	apiServerWithAESGCM.Spec.Encryption = configv1.APIServerEncryption{Type: "aesgcm"}
 
 	apiServerWithKMS := simpleAPIServer.DeepCopy()
-	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig)}
+	apiServerWithKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: defaultKMSConfigReference}
 
 	kmsCreateKeyStatusProvider := newPreflightSucceededProvider(t, encryptiontesting.DefaultKMSPluginConfig,
 		encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", "test-role-id", "test-secret-id"),
@@ -1001,7 +1001,7 @@ func TestKMSMigrationTriggeredFields(t *testing.T) {
 			scenario.mutate(changedConfig)
 
 			apiServerWithChangedKMS := simpleAPIServer.DeepCopy()
-			apiServerWithChangedKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(*changedConfig)}
+			apiServerWithChangedKMS.Spec.Encryption = configv1.APIServerEncryption{Type: "KMS", KMS: defaultKMSConfigReference}
 
 			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
 				&operatorv1.StaticPodOperatorSpec{
@@ -1365,25 +1365,8 @@ func TestModeAndExternalReasonFromAPIServer(t *testing.T) {
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 		},
 		{
-			name: "kms encryption mode",
-			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.APIServerSpec{Encryption: configv1.APIServerEncryption{Type: "KMS", KMS: kmsConfigReference(kms.KMSPluginConfig{
-				TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
-				Type:     kms.VaultKMSProvider,
-				Vault: kms.VaultKMSPluginConfig{
-					KMSPluginImage: "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-					VaultAddress:   "https://vault.example.com",
-					Authentication: kms.VaultAuthentication{
-						Type: kms.VaultAuthenticationTypeAppRole,
-						AppRole: kms.VaultAppRoleAuthentication{
-							Secret: kms.VaultSecretReference{Name: "vault-approle-secret"},
-						},
-					},
-					TLS: kms.VaultTLSConfig{
-						CABundle: kms.VaultConfigMapReference{Name: "vault-ca-bundle"},
-					},
-					VaultKeyPath: "transit/keys/test-transit-key",
-				},
-			})}}}},
+			name:             "kms encryption mode",
+			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.APIServerSpec{Encryption: configv1.APIServerEncryption{Type: "KMS", KMS: defaultKMSConfigReference}}}},
 		},
 	}
 

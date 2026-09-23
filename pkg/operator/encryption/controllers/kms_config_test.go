@@ -27,7 +27,7 @@ func TestResolveKMSConfig(t *testing.T) {
 	require.NoError(t, unstructured.SetNestedField(obj.Object, "ignored", "status", "futureField"))
 	require.NoError(t, unstructured.SetNestedField(obj.Object, "wrong-image", "spec", "kmsPluginImage"))
 	before := obj.DeepCopy()
-	ref := kmsConfigReference(expected)
+	ref := defaultKMSConfigReference
 	ref.PluginConfig.Name = obj.GetName()
 	// The reference controls the lookup; the internal GVK is independent of the CR GVK.
 	ref.PluginConfig.APIVersion = "example.test/v1"
@@ -54,7 +54,7 @@ func TestResolveKMSConfig(t *testing.T) {
 }
 
 func TestResolveKMSConfigErrors(t *testing.T) {
-	ref := kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig)
+	ref := defaultKMSConfigReference
 	_, err := ResolveKMSConfig(context.Background(), nil, ref)
 	require.ErrorContains(t, err, "dynamic client is required")
 	invalid := ref
@@ -105,7 +105,7 @@ func TestResolveKMSConfigImageComesOnlyFromStatus(t *testing.T) {
 	require.NoError(t, unstructured.SetNestedField(obj.Object, "wrong-image", "spec", "kmsPluginImage"))
 	delete(obj.Object, "status")
 	client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
-	_, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+	_, err := ResolveKMSConfig(context.Background(), client, defaultKMSConfigReference)
 	require.ErrorContains(t, err, "status.kmsPluginImage must not be empty")
 }
 
@@ -131,7 +131,7 @@ func TestResolveKMSConfigRequiredFields(t *testing.T) {
 					require.NoError(t, unstructured.SetNestedField(obj.Object, int64(1), path...))
 				}
 				client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
-				config, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+				config, err := ResolveKMSConfig(context.Background(), client, defaultKMSConfigReference)
 				require.Error(t, err)
 				require.Empty(t, config)
 				if variant == "missing" || variant == "empty" {
@@ -151,7 +151,7 @@ func TestResolveKMSConfigRequiredSections(t *testing.T) {
 			obj := vaultPluginConfig(t, encryptiontesting.DefaultKMSPluginConfig)
 			unstructured.RemoveNestedField(obj.Object, path...)
 			client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
-			_, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+			_, err := ResolveKMSConfig(context.Background(), client, defaultKMSConfigReference)
 			require.Error(t, err)
 		})
 	}
@@ -179,7 +179,7 @@ func TestResolveKMSConfigOptionalTLS(t *testing.T) {
 				require.NoError(t, unstructured.SetNestedMap(obj.Object, tc.tls, "spec", "tls"))
 			}
 			client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
-			_, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+			_, err := ResolveKMSConfig(context.Background(), client, defaultKMSConfigReference)
 			if tc.wantError {
 				require.ErrorContains(t, err, "failed to convert Vault KMS plugin configuration spec")
 			} else {
@@ -195,7 +195,7 @@ func TestResolveKMSConfigRejectsUnknownSpecFields(t *testing.T) {
 			obj := vaultPluginConfig(t, encryptiontesting.DefaultKMSPluginConfig)
 			require.NoError(t, unstructured.SetNestedField(obj.Object, "unsupported", append([]string{"spec"}, path...)...))
 			client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
-			config, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+			config, err := ResolveKMSConfig(context.Background(), client, defaultKMSConfigReference)
 			require.ErrorContains(t, err, `unknown field "`+strings.Join(path, ".")+`"`)
 			require.Empty(t, config)
 		})
@@ -219,7 +219,7 @@ func TestResolveKMSConfigImageDigest(t *testing.T) {
 			obj := vaultPluginConfig(t, encryptiontesting.DefaultKMSPluginConfig)
 			require.NoError(t, unstructured.SetNestedField(obj.Object, tc.image, "status", "kmsPluginImage"))
 			client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), obj)
-			config, err := ResolveKMSConfig(context.Background(), client, kmsConfigReference(encryptiontesting.DefaultKMSPluginConfig))
+			config, err := ResolveKMSConfig(context.Background(), client, defaultKMSConfigReference)
 			if tc.valid {
 				require.NoError(t, err)
 				require.Equal(t, tc.image, config.Vault.KMSPluginImage)
