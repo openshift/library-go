@@ -9,15 +9,16 @@ require (
 	github.com/fvbommel/sortorder v1.1.0
 	github.com/go-ldap/ldap/v3 v3.4.11
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
+	github.com/google/cel-go v0.29.2
 	github.com/google/gnostic-models v0.7.0
 	github.com/google/go-cmp v0.7.0
 	github.com/imdario/mergo v0.3.7
 	github.com/moby/sys/user v0.4.0
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
-	github.com/onsi/gomega v1.38.2
+	github.com/onsi/gomega v1.39.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/selinux v1.13.0
-	github.com/openshift/api v0.0.0-20260930220732-5588d747a72b
+	github.com/openshift/api v0.0.0-20261002101753-2d7b24ada488
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
 	github.com/openshift/client-go v0.0.0-20261001003915-dcaad1dc7fe8
 	github.com/openshift/osincli v0.0.0-20160924135400-fababb0555f2
@@ -35,6 +36,7 @@ require (
 	golang.org/x/net v0.57.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/time v0.15.0
+	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa
 	gopkg.in/evanphx/json-patch.v4 v4.13.0
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -94,8 +96,7 @@ require (
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
 	github.com/gonum/lapack v0.0.0-20181123203213-e4cdc5a0bff9 // indirect
 	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
-	github.com/google/cel-go v0.29.2 // indirect
-	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
+	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0 // indirect
@@ -107,6 +108,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
+	github.com/onsi/ginkgo/v2 v2.28.1 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
@@ -135,7 +137,6 @@ require (
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/grpc v1.82.1 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
