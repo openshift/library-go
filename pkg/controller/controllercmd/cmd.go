@@ -280,7 +280,7 @@ func (c *ControllerCommandConfig) AddDefaultRotationToConfig(config *operatorv1a
 			config.ServingInfo.CertFile = filepath.Join(temporaryCertDir, "tls.crt")
 			config.ServingInfo.KeyFile = filepath.Join(temporaryCertDir, "tls.key")
 			// nothing can trust this, so we don't really care about hostnames
-			servingCert, err := ca.MakeServerCert(sets.New("localhost"), 30)
+			servingCert, err := ca.MakeServerCert(sets.New("localhost"), time.Hour*24*30)
 			if err != nil {
 				return nil, nil, err
 			}
