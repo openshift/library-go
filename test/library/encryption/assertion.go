@@ -468,10 +468,6 @@ func (o kmsOperatorCR) decodeKMSOperatorStatus(obj map[string]interface{}) (kmsO
 // operatorNamespace. previous is the pre-apply snapshot (see ReadKMSPreflightForOperator).
 func AssertKMSPreflightSucceededForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, previous operatorv1.KMSPreflightCheck) {
 	t.Helper()
-	// Auth/OAS assertions require this change in their release-payload images; skip them until then.
-	if operatorNamespace != "openshift-kube-apiserver-operator" {
-		return
-	}
 	cr := operatorCRForNamespace(t, operatorNamespace)
 	assertKMSPreflightSucceeded(ctx, t, clientSet.DynamicClient, cr, "cluster", previous)
 }
