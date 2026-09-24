@@ -592,12 +592,18 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	}
 
 	if currentMode == state.KMS {
-		// We are here because Encryption Mode is not changed
-		// However, we need to create a new key if migration-triggering fields
-		// in the KMS provider configuration have changed.
 		if latestKey.KMS == nil {
 			return 0, "", false, fmt.Errorf("KMS-mode key %q has nil KMS state, possibly corrupted key secret", latestKey.Key.Name)
 		}
+		// Block all new encryption-key minting while remote-key migration is in flight,
+		// including kms-provider-changed. Remote-key rotation must finish on the current
+		// write key before a provider migration can mint another secret.
+		if latestKey.RemoteKey().NeedsRemoteKeyMigration() {
+			return 0, "", false, nil
+		}
+		// We are here because Encryption Mode is not changed
+		// However, we need to create a new key if migration-triggering fields
+		// in the KMS provider configuration have changed.
 		same, err := desiredProviderCfg.sameProviderInstance(latestKey.KMS.Plugin)
 		if err != nil {
 			return 0, "", false, fmt.Errorf("failed to check KMS provider instance: %w", err)
