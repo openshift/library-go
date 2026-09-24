@@ -387,9 +387,17 @@ func withInvalidObservedHTTPProxy(proxy string, path []string) driverModifier {
 }
 
 func withObservedServingInfo(ciphers []string, version string) driverModifier {
+	return withObservedServingInfoValue(ciphers, version, len(ciphers) > 0)
+}
+
+func withObservedEmptyCipherSuites(version string) driverModifier {
+	return withObservedServingInfoValue([]string{}, version, true)
+}
+
+func withObservedServingInfoValue(ciphers []string, version string, cipherSuitesPresent bool) driverModifier {
 	return func(i *fakeDriverInstance) *fakeDriverInstance {
 		observedConfig := map[string]interface{}{}
-		if len(ciphers) > 0 {
+		if cipherSuitesPresent {
 			unstructured.SetNestedStringSlice(observedConfig, ciphers, csiconfigobservercontroller.CipherSuitesPath()...)
 		}
 		// The observer may return an empty string for MinTLSVersion.
@@ -468,6 +476,12 @@ func makeServingInfoManifest(ciphers string, version string) []byte {
 	return []byte(manifest)
 }
 
+func makeServingInfoManifestWithoutCipherSuites(version string) []byte {
+	return []byte(`
+           - --tls-min-version=` + version + `
+`)
+}
+
 func TestWithServingInfoHook(t *testing.T) {
 	testCases := []struct {
 		name             string
@@ -475,6 +489,7 @@ func TestWithServingInfoHook(t *testing.T) {
 		initialManifest  []byte
 		expectedManifest []byte
 		expectedError    bool
+		expectedAbsent   []string
 	}{
 		{
 			name:             "no observed serving info",
@@ -501,6 +516,20 @@ func TestWithServingInfoHook(t *testing.T) {
 			expectedManifest: nil,
 			expectedError:    true,
 		},
+		{
+			name:             "observed TLS 1.2 with empty cipher suites errors",
+			initialDriver:    makeFakeDriverInstance(withObservedEmptyCipherSuites("VersionTLS12")),
+			initialManifest:  makeServingInfoManifest("" /*ciphers*/, "" /*version*/),
+			expectedManifest: nil,
+			expectedError:    true,
+		},
+		{
+			name:             "observed TLS 1.3 with empty cipher suites removes cipher suite argument",
+			initialDriver:    makeFakeDriverInstance(withObservedEmptyCipherSuites("VersionTLS13")),
+			initialManifest:  makeServingInfoManifest("" /*ciphers*/, "" /*version*/),
+			expectedManifest: makeServingInfoManifestWithoutCipherSuites("VersionTLS13"),
+			expectedAbsent:   []string{"${TLS_CIPHER_SUITES}", "--tls-cipher-suites="},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -515,6 +544,11 @@ func TestWithServingInfoHook(t *testing.T) {
 			}
 			if !bytes.Equal(out, tc.expectedManifest) {
 				t.Errorf("expected %q, got %q", string(tc.expectedManifest), string(out))
+			}
+			for _, absent := range tc.expectedAbsent {
+				if strings.Contains(string(out), absent) {
+					t.Errorf("expected output not to contain %q, got %q", absent, string(out))
+				}
 			}
 
 		})
