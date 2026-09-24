@@ -399,3 +399,53 @@ func (c fakeSyncContext) QueueKey() string {
 func (c fakeSyncContext) Recorder() events.Recorder {
 	return c.eventRecorder
 }
+
+func TestRequestCommonNameFilter(t *testing.T) {
+	// the filter has to satisfy CSRFilter to be usable in a filter chain
+	var _ CSRFilter = NewRequestCommonNameFilter("whatever")
+
+	tests := []struct {
+		name        string
+		commonNames []string
+		request     []byte
+		want        bool
+	}{
+		{
+			name:        "PEM-armored CSR with a listed CN",
+			commonNames: []string{"someone-else", "therealyou"},
+			request:     genCSR(t, "therealyou"),
+			want:        true,
+		},
+		{
+			name:        "PEM-armored CSR with an unlisted CN",
+			commonNames: []string{"therealyou"},
+			request:     genCSR(t, "someone-else"),
+			want:        false,
+		},
+		{
+			name:        "no PEM block at all",
+			commonNames: []string{"therealyou"},
+			request:     []byte("this is not a PEM block"),
+			want:        false,
+		},
+		{
+			name:        "empty request",
+			commonNames: []string{"therealyou"},
+			request:     nil,
+			want:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := NewRequestCommonNameFilter(tt.commonNames...)
+			got := f.Matches(&certapiv1.CertificateSigningRequest{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-csr"},
+				Spec:       certapiv1.CertificateSigningRequestSpec{Request: tt.request},
+			})
+			if got != tt.want {
+				t.Errorf("Matches() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
