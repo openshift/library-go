@@ -133,7 +133,7 @@ func (c *PruneController) revisionsToKeep(status *operatorv1.StaticPodOperatorSt
 		}
 	}
 
-	if keep.Len() > 0 && sets.List(keep)[0] == 1 && sets.List(keep)[keep.Len()-1] == status.LatestAvailableRevision {
+	if keep.Len() > 0 && int32(keep.Len()) == status.LatestAvailableRevision && sets.List(keep)[0] == 1 && sets.List(keep)[keep.Len()-1] == status.LatestAvailableRevision {
 		return true, nil
 	}
 
