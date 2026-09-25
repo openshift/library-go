@@ -1,11 +1,16 @@
 package secrets
 
 import (
+	"context"
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/util/retry"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
 // ReadRemoteKeyStateFromSecret reads remote key rotation annotations from a key secret.
@@ -62,4 +67,31 @@ func applyRemoteKeyAnnotations(annotations map[string]string, rk state.RemoteKey
 	}
 
 	return nil
+}
+
+// PatchRemoteKeyState updates remote key annotations on a key secret using
+// get-modify-update with conflict retry. Other annotations are preserved.
+func PatchRemoteKeyState(ctx context.Context, client corev1client.SecretInterface, secretName string, mutate func(*state.RemoteKeyState) (bool, error)) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		s, err := client.Get(ctx, secretName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		rk, err := ReadRemoteKeyStateFromSecret(s)
+		if err != nil {
+			return err
+		}
+		changed, err := mutate(&rk)
+		if err != nil || !changed {
+			return err
+		}
+		if s.Annotations == nil {
+			s.Annotations = map[string]string{}
+		}
+		if err := applyRemoteKeyAnnotations(s.Annotations, rk); err != nil {
+			return err
+		}
+		_, updateErr := client.Update(ctx, s, metav1.UpdateOptions{})
+		return updateErr
+	})
 }
