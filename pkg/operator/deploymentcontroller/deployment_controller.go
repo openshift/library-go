@@ -9,6 +9,7 @@ import (
 
 	opv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	dpm "github.com/openshift/library-go/pkg/apps/deployment"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
@@ -42,7 +43,7 @@ type ManifestHookFunc func(*opv1.OperatorSpec, []byte) ([]byte, error)
 // This controller optionally produces the following conditions:
 // <name>Available: indicates that the deployment controller  was successfully deployed and at least one Deployment replica is available.
 // <name>Progressing: indicates that the Deployment is in progress.
-// <name>Degraded: produced when the sync() method returns an error.
+// <name>Degraded: true when the deployment has timed out progressing, when failing pods reduce availability (while not mid-rollout), or when sync returns an error.
 type DeploymentController struct {
 	// instanceName is the name to identify what instance this belongs too: FooDriver for instance
 	instanceName string
@@ -193,7 +194,9 @@ func (c *DeploymentController) ToController() (factory.Controller, error) {
 	).ResyncEvery(
 		time.Minute,
 	)
-	if slices.Contains(c.conditions, opv1.OperatorStatusTypeDegraded) {
+	// When this controller owns <name>Degraded in status, do not use WithSyncDegradedOnError: reconcile would set
+	// Degraded=False on every successful sync and clear deployment operand degradation (see openshift/library-go#2128).
+	if !slices.Contains(c.conditions, opv1.OperatorStatusTypeDegraded) {
 		controller = controller.WithSyncDegradedOnError(c.operatorClient)
 	}
 	return controller.ToController(
@@ -207,7 +210,18 @@ func (c *DeploymentController) Name() string {
 	return c.instanceName
 }
 
-func (c *DeploymentController) sync(ctx context.Context, syncContext factory.SyncContext) error {
+func (c *DeploymentController) sync(ctx context.Context, syncContext factory.SyncContext) (err error) {
+	if slices.Contains(c.conditions, opv1.OperatorStatusTypeDegraded) {
+		defer func() {
+			if err != nil {
+				applyErr := c.applySyncErrorDegraded(ctx, err)
+				if applyErr != nil {
+					klog.V(2).Infof("failed to apply sync error degraded status: %v", applyErr)
+				}
+			}
+		}()
+	}
+
 	opSpec, opStatus, _, err := c.operatorClient.GetOperatorState()
 	if apierrors.IsNotFound(err) && management.IsOperatorRemovable() {
 		return nil
@@ -217,7 +231,7 @@ func (c *DeploymentController) sync(ctx context.Context, syncContext factory.Syn
 	}
 
 	if opSpec.ManagementState == opv1.Removed && management.IsOperatorRemovable() {
-		return c.syncDeleting(ctx, opSpec, opStatus, syncContext)
+		return c.syncDeleting(ctx, opSpec, syncContext)
 	}
 
 	if opSpec.ManagementState != opv1.Managed {
@@ -229,9 +243,19 @@ func (c *DeploymentController) sync(ctx context.Context, syncContext factory.Syn
 		return err
 	}
 	if management.IsOperatorRemovable() && meta.DeletionTimestamp != nil {
-		return c.syncDeleting(ctx, opSpec, opStatus, syncContext)
+		return c.syncDeleting(ctx, opSpec, syncContext)
 	}
 	return c.syncManaged(ctx, opSpec, opStatus, syncContext)
+}
+
+func (c *DeploymentController) applySyncErrorDegraded(ctx context.Context, syncErr error) error {
+	degraded := applyoperatorv1.OperatorCondition().
+		WithType(c.instanceName + opv1.OperatorStatusTypeDegraded).
+		WithStatus(opv1.ConditionTrue).
+		WithReason("SyncError").
+		WithMessage(syncErr.Error())
+	status := applyoperatorv1.OperatorStatus().WithConditions(degraded)
+	return c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
 }
 
 func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, syncContext factory.SyncContext) error {
@@ -257,7 +281,7 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 	if err != nil {
 		return err
 	}
-	// Create an OperatorStatusApplyConfiguration with generations
+
 	status := applyoperatorv1.OperatorStatus().
 		WithGenerations(&applyoperatorv1.GenerationStatusApplyConfiguration{
 			Group:          ptr.To("apps"),
@@ -267,7 +291,8 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 			LastGeneration: ptr.To(deployment.Generation),
 		})
 
-	// Set Available condition
+	now := time.Now()
+
 	if slices.Contains(c.conditions, opv1.OperatorStatusTypeAvailable) {
 		availableCondition := applyoperatorv1.
 			OperatorCondition().WithType(c.instanceName + opv1.OperatorStatusTypeAvailable)
@@ -276,17 +301,25 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 				WithStatus(opv1.ConditionTrue).
 				WithMessage("Deployment is available").
 				WithReason("AsExpected")
-
 		} else {
 			availableCondition = availableCondition.
 				WithStatus(opv1.ConditionFalse).
-				WithMessage("Waiting for Deployment").
-				WithReason("Deploying")
+				WithReason("NoPod").
+				WithMessage(fmt.Sprintf("no %s.%s pods available on any node", deployment.Name, deployment.Namespace))
 		}
 		status = status.WithConditions(availableCondition)
 	}
 
-	// Set Progressing condition
+	desiredReplicas := ptr.Deref(deployment.Spec.Replicas, 1)
+
+	progressTimedOutMessage, workloadIsBeingUpdatedTooLong := hasDeploymentTimedOutProgressing(deployment.Status)
+	workloadIsBeingUpdated := !hasDeploymentProgressed(deployment.Status) && !workloadIsBeingUpdatedTooLong
+
+	var progressDeadlineExceededMessage string
+	if workloadIsBeingUpdatedTooLong {
+		progressDeadlineExceededMessage = fmt.Sprintf("deployment/%s.%s has timed out progressing: %s", deployment.Name, deployment.Namespace, progressTimedOutMessage)
+	}
+
 	if slices.Contains(c.conditions, opv1.OperatorStatusTypeProgressing) {
 		progressingCondition := applyoperatorv1.OperatorCondition().
 			WithType(c.instanceName + opv1.OperatorStatusTypeProgressing).
@@ -294,20 +327,66 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 			WithMessage("Deployment is not progressing").
 			WithReason("AsExpected")
 
-		if ok, msg := isProgressing(deployment); ok {
+		switch {
+		case workloadIsBeingUpdated:
 			progressingCondition = progressingCondition.
 				WithStatus(opv1.ConditionTrue).
-				WithMessage(msg).
-				WithReason("Deploying")
-
-			// Degrade when operator is progressing too long.
-			// Only do this if we would continue to be in the Progressing state, otherwise, we'll never get out
-			if v1helpers.IsUpdatingTooLong(opStatus, c.instanceName+opv1.OperatorStatusTypeProgressing) {
-				return fmt.Errorf("Deployment was progressing too long")
-			}
+				WithReason("PodsUpdating").
+				WithMessage(fmt.Sprintf("deployment/%s.%s: %d/%d pods have been updated to the latest revision and %d/%d pods are available", deployment.Name, deployment.Namespace, deployment.Status.UpdatedReplicas, desiredReplicas, deployment.Status.AvailableReplicas, desiredReplicas))
+		case workloadIsBeingUpdatedTooLong:
+			progressingCondition = progressingCondition.
+				WithStatus(opv1.ConditionFalse).
+				WithReason("ProgressDeadlineExceeded").
+				WithMessage(progressDeadlineExceededMessage)
+		default:
+			progressingCondition = progressingCondition.
+				WithStatus(opv1.ConditionFalse).
+				WithReason("AsExpected")
 		}
-
 		status = status.WithConditions(progressingCondition)
+	}
+
+	if slices.Contains(c.conditions, opv1.OperatorStatusTypeDegraded) {
+		degradedCondition := applyoperatorv1.OperatorCondition().
+			WithType(c.instanceName + opv1.OperatorStatusTypeDegraded).
+			WithStatus(opv1.ConditionFalse).
+			WithReason("AsExpected")
+
+		switch {
+		case workloadIsBeingUpdatedTooLong:
+			degradedCondition = degradedCondition.
+				WithStatus(opv1.ConditionTrue).
+				WithReason("ProgressDeadlineExceeded").
+				WithMessage(progressDeadlineExceededMessage)
+
+		case !workloadIsBeingUpdated && deployment.Status.AvailableReplicas < desiredReplicas:
+			operandPods := c.listOperandPodsForDiagnostics(ctx, deployment, syncContext)
+			livePods := nonDeletingPods(operandPods)
+			hasFailing := hasFailingPods(deployment, livePods, now)
+			if hasFailing || deployment.Status.AvailableReplicas == 0 {
+				containerMessages := dpm.ContainerMessagesForPods(deployment, livePods)
+				var failureDescription string
+				if len(containerMessages) > 0 {
+					failureDescription = ` (` + strings.Join(containerMessages, ", ") + `)`
+				}
+				numUnavailable := desiredReplicas - deployment.Status.AvailableReplicas
+				message := fmt.Sprintf("%d of %d requested instances are unavailable for %s.%s%s", numUnavailable, desiredReplicas, deployment.Name, deployment.Namespace, failureDescription)
+				degradedCondition = degradedCondition.
+					WithStatus(opv1.ConditionTrue).
+					WithReason("UnavailablePod").
+					WithMessage(message)
+			} else {
+				degradedCondition = degradedCondition.
+					WithStatus(opv1.ConditionFalse).
+					WithReason("AsExpected")
+			}
+
+		default:
+			degradedCondition = degradedCondition.
+				WithStatus(opv1.ConditionFalse).
+				WithReason("AsExpected")
+		}
+		status = status.WithConditions(degradedCondition)
 	}
 
 	return c.operatorClient.ApplyOperatorStatus(
@@ -317,7 +396,34 @@ func (c *DeploymentController) syncManaged(ctx context.Context, opSpec *opv1.Ope
 	)
 }
 
-func (c *DeploymentController) syncDeleting(ctx context.Context, opSpec *opv1.OperatorSpec, opStatus *opv1.OperatorStatus, syncContext factory.SyncContext) error {
+// listOperandPodsForDiagnostics lists pods matched by the deployment selector for UnavailablePod diagnostics.
+// A nil selector, selector conversion errors, or API list errors are logged and recorded as warnings; no error is returned.
+func (c *DeploymentController) listOperandPodsForDiagnostics(ctx context.Context, deploymentObj *appsv1.Deployment, syncContext factory.SyncContext) []*corev1.Pod {
+	if deploymentObj.Spec.Selector == nil {
+		klog.Warningf("deployment/%s/%s has no spec.selector, skipping pod diagnostics", deploymentObj.Namespace, deploymentObj.Name)
+		syncContext.Recorder().Warningf("DeploymentSelectorMissing", "deployment %s/%s has no spec.selector, skipping pod diagnostics", deploymentObj.Namespace, deploymentObj.Name)
+		return nil
+	}
+	selector, err := metav1.LabelSelectorAsSelector(deploymentObj.Spec.Selector)
+	if err != nil {
+		klog.Warningf("deployment/%s/%s has invalid spec.selector: %v", deploymentObj.Namespace, deploymentObj.Name, err)
+		syncContext.Recorder().Warningf("DeploymentSelectorInvalid", "deployment %s/%s has invalid spec.selector: %v", deploymentObj.Namespace, deploymentObj.Name, err)
+		return nil
+	}
+	podList, err := c.kubeClient.CoreV1().Pods(deploymentObj.Namespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		klog.Warningf("deployment/%s/%s: pod list for diagnostics failed: %v", deploymentObj.Namespace, deploymentObj.Name, err)
+		syncContext.Recorder().Warningf("PodListFailed", "listing pods for deployment %s/%s diagnostics: %v", deploymentObj.Namespace, deploymentObj.Name, err)
+		return nil
+	}
+	out := make([]*corev1.Pod, len(podList.Items))
+	for i := range podList.Items {
+		out[i] = &podList.Items[i]
+	}
+	return out
+}
+
+func (c *DeploymentController) syncDeleting(ctx context.Context, opSpec *opv1.OperatorSpec, syncContext factory.SyncContext) error {
 	klog.V(4).Infof("syncDeleting")
 	required, err := c.getDeployment(opSpec)
 	if err != nil {
@@ -356,36 +462,70 @@ func (c *DeploymentController) getDeployment(opSpec *opv1.OperatorSpec) (*appsv1
 	return required, nil
 }
 
-func isProgressing(deployment *appsv1.Deployment) (bool, string) {
-
-	var deploymentExpectedReplicas int32
-	if deployment.Spec.Replicas != nil {
-		deploymentExpectedReplicas = *deployment.Spec.Replicas
-	}
-
-	switch {
-	case deployment.Generation != deployment.Status.ObservedGeneration:
-		return true, "Waiting for Deployment to act on changes"
-	case hasFinishedProgressing(deployment):
-		return false, ""
-	case deployment.Status.UnavailableReplicas > 0:
-		return true, "Waiting for Deployment to deploy pods"
-	case deployment.Status.UpdatedReplicas < deploymentExpectedReplicas:
-		return true, "Waiting for Deployment to update pods"
-	case deployment.Status.AvailableReplicas < deploymentExpectedReplicas:
-		return true, "Waiting for Deployment to deploy pods"
-	}
-	return false, ""
-}
-
-func hasFinishedProgressing(deployment *appsv1.Deployment) bool {
-	// Deployment whose rollout is complete gets Progressing condition with Reason NewReplicaSetAvailable condition.
-	// https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#complete-deployment
-	// Any subsequent missing replicas (e.g. caused by a node reboot) must not not change the Progressing condition.
-	for _, cond := range deployment.Status.Conditions {
+// hasDeploymentProgressed returns true if the deployment reports NewReplicaSetAvailable
+// via the DeploymentProgressing condition.
+func hasDeploymentProgressed(status appsv1.DeploymentStatus) bool {
+	for _, cond := range status.Conditions {
 		if cond.Type == appsv1.DeploymentProgressing {
 			return cond.Status == corev1.ConditionTrue && cond.Reason == "NewReplicaSetAvailable"
 		}
 	}
 	return false
+}
+
+// hasDeploymentTimedOutProgressing returns true if the deployment reports ProgressDeadlineExceeded.
+// The function returns the Progressing condition message as the first return value.
+func hasDeploymentTimedOutProgressing(status appsv1.DeploymentStatus) (string, bool) {
+	for _, cond := range status.Conditions {
+		if cond.Type == appsv1.DeploymentProgressing {
+			return cond.Message, cond.Status == corev1.ConditionFalse && cond.Reason == "ProgressDeadlineExceeded"
+		}
+	}
+	return "", false
+}
+
+// nonDeletingPods returns pods that are not terminating (no deletion timestamp).
+func nonDeletingPods(pods []*corev1.Pod) []*corev1.Pod {
+	out := make([]*corev1.Pod, 0, len(pods))
+	for _, p := range pods {
+		if p != nil && p.DeletionTimestamp == nil {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func hasFailingPods(workload *appsv1.Deployment, pods []*corev1.Pod, now time.Time) bool {
+	progressDeadline := time.Duration(ptr.Deref(workload.Spec.ProgressDeadlineSeconds, 600)) * time.Second
+	minReady := time.Duration(workload.Spec.MinReadySeconds) * time.Second
+
+	for _, pod := range pods {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+
+		readyCond := findPodReadyCondition(pod)
+		deadline := pod.CreationTimestamp.Time.Add(progressDeadline)
+
+		if (readyCond == nil || readyCond.Status != corev1.ConditionTrue) && now.After(deadline) {
+			return true
+		}
+
+		if minReady > 0 && readyCond != nil && readyCond.Status == corev1.ConditionTrue {
+			isRelevant := now.After(pod.CreationTimestamp.Time.Add(progressDeadline + minReady))
+			if isRelevant && now.Sub(readyCond.LastTransitionTime.Time) < minReady {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func findPodReadyCondition(pod *corev1.Pod) *corev1.PodCondition {
+	for i := range pod.Status.Conditions {
+		if pod.Status.Conditions[i].Type == corev1.PodReady {
+			return &pod.Status.Conditions[i]
+		}
+	}
+	return nil
 }
