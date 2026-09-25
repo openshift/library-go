@@ -266,7 +266,7 @@ func rotateKey(ctx context.Context, t testing.TB) {
 	// Command: vault write -f transit/keys/<key-name>/rotate
 	// Reference: https://developer.hashicorp.com/vault/api-docs/secret/transit#rotate-key
 	cmd := exec.CommandContext(commandCtx, "oc", "exec", defaultVaultPodName, "-n", defaultVaultNamespace, "--",
-		"vault", "write", fmt.Sprintf("-namespace=%s", defaultVaultEnterpriseNS), "-f", fmt.Sprintf("%s/rotate", defaultVaultKeyPath))
+		"vault", "write", "-tls-skip-verify", fmt.Sprintf("-namespace=%s", defaultVaultEnterpriseNS), "-f", fmt.Sprintf("%s/rotate", defaultVaultKeyPath))
 
 	t.Logf("Executing: %s", cmd.String())
 	output, err := cmd.Output()
@@ -284,7 +284,7 @@ func getCurrentKeyVersion(ctx context.Context, t testing.TB) int {
 	defer cancel()
 
 	cmd := exec.CommandContext(commandCtx, "oc", "exec", defaultVaultPodName, "-n", defaultVaultNamespace, "--",
-		"vault", "read", fmt.Sprintf("-namespace=%s", defaultVaultEnterpriseNS), "-field=latest_version", defaultVaultKeyPath)
+		"vault", "read", "-tls-skip-verify", fmt.Sprintf("-namespace=%s", defaultVaultEnterpriseNS), "-field=latest_version", defaultVaultKeyPath)
 
 	t.Logf("Executing: %s", cmd.String())
 	output, err := cmd.Output()
