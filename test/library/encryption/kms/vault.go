@@ -325,3 +325,58 @@ func getVaultServiceAddress(ctx context.Context, t testing.TB, ns, serviceName s
 	t.Logf("Resolved Vault Service address: %s", addr)
 	return addr
 }
+
+// VaultEncryptionProvider returns DefaultVaultEncryptionProvider with optional overrides.
+// mutate may be nil; it receives the VaultKMSConfig unstructured used by Setup.
+// For case-specific prereqs (e.g. a dedicated invalid AppRole secret), use
+// VaultNegativeCase.Setup instead of mutating shared credentials.
+func VaultEncryptionProvider(ctx context.Context, t testing.TB, mutate func(*unstructured.Unstructured)) library.EncryptionProvider {
+	t.Helper()
+	cfg := DefaultVaultKMSPluginConfig
+	vault := defaultVaultConfig.DeepCopy()
+	require.NoError(t, unstructured.SetNestedField(vault.Object, resolveVaultKMSPluginImage(t), "status", "kmsPluginImage"))
+	require.NoError(t, unstructured.SetNestedField(vault.Object, getVaultServiceAddress(ctx, t, defaultVaultNamespace, defaultVaultServiceName), "spec", "vaultAddress"))
+	if mutate != nil {
+		mutate(vault)
+	}
+	return library.EncryptionProvider{
+		APIServerEncryption: cfg,
+		Setup: func(ctx context.Context, t testing.TB) {
+			ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName)(ctx, t)
+			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
+		},
+	}
+}
+
+// EnsureInvalidVaultAppRoleSecret creates a dedicated AppRole secret with the given
+// invalid secret-id (leaves the shared vault-approle-secret untouched) and deletes it on cleanup.
+// Point VaultNegativeCase.Mutate at secretName.
+func EnsureInvalidVaultAppRoleSecret(ctx context.Context, t testing.TB, clients library.ClientSet, secretName, invalidSecretID string) {
+	t.Helper()
+	require.NotEmpty(t, secretName)
+	require.NotEmpty(t, invalidSecretID)
+	src, err := clients.Kube.CoreV1().Secrets(defaultAppRoleTargetNamespace).Get(ctx, defaultVaultAppRoleSecretName, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NotEmpty(t, src.Data["role-id"])
+
+	invalid := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: defaultAppRoleTargetNamespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"role-id":   append([]byte(nil), src.Data["role-id"]...),
+			"secret-id": []byte(invalidSecretID),
+		},
+	}
+	_, err = clients.Kube.CoreV1().Secrets(defaultAppRoleTargetNamespace).Create(ctx, invalid, metav1.CreateOptions{})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := clients.Kube.CoreV1().Secrets(defaultAppRoleTargetNamespace).Delete(cleanupCtx, secretName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			t.Errorf("failed to delete invalid AppRole secret %s: %v", secretName, err)
+		}
+	})
+}

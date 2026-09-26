@@ -5,10 +5,15 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/clock"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/events"
 	library "github.com/openshift/library-go/test/library/encryption"
@@ -109,6 +114,113 @@ func PreflightDeployScenario(ctx context.Context, t testing.TB) library.Prefligh
 		AssertDeployFunc:           library.AssertPreflightDeploy,
 		EncryptionProvider:         DefaultVaultEncryptionProvider(ctx, t),
 	}
+}
+
+// KMSPreflightNegativeScenario configures a negative KMS preflight test.
+// Prefer this over library.TestEncryptionType for invalid configs (those wait on migration).
+type KMSPreflightNegativeScenario struct {
+	library.BasicScenario
+	Name            string // log label
+	InvalidProvider library.EncryptionProvider
+}
+
+// TestKMSPreflightNegative applies each invalid provider and asserts preflight failure for
+// that config (not a stale Degraded from a prior case). After all cases it restores
+// encryption.type=identity so the cluster is not left Degraded.
+func TestKMSPreflightNegative(ctx context.Context, t testing.TB, scenarios ...KMSPreflightNegativeScenario) {
+	t.Helper()
+	require.NotEmpty(t, scenarios)
+
+	e := library.NewE(t, library.PrintEventsOnFailure(kubeAPIServerOperatorNamespace))
+	clients := library.GetClients(e)
+	t.Cleanup(func() { restoreIdentityAndWait(context.Background(), e, clients) })
+
+	for _, scenario := range scenarios {
+		if scenario.Name != "" {
+			t.Logf("=== STEP: %s ===", scenario.Name)
+		}
+		// Baseline may be empty when this test runs first (identity, no keys yet).
+		// WaitForNoNewEncryptionKey handles that and still fails if a key is created.
+		baseline, err := library.GetLastKeyMeta(e, clients.Kube, scenario.Namespace, scenario.LabelSelector)
+		require.NoError(e, err)
+
+		previous, err := library.ReadKMSPreflightForOperator(ctx, e, clients, scenario.OperatorNamespace)
+		require.NoError(e, err)
+
+		scenario.InvalidProvider.Setup(ctx, e)
+		library.ApplyEncryption(ctx, e, scenario.InvalidProvider.APIServerEncryption)
+		library.AssertKMSPreflightFailedForOperator(ctx, e, clients, scenario.OperatorNamespace, previous)
+		library.WaitForNoNewEncryptionKey(e, clients.Kube, baseline, scenario.Namespace, scenario.LabelSelector)
+	}
+}
+
+func restoreIdentityAndWait(ctx context.Context, t testing.TB, clients library.ClientSet) {
+	t.Helper()
+	cleanupCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	library.ApplyEncryption(cleanupCtx, t, configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity})
+	apiServer, err := clients.ApiServerConfig.Get(cleanupCtx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("failed to read APIServer after identity restore: %v", err)
+		return
+	}
+	if apiServer.Spec.Encryption.Type != configv1.EncryptionTypeIdentity && apiServer.Spec.Encryption.Type != "" {
+		t.Errorf("expected identity encryption after cleanup, got type=%q", apiServer.Spec.Encryption.Type)
+		return
+	}
+	library.WaitForKMSPreflightNotDegradedForOperator(cleanupCtx, t, clients, kubeAPIServerOperatorNamespace)
+}
+
+// VaultNegativeCase is a caller-defined invalid Vault config for preflight negative tests.
+type VaultNegativeCase struct {
+	Name   string
+	Mutate func(*unstructured.Unstructured)                                   // optional VaultKMSConfig overrides
+	Setup  func(ctx context.Context, t testing.TB, clients library.ClientSet) // optional prereqs (e.g. invalid AppRole secret)
+}
+
+// KMSPreflightNegativeScenarios builds ready-to-use KAS negative scenarios from caller-supplied
+// cases. Unlike EncryptionTurnOnAndOffScenarios this is KAS-only (encryption is cluster-wide;
+// one operator is enough to exercise invalid preflight).
+//
+//	librarykms.TestKMSPreflightNegative(ctx, t, librarykms.KMSPreflightNegativeScenarios(ctx, t,
+//		librarykms.VaultNegativeCase{Name: "bad-vault-address", Mutate: func(vault *unstructured.Unstructured) {
+//			_ = unstructured.SetNestedField(vault.Object, "https://192.0.2.1:8200", "spec", "vaultAddress")
+//		}},
+//		librarykms.VaultNegativeCase{Name: "bad-plugin-image", Mutate: func(vault *unstructured.Unstructured) {
+//			_ = unstructured.SetNestedField(vault.Object, "quay.io/example@sha256:0000", "status", "kmsPluginImage")
+//		}},
+//	)...)
+func KMSPreflightNegativeScenarios(ctx context.Context, t testing.TB, cases ...VaultNegativeCase) []KMSPreflightNegativeScenario {
+	t.Helper()
+	basic := library.BasicScenario{
+		Namespace:                       globalMachineSpecifiedConfigNamespace,
+		LabelSelector:                   encryptionComponentLabelSelector(kubeAPIServerComponent),
+		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", kubeAPIServerComponent),
+		EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+		OperatorNamespace:               kubeAPIServerOperatorNamespace,
+		TargetGRs:                       library.WellKnownKASTargetGRs,
+		AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
+	}
+	out := make([]KMSPreflightNegativeScenario, 0, len(cases))
+	for _, c := range cases {
+		provider := VaultEncryptionProvider(ctx, t, c.Mutate)
+		require.NotNil(t, provider.Setup, "VaultEncryptionProvider must set Setup")
+		if c.Setup != nil {
+			baseSetup := provider.Setup
+			setup := c.Setup
+			provider.Setup = func(ctx context.Context, t testing.TB) {
+				t.Helper()
+				baseSetup(ctx, t)
+				setup(ctx, t, library.GetClients(t))
+			}
+		}
+		out = append(out, KMSPreflightNegativeScenario{
+			Name:            c.Name,
+			BasicScenario:   basic,
+			InvalidProvider: provider,
+		})
+	}
+	return out
 }
 
 func kasOnOffScenario(provider library.EncryptionProvider) library.OnOffScenario {
