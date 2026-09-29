@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/clock"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/events"
 	library "github.com/openshift/library-go/test/library/encryption"
@@ -109,6 +111,60 @@ func PreflightDeployScenario(ctx context.Context, t testing.TB) library.Prefligh
 		AssertDeployFunc:           library.AssertPreflightDeploy,
 		EncryptionProvider:         DefaultVaultEncryptionProvider(ctx, t),
 	}
+}
+
+func KMSPreflightNegativeScenarios(ctx context.Context, t testing.TB) []library.KMSPreflightNegativeScenario {
+	t.Helper()
+
+	type opDef struct {
+		component string
+		opNS      string
+		targetGRs []schema.GroupResource
+		assertFn  func(testing.TB, library.ClientSet, configv1.EncryptionType, string, string)
+	}
+	ops := []opDef{
+		{kubeAPIServerComponent, kubeAPIServerOperatorNamespace, library.WellKnownKASTargetGRs, library.AssertWellKnownSecretsAndConfigMaps},
+		{oauthAPIServerComponent, authenticationOperatorNamespace, library.WellKnownAuthTargetGRs, library.AssertWellKnownTokens},
+		{openshiftAPIServerComponent, openshiftAPIServerOperatorNamespace, library.WellKnownOASTargetGRs, library.AssertWellKnownRoutes},
+	}
+
+	invalidAddr := InvalidVaultEncryptionProvider(ctx, t, "https://192.0.2.1:8200", "")
+	invalidImg := InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/openshifttest/vault-kube-kms@sha256:0000000000000000000000000000000000000000000000000000000000000000")
+
+	var scenarios []library.KMSPreflightNegativeScenario
+	for _, op := range ops {
+		scenarios = append(scenarios, library.KMSPreflightNegativeScenario{
+			BasicScenario: library.BasicScenario{
+				Namespace:                       globalMachineSpecifiedConfigNamespace,
+				LabelSelector:                   encryptionComponentLabelSelector(op.component),
+				EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", op.component),
+				EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+				OperatorNamespace:               op.opNS,
+				TargetGRs:                       op.targetGRs,
+				AssertFunc:                      op.assertFn,
+			},
+			Name:             "invalid-vault-address",
+			InvalidProvider:  invalidAddr,
+			AssertFailedFunc: library.AssertKMSPreflightCheckerFailedForOperator,
+		})
+	}
+	for _, op := range ops {
+		scenarios = append(scenarios, library.KMSPreflightNegativeScenario{
+			BasicScenario: library.BasicScenario{
+				Namespace:                       globalMachineSpecifiedConfigNamespace,
+				LabelSelector:                   encryptionComponentLabelSelector(op.component),
+				EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", op.component),
+				EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+				OperatorNamespace:               op.opNS,
+				TargetGRs:                       op.targetGRs,
+				AssertFunc:                      op.assertFn,
+			},
+			Name:             "invalid-image",
+			InvalidProvider:  invalidImg,
+			AssertFailedFunc: library.AssertKMSPreflightDegradedForOperator,
+		})
+	}
+	return scenarios
 }
 
 func kasOnOffScenario(provider library.EncryptionProvider) library.OnOffScenario {
