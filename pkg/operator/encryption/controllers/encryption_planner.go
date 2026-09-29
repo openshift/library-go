@@ -77,6 +77,10 @@ type KeyPlan struct {
 	KeyID          uint64
 	Reasons        []string
 	InternalReason string
+
+	// LatestKeyID is the highest key ID needsNewKey reported (ReadKeys[0]) during
+	// this planning pass. Zero when no keys exist yet.
+	LatestKeyID uint64
 }
 
 // PlannedEncryptionKey is a materialized in-memory key secret ready to persist or include in a candidate config.
@@ -222,6 +226,7 @@ func (p *EncryptionPlanner) PlanNextKey(snap *KeyPlanningSnapshot) (*KeyPlan, er
 		KeyID:          keyPlan.keyID,
 		Reasons:        keyPlan.reasons,
 		InternalReason: keyPlan.internalReason,
+		LatestKeyID:    keyPlan.latestKeyID,
 	}, nil
 }
 

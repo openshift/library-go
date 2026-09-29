@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -199,19 +200,19 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
-	// Reconcile in-place annotations on the current write key before planning a
-	// new encryption key. Remote-key rotation must not race a mint in the same sync;
-	// needsNewKey also blocks minting while NeedsRemoteKeyMigration() is true.
-	if snap.CurrentMode == state.KMS {
-		if err := c.reconcileCurrentKeyFromSnap(ctx, snap); err != nil {
-			return err
-		}
-	}
-
+	// Plan first so mint decisions and in-place reconcile share the latest key
+	// needsNewKey already selected (ReadKeys[0] / highest key ID = desired write key).
 	plan, err := planner.PlanNextKey(snap)
 	if err != nil {
 		return err
 	}
+
+	if snap.CurrentMode == state.KMS {
+		if err := c.reconcileCurrentKeyFromPlan(ctx, snap, plan); err != nil {
+			return err
+		}
+	}
+
 	if !plan.Needed {
 		return nil
 	}
@@ -239,14 +240,25 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	return nil
 }
 
-// reconcileCurrentKeyFromSnap applies in-place updates on the current KMS write
-// key (today: remote-key convergence annotations). It intentionally uses the
-// write key from DesiredBeforePlan — not the planner's latest/backup key —
-// because health and rotation annotations track the active write keyID.
-func (c *keyController) reconcileCurrentKeyFromSnap(ctx context.Context, snap *KeyPlanningSnapshot) error {
-	writeKey, ok := writeKeyForRemoteKeyRotation(snap.State.DesiredBeforePlan)
-	if !ok || writeKey.RemoteKey().TargetRemoteKeyID == "" {
-		// No KMS write key (or target not set yet): nothing to reconcile.
+// reconcileCurrentKeyFromPlan applies in-place updates on plan.LatestKeyID
+// (today: remote-key convergence annotations). Missing-key reactions belong to
+// needsNewKey; this path is a no-op when no secret resolves for LatestKeyID.
+func (c *keyController) reconcileCurrentKeyFromPlan(ctx context.Context, snap *KeyPlanningSnapshot, plan *KeyPlan) error {
+	if plan == nil {
+		return nil
+	}
+
+	keySecret := findKeySecretByID(snap.State.KeySecrets, plan.LatestKeyID)
+	if keySecret == nil {
+		// No latest key, or its secret is not listed: nothing to patch this sync.
+		return nil
+	}
+
+	rk, err := secrets.ReadRemoteKeyStateFromSecret(keySecret)
+	if err != nil {
+		return err
+	}
+	if rk.TargetRemoteKeyID == "" {
 		return nil
 	}
 
@@ -258,13 +270,24 @@ func (c *keyController) reconcileCurrentKeyFromSnap(ctx context.Context, snap *K
 	if err != nil {
 		return fmt.Errorf("failed to get KMS encryption status for remote key rotation: %w", err)
 	}
-
 	if encryptionStatus == nil {
 		// Status not published yet (e.g. preflight still running); retry next sync.
 		return nil
 	}
 
-	return reconcileRemoteKeyRotation(ctx, c.secretClient, c.instanceName, *encryptionStatus, writeKey, clock.RealClock{})
+	// During KMS-to-KMS migration multiple plugin key IDs can report at once; scope
+	// convergence to the current write key's keyID so backup/read-only plugins are ignored.
+	// TODO(thomas): we need to ensure the amount of reports match the number of operand pods
+	keyID := strconv.FormatUint(plan.LatestKeyID, 10)
+	reports := health.ReportsForKeyID(encryptionStatus.HealthReports, keyID)
+	convergedRemoteKeyID := health.ConvergedRemoteKeyID(reports)
+	if convergedRemoteKeyID == "" {
+		// No unanimous remote key ID yet (empty reports, conflicting IDs, or any
+		// empty RemoteKeyID). Keep existing convergence annotations unchanged.
+		return nil
+	}
+
+	return reconcileRemoteKeyRotation(ctx, c.secretClient, keySecret.Name, convergedRemoteKeyID, clock.RealClock{})
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
@@ -536,6 +559,7 @@ type encryptionKeyPlan struct {
 	keyID          uint64
 	reasons        []string
 	internalReason string
+	latestKeyID    uint64
 }
 
 func planNextEncryptionKey(desiredEncryptionState map[schema.GroupResource]state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource, desiredProviderCfg kmsProviderConfig) (*encryptionKeyPlan, error) {
@@ -552,6 +576,9 @@ func planNextEncryptionKey(desiredEncryptionState map[schema.GroupResource]state
 		latestKeyID, internalReason, needed, err := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs, desiredProviderCfg)
 		if err != nil {
 			return nil, err
+		}
+		if latestKeyID > plan.latestKeyID {
+			plan.latestKeyID = latestKeyID
 		}
 		if !needed {
 			continue
@@ -586,7 +613,8 @@ func planNextEncryptionKey(desiredEncryptionState map[schema.GroupResource]state
 }
 
 // needsNewKey checks whether a new key must be created for the given resource. If true, it also returns the latest
-// used key ID and a reason string.
+// used key ID and a reason string. For KMS mode, the latest key ID is returned even when a new key is not needed
+// so callers can reconcile in-place updates on that key.
 func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource, desiredProviderCfg kmsProviderConfig) (uint64, string, bool, error) {
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.ReadKeys) == 0 {
@@ -638,7 +666,7 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		// including kms-provider-changed. Remote-key rotation must finish on the current
 		// write key before a provider migration can mint another secret.
 		if latestKey.RemoteKey().NeedsRemoteKeyMigration() {
-			return 0, "", false, nil
+			return latestKeyID, "", false, nil
 		}
 		// We are here because Encryption Mode is not changed
 		// However, we need to create a new key if migration-triggering fields
@@ -654,7 +682,7 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		// For KMS mode, we don't do time-based rotation. KMS keys are rotated
 		// externally by the KMS provider. Moreover, we don't trigger new key when external reason is changed.
 		// Because it would lead to duplicate providers which is not allowed.
-		return 0, "", false, nil
+		return latestKeyID, "", false, nil
 	}
 
 	// if the most recent secret has a different external reason than the current reason, we need to generate a new key
@@ -807,76 +835,57 @@ func unstructuredUnsupportedConfigFromWithPrefix(rawConfig []byte, prefix []stri
 	return json.Marshal(actualConfig)
 }
 
-// reconcileRemoteKeyRotation maintains KMS remote key rotation convergence
-// annotations on the encryption key secret for the current KMS write key.
-// This slice records and clears the 5m convergence clock only; target promotion
-// and bootstrap land in follow-up PRs.
+// reconcileRemoteKeyRotation records or clears the 5m convergence clock on the
+// encryption key secret. Target promotion and bootstrap land in follow-up PRs.
+// Callers supply a non-empty convergedRemoteKeyID from health aggregation.
 func reconcileRemoteKeyRotation(
 	ctx context.Context,
 	secretClient corev1client.SecretsGetter,
-	instanceName string,
-	encryptionStatus operatorv1.KMSEncryptionStatus,
-	writeKey state.KeyState,
+	secretName string,
+	convergedRemoteKeyID string,
 	clk clock.Clock,
 ) error {
-	secretName := fmt.Sprintf("encryption-key-%s-%s", instanceName, writeKey.Key.Name)
-	rk := writeKey.RemoteKey()
-	if len(rk.TargetRemoteKeyID) == 0 {
-		return nil
-	}
-
-	// During KMS-to-KMS migration multiple plugin key IDs can report at once; scope
-	// convergence to the current write key's keyID so backup/read-only plugins are ignored.
-	// TODO(thomas): we need to ensure the amount of reports match the number of operand pods
-	reports := health.ReportsForKeyID(encryptionStatus.HealthReports, writeKey.Key.Name)
-	convergedRemoteKeyID := health.ConvergedRemoteKeyID(reports)
 	if convergedRemoteKeyID == "" {
-		// No unanimous remote key ID yet (empty reports, conflicting IDs, or any
-		// empty RemoteKeyID). Keep existing convergence annotations unchanged.
 		return nil
 	}
 
-	if convergedRemoteKeyID == rk.TargetRemoteKeyID {
-		// Current state: health already matches target-remote-key-id.
-		// Next: clear stale convergence clock annotations if any remain.
-		return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
-			return clearRemoteKeyConvergence(rk)
-		})
-	}
-
-	// Current state: health converged on a candidate different from target.
-	// Next: start or refresh the 5m convergence clock for that candidate.
 	now := clk.Now()
-	return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
-		return recordRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
-	})
-}
+	// TODO(thomas): we'll add the convergence timer here later
 
-// writeKeyForRemoteKeyRotation returns the first KMS write key from desired state.
-// Callers must use the write key (not ReadKeys[0]/ remote-key annotations and
-// health scoping follow the active write keyID.
-func writeKeyForRemoteKeyRotation(desiredState map[schema.GroupResource]state.GroupResourceState) (state.KeyState, bool) {
-	for _, grState := range desiredState {
-		if grState.WriteKey.Mode != state.KMS {
-			continue
-		}
-
-		if grState.HasWriteKey() {
-			return grState.WriteKey, true
-		}
-	}
-	return state.KeyState{}, false
-}
-
-func patchRemoteKeyState(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string, mutate func(state.RemoteKeyState) (state.RemoteKeyState, bool)) error {
 	return secrets.PatchRemoteKeyState(ctx, secretClient.Secrets("openshift-config-managed"), secretName, func(rk *state.RemoteKeyState) (bool, error) {
-		next, changed := mutate(*rk)
-		if !changed {
+		if len(rk.TargetRemoteKeyID) == 0 {
 			return false, nil
 		}
-		*rk = next
-		return true, nil
+		var next state.RemoteKeyState
+		var changed bool
+		if convergedRemoteKeyID == rk.TargetRemoteKeyID {
+			// Current state: health already matches target-remote-key-id.
+			// Next: clear stale convergence clock annotations if any remain.
+			next, changed = clearRemoteKeyConvergence(*rk)
+		} else {
+			// Current state: health converged on a candidate different from target.
+			// Next: start or refresh the 5m convergence clock for that candidate.
+			next, changed = recordRemoteKeyConvergence(*rk, convergedRemoteKeyID, now)
+		}
+		if changed {
+			*rk = next
+		}
+		return changed, nil
 	})
+}
+
+// findKeySecretByID returns the listed secret whose name encodes keyID.
+func findKeySecretByID(keySecrets []*corev1.Secret, keyID uint64) *corev1.Secret {
+	for _, s := range keySecrets {
+		if s == nil {
+			continue
+		}
+		id, ok := state.NameToKeyID(s.Name)
+		if ok && id == keyID {
+			return s
+		}
+	}
+	return nil
 }
 
 // recordRemoteKeyConvergence stamps ConvergedID/ConvergedAt for a newly observed

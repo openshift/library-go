@@ -14,6 +14,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/health"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
@@ -112,23 +113,7 @@ func TestReconcileRemoteKeyRecordsConvergence(t *testing.T) {
 	})
 	client := fake.NewSimpleClientset(secret)
 
-	writeKey := state.KeyState{
-		Key:  apiserverconfigv1.Key{Name: "3", Secret: "c2VjcmV0"},
-		Mode: state.KMS,
-		KMS: &state.KMSState{
-			RemoteKey: state.RemoteKeyState{
-				TargetRemoteKeyID: "remote-old",
-			},
-		},
-	}
-	status := operatorv1.KMSEncryptionStatus{
-		HealthReports: []operatorv1.KMSPluginHealthReport{
-			{KeyID: "3", RemoteKeyID: "remote-new"},
-			{KeyID: "3", RemoteKeyID: "remote-new"},
-		},
-	}
-
-	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), "test", status, writeKey, clocktesting.NewFakeClock(now))
+	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, "remote-new", clocktesting.NewFakeClock(now))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -166,24 +151,7 @@ func TestReconcileRemoteKeyClearsConvergence(t *testing.T) {
 	})
 	client := fake.NewSimpleClientset(secret)
 
-	writeKey := state.KeyState{
-		Key:  apiserverconfigv1.Key{Name: "3", Secret: "c2VjcmV0"},
-		Mode: state.KMS,
-		KMS: &state.KMSState{
-			RemoteKey: state.RemoteKeyState{
-				TargetRemoteKeyID:   "remote-old",
-				MigratedRemoteKeyID: "remote-old",
-			},
-		},
-	}
-	status := operatorv1.KMSEncryptionStatus{
-		HealthReports: []operatorv1.KMSPluginHealthReport{
-			{KeyID: "3", RemoteKeyID: "remote-old"},
-			{KeyID: "3", RemoteKeyID: "remote-old"},
-		},
-	}
-
-	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), "test", status, writeKey, clocktesting.NewFakeClock(now))
+	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, "remote-old", clocktesting.NewFakeClock(now))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -219,18 +187,8 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 	})
 	client := fake.NewSimpleClientset(secret)
 
-	writeKey := state.KeyState{
-		Key:  apiserverconfigv1.Key{Name: "3", Secret: "c2VjcmV0"},
-		Mode: state.KMS,
-		KMS: &state.KMSState{
-			RemoteKey: state.RemoteKeyState{
-				TargetRemoteKeyID:   "remote-old",
-				MigratedRemoteKeyID: "remote-old",
-			},
-		},
-	}
-	// Write-key reports converge on remote-new; a different keyID still on remote-old
-	// must not prevent recording convergence for the write key.
+	// Caller scopes health to the write keyID before calling reconcile; a different
+	// keyID still on remote-old must not prevent recording convergence.
 	status := operatorv1.KMSEncryptionStatus{
 		HealthReports: []operatorv1.KMSPluginHealthReport{
 			{KeyID: "3", RemoteKeyID: "remote-new"},
@@ -238,8 +196,12 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 			{KeyID: "2", RemoteKeyID: "remote-old"},
 		},
 	}
+	convergedRemoteKeyID := health.ConvergedRemoteKeyID(health.ReportsForKeyID(status.HealthReports, "3"))
+	if convergedRemoteKeyID != "remote-new" {
+		t.Fatalf("expected write-key health to converge on remote-new, got %q", convergedRemoteKeyID)
+	}
 
-	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), "test", status, writeKey, clocktesting.NewFakeClock(now))
+	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, convergedRemoteKeyID, clocktesting.NewFakeClock(now))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -287,5 +249,62 @@ func TestNeedsNewKeyBlocksMintDuringRemoteKeyMigration(t *testing.T) {
 	}
 	if needed {
 		t.Fatal("expected minting blocked while NeedsRemoteKeyMigration is true")
+	}
+}
+
+func TestPlanNextEncryptionKeyPopulatesLatestKeyID(t *testing.T) {
+	writeKey := state.KeyState{
+		Key:    apiserverconfigv1.Key{Name: "3", Secret: "c2VjcmV0"},
+		Mode:   state.KMS,
+		Backed: true,
+		KMS: &state.KMSState{
+			RemoteKey: state.RemoteKeyState{TargetRemoteKeyID: "remote-old", MigratedRemoteKeyID: "remote-old"},
+		},
+	}
+	// Newest ReadKeys[0] is the desired write key. Resource migration is complete so
+	// needsNewKey reaches the KMS path; remote-key migration blocks minting and still
+	// returns the latest key ID.
+	latestKey := state.KeyState{
+		Key:    apiserverconfigv1.Key{Name: "4", Secret: "YmFja3Vw"},
+		Mode:   state.KMS,
+		Backed: true,
+		Migrated: state.MigrationState{
+			Resources: []schema.GroupResource{{Group: "", Resource: "secrets"}},
+			Timestamp: time.Now(),
+		},
+		KMS: &state.KMSState{
+			RemoteKey: state.RemoteKeyState{TargetRemoteKeyID: "remote-new", MigratedRemoteKeyID: "remote-old"},
+		},
+	}
+	desired := map[schema.GroupResource]state.GroupResourceState{
+		{Group: "", Resource: "secrets"}: {
+			WriteKey: writeKey,
+			ReadKeys: []state.KeyState{latestKey, writeKey},
+		},
+	}
+
+	plan, err := planNextEncryptionKey(desired, state.KMS, "", []schema.GroupResource{{Group: "", Resource: "secrets"}}, noopKMSProviderConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if plan.latestKeyID != 4 {
+		t.Fatalf("expected latest key ID 4, got %d", plan.latestKeyID)
+	}
+	if plan.needed {
+		t.Fatal("expected no mint while NeedsRemoteKeyMigration is true")
+	}
+}
+
+func TestFindKeySecretByID(t *testing.T) {
+	secrets := []*corev1.Secret{
+		{ObjectMeta: metav1.ObjectMeta{Name: "encryption-key-test-2"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "encryption-key-test-3"}},
+	}
+	got := findKeySecretByID(secrets, 3)
+	if got == nil || got.Name != "encryption-key-test-3" {
+		t.Fatalf("expected encryption-key-test-3, got %#v", got)
+	}
+	if findKeySecretByID(secrets, 9) != nil {
+		t.Fatal("expected nil for missing key id")
 	}
 }
