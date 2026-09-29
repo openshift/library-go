@@ -515,3 +515,57 @@ func assertKMSPreflightSucceeded(ctx context.Context, t testing.TB, dynamicClien
 		previous.ObservedConfigHash, previous.Result.RemoteKeyID)
 	return preflight.ObservedConfigHash
 }
+
+func waitForFreshKMSPreflightStatus(ctx context.Context, clientSet ClientSet, cr kmsOperatorCR, previous operatorv1.KMSPreflightCheck, matches func(kmsOperatorStatus) bool) (kmsOperatorStatus, error) {
+	var status kmsOperatorStatus
+	err := wait.PollUntilContextTimeout(ctx, waitPollInterval, waitPollTimeout, true, func(ctx context.Context) (bool, error) {
+		obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		status, err = cr.decodeKMSOperatorStatus(obj.Object)
+		if err != nil {
+			return false, err
+		}
+		preflight := status.EncryptionStatus.Preflight
+		fresh := preflight.ObservedConfigHash != "" && preflight.ObservedConfigHash != previous.ObservedConfigHash
+		return fresh && matches(status), nil
+	})
+	return status, err
+}
+
+// AssertKMSPreflightCheckerFailedForOperator waits for the preflight checker to
+// explicitly report Result.Status=Failed (the checker ran but the KMS endpoint
+// was unreachable or returned an error). Use this for cases like an invalid Vault
+// address where the pod starts but the health-check fails.
+func AssertKMSPreflightCheckerFailedForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, previous operatorv1.KMSPreflightCheck) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	status, err := waitForFreshKMSPreflightStatus(ctx, clientSet, cr, previous, func(status kmsOperatorStatus) bool {
+		preflight := status.EncryptionStatus.Preflight
+		failed := preflight.Result.Status == operatorv1.KMSPreflightResultFailed &&
+			preflight.Result.ConfigHash != "" && preflight.Result.ConfigHash == preflight.ObservedConfigHash
+		return failed
+	})
+	preflight := status.EncryptionStatus.Preflight
+	require.NoErrorf(t, err,
+		"KMS preflight checker failure (Result.Status=Failed) not observed for %s/cluster: result.status=%q configHash=%q observed=%q (previous observed=%q)",
+		cr.gvr.Resource, preflight.Result.Status, preflight.Result.ConfigHash, preflight.ObservedConfigHash, previous.ObservedConfigHash)
+}
+
+// AssertKMSPreflightDegradedForOperator waits for the preflight controller to
+// set EncryptionKMSPreflightControllerDegraded=True (the KMS plugin pod never
+// started, e.g. because of an invalid image). Use this for cases like an invalid
+// KMS plugin image where the pod enters ImagePullBackOff.
+func AssertKMSPreflightDegradedForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, previous operatorv1.KMSPreflightCheck) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	status, err := waitForFreshKMSPreflightStatus(ctx, clientSet, cr, previous, func(status kmsOperatorStatus) bool {
+		return v1helpers.IsOperatorConditionTrue(status.Conditions, preflightDegradedConditionType)
+	})
+	preflight := status.EncryptionStatus.Preflight
+	degradedTrue := v1helpers.IsOperatorConditionTrue(status.Conditions, preflightDegradedConditionType)
+	require.NoErrorf(t, err,
+		"KMS preflight Degraded=True not observed for %s/cluster: degradedTrue=%t observed=%q (previous observed=%q)",
+		cr.gvr.Resource, degradedTrue, preflight.ObservedConfigHash, previous.ObservedConfigHash)
+}

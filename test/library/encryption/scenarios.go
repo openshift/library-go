@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 )
 
 type BasicScenario struct {
@@ -37,6 +38,140 @@ func TestEncryptionTypeIdentity(ctx context.Context, t testing.TB, scenario Basi
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(ctx, e, EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity}}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
+}
+
+// KMSPreflightNegativeScenario follows the OnOffScenario pattern: each scenario
+// embeds BasicScenario for the operator and carries the invalid provider.
+// AssertFailedFunc lets the caller distinguish preflight result=Failed (checker
+// reached the KMS but the check failed) from Degraded-only (image pull, deploy
+// error).
+type KMSPreflightNegativeScenario struct {
+	BasicScenario
+	Name            string
+	InvalidProvider EncryptionProvider
+	// AssertFailedFunc asserts the expected failure path: Degraded-only (e.g. bad
+	// image) or result=Failed (e.g. bad address).
+	AssertFailedFunc func(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, previous operatorv1.KMSPreflightCheck)
+}
+
+// TestKMSPreflightNegative applies each invalid KMS provider batch, asserts every operator in
+// the batch reports preflight failure without creating a new encryption key, and restores
+// identity via t.Cleanup. Within a batch, key/preflight snapshots and failure asserts run in
+// parallel across operators (same pattern as TestEncryptionTurnOnAndOff).
+//
+// Each inner slice is one batch that shares a single cluster-wide InvalidProvider (set on
+// exactly one scenario). Different batches run sequentially.
+func TestKMSPreflightNegative(ctx context.Context, t testing.TB, scenarioBatches [][]KMSPreflightNegativeScenario) {
+	t.Helper()
+	require.NotEmpty(t, scenarioBatches)
+	for i, scenarios := range scenarioBatches {
+		require.NotEmptyf(t, scenarios, "KMS preflight negative scenario batch %d must not be empty", i)
+		for _, scenario := range scenarios {
+			require.NotNilf(t, scenario.AssertFailedFunc, "KMS preflight negative scenario %q for %s requires AssertFailedFunc", scenario.Name, scenario.OperatorNamespace)
+		}
+	}
+
+	e := NewE(t, PrintEventsOnFailure(scenarioBatches[0][0].OperatorNamespace))
+	clients := GetClients(e)
+
+	// Suite isolation: invalid KMS must start from encryption-off so empty key baselines
+	// and WaitForNoNewEncryptionKey are meaningful.
+	apiServer, err := clients.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+	require.NoError(e, err)
+	require.Truef(e, apiServer.Spec.Encryption.Type == "" || apiServer.Spec.Encryption.Type == configv1.EncryptionTypeIdentity,
+		"expected encryption off at start, got type=%q", apiServer.Spec.Encryption.Type)
+
+	t.Cleanup(func() {
+		TestEncryptionTypeIdentity(context.Background(), e, scenarioBatches[0][0].BasicScenario)
+	})
+
+	var testCases []testStep
+	for _, scenarios := range scenarioBatches {
+		name, provider := resolveKMSPreflightNegativeBatch(t, scenarios)
+
+		var (
+			snapshotSteps      []testStep
+			assertFailureSteps []testStep
+		)
+		for _, scenario := range scenarios {
+			snapshotStep, assertFailureStep := kmsPreflightNegativeSteps(ctx, clients, name, scenario)
+			snapshotSteps = append(snapshotSteps, snapshotStep)
+			assertFailureSteps = append(assertFailureSteps, assertFailureStep)
+		}
+
+		applyStep := testStep{
+			name: fmt.Sprintf("Apply %s", name),
+			testFunc: func(t testing.TB) {
+				if provider.Setup != nil {
+					provider.Setup(ctx, t)
+				}
+				ApplyEncryption(ctx, t, provider.APIServerEncryption)
+			},
+		}
+		testCases = append(testCases,
+			inParallel(snapshotSteps...),
+			applyStep,
+			inParallel(assertFailureSteps...),
+		)
+	}
+
+	for _, testCase := range testCases {
+		t.Logf("=== STEP: %s ===", testCase.name)
+		testCase.testFunc(e)
+		if t.Failed() {
+			t.Errorf("stopping the test as %q step failed", testCase.name)
+			return
+		}
+	}
+}
+
+// resolveKMSPreflightNegativeBatch requires all scenarios in a batch to share Name and
+// exactly one InvalidProvider (cluster-wide APIServer encryption), matching OnOffScenario.
+func resolveKMSPreflightNegativeBatch(t testing.TB, scenarios []KMSPreflightNegativeScenario) (string, EncryptionProvider) {
+	t.Helper()
+	require.NotEmpty(t, scenarios)
+	name := scenarios[0].Name
+	require.NotEmptyf(t, name, "KMS preflight negative batch must set Name")
+
+	var providers []EncryptionProvider
+	for _, s := range scenarios {
+		require.Equalf(t, name, s.Name, "all scenarios in a batch must share Name %q, got %q for %s", name, s.Name, s.OperatorNamespace)
+		if s.InvalidProvider.Type != "" || s.InvalidProvider.Setup != nil {
+			providers = append(providers, s.InvalidProvider)
+		}
+	}
+	if len(providers) != 1 {
+		t.Fatalf("batch %q requires exactly one InvalidProvider, got %d", name, len(providers))
+	}
+	return name, providers[0]
+}
+
+// kmsPreflightNegativeSteps returns a snapshot step (key + preflight baseline) and an assert
+// step (failure + no new key). The assert step closes over values written by the snapshot
+// step, so snapshot must run before assert for the same scenario.
+func kmsPreflightNegativeSteps(ctx context.Context, clients ClientSet, name string, scenario KMSPreflightNegativeScenario) (testStep, testStep) {
+	var baseline EncryptionKeyMeta
+	var previousPreflight operatorv1.KMSPreflightCheck
+
+	snapshotStep := testStep{
+		name: fmt.Sprintf("Snapshot %s for %s", name, scenario.OperatorNamespace),
+		testFunc: func(t testing.TB) {
+			var err error
+			baseline, err = GetLastKeyMeta(t, clients.Kube, scenario.Namespace, scenario.LabelSelector)
+			require.NoError(t, err)
+			previousPreflight, err = ReadKMSPreflightForOperator(ctx, t, clients, scenario.OperatorNamespace)
+			require.NoError(t, err)
+		},
+	}
+	assertFailureStep := testStep{
+		name: fmt.Sprintf("Assert %s for %s", name, scenario.OperatorNamespace),
+		testFunc: func(t testing.TB) {
+			scenario.AssertFailedFunc(ctx, t, clients, scenario.OperatorNamespace, previousPreflight)
+			WaitForNoNewEncryptionKey(t, clients.Kube, baseline, scenario.Namespace, scenario.LabelSelector)
+		},
+	}
+
+	return snapshotStep, assertFailureStep
 }
 
 func TestEncryptionTypeUnset(ctx context.Context, t testing.TB, scenario BasicScenario) {

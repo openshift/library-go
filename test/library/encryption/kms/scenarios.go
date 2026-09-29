@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/clock"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/events"
 	library "github.com/openshift/library-go/test/library/encryption"
@@ -109,6 +111,64 @@ func PreflightDeployScenario(ctx context.Context, t testing.TB) library.Prefligh
 		AssertDeployFunc:           library.AssertPreflightDeploy,
 		EncryptionProvider:         DefaultVaultEncryptionProvider(ctx, t),
 	}
+}
+
+func KMSPreflightNegativeScenarios(ctx context.Context, t testing.TB) [][]library.KMSPreflightNegativeScenario {
+	t.Helper()
+
+	type opDef struct {
+		component string
+		opNS      string
+		targetGRs []schema.GroupResource
+		assertFn  func(testing.TB, library.ClientSet, configv1.EncryptionType, string, string)
+	}
+	ops := []opDef{
+		{kubeAPIServerComponent, kubeAPIServerOperatorNamespace, library.WellKnownKASTargetGRs, library.AssertWellKnownSecretsAndConfigMaps},
+		{oauthAPIServerComponent, authenticationOperatorNamespace, library.WellKnownAuthTargetGRs, library.AssertWellKnownTokens},
+		{openshiftAPIServerComponent, openshiftAPIServerOperatorNamespace, library.WellKnownOASTargetGRs, library.AssertWellKnownRoutes},
+	}
+
+	basicFor := func(op opDef) library.BasicScenario {
+		return library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(op.component),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", op.component),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               op.opNS,
+			TargetGRs:                       op.targetGRs,
+			AssertFunc:                      op.assertFn,
+		}
+	}
+
+	// Cluster-wide APIServer config — set InvalidProvider on exactly one scenario per batch
+	// (same pattern as OnOffScenario.EncryptionProvider).
+	invalidAddrBatch := make([]library.KMSPreflightNegativeScenario, 0, len(ops))
+	for i, op := range ops {
+		s := library.KMSPreflightNegativeScenario{
+			BasicScenario:    basicFor(op),
+			Name:             "invalid-vault-address",
+			AssertFailedFunc: library.AssertKMSPreflightCheckerFailedForOperator,
+		}
+		if i == 0 {
+			s.InvalidProvider = InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "")
+		}
+		invalidAddrBatch = append(invalidAddrBatch, s)
+	}
+
+	invalidImgBatch := make([]library.KMSPreflightNegativeScenario, 0, len(ops))
+	for i, op := range ops {
+		s := library.KMSPreflightNegativeScenario{
+			BasicScenario:    basicFor(op),
+			Name:             "invalid-image",
+			AssertFailedFunc: library.AssertKMSPreflightDegradedForOperator,
+		}
+		if i == 0 {
+			s.InvalidProvider = InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/openshifttest/vault-kube-kms@sha256:0000000000000000000000000000000000000000000000000000000000000000")
+		}
+		invalidImgBatch = append(invalidImgBatch, s)
+	}
+
+	return [][]library.KMSPreflightNegativeScenario{invalidAddrBatch, invalidImgBatch}
 }
 
 func kasOnOffScenario(provider library.EncryptionProvider) library.OnOffScenario {

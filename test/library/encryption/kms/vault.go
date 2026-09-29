@@ -96,6 +96,35 @@ func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.E
 	}
 }
 
+// InvalidVaultEncryptionProvider builds a Vault KMS provider with optional overrides
+// for negative preflight tests. Empty vaultAddress / pluginImage fall back to the
+// valid defaults so each call can invalidate exactly one field:
+//
+//	InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "")           // → AssertKMSPreflightCheckerFailedForOperator
+//	InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/...@sha256:000...") // → AssertKMSPreflightDegradedForOperator
+func InvalidVaultEncryptionProvider(ctx context.Context, t testing.TB, vaultAddress, pluginImage string) library.EncryptionProvider {
+	cfg := DefaultVaultKMSPluginConfig
+	vault := defaultVaultConfig.DeepCopy()
+
+	if pluginImage == "" {
+		pluginImage = resolveVaultKMSPluginImage(t)
+	}
+	require.NoError(t, unstructured.SetNestedField(vault.Object, pluginImage, "status", "kmsPluginImage"))
+
+	if vaultAddress == "" {
+		vaultAddress = getVaultServiceAddress(ctx, t, defaultVaultNamespace, defaultVaultServiceName)
+	}
+	require.NoError(t, unstructured.SetNestedField(vault.Object, vaultAddress, "spec", "vaultAddress"))
+
+	return library.EncryptionProvider{
+		APIServerEncryption: cfg,
+		Setup: func(ctx context.Context, t testing.TB) {
+			ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName)(ctx, t)
+			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
+		},
+	}
+}
+
 // DefaultVaultKMSPluginConfig is the standard Vault KMS encryption config
 // used by CI e2e tests.
 var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{
