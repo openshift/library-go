@@ -7,6 +7,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	clocktesting "k8s.io/utils/clock/testing"
 
@@ -107,8 +108,7 @@ func TestReconcileRemoteKeyRecordsConvergence(t *testing.T) {
 		},
 	}
 	setRemoteKeyAnnotations(t, secret.Annotations, state.RemoteKeyState{
-		TargetRemoteKeyID:   "remote-old",
-		MigratedRemoteKeyID: "remote-old",
+		TargetRemoteKeyID: "remote-old",
 	})
 	client := fake.NewSimpleClientset(secret)
 
@@ -117,8 +117,7 @@ func TestReconcileRemoteKeyRecordsConvergence(t *testing.T) {
 		Mode: state.KMS,
 		KMS: &state.KMSState{
 			RemoteKey: state.RemoteKeyState{
-				TargetRemoteKeyID:   "remote-old",
-				MigratedRemoteKeyID: "remote-old",
+				TargetRemoteKeyID: "remote-old",
 			},
 		},
 	}
@@ -258,5 +257,35 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 	}
 	if rk.ConvergedID != "remote-new" {
 		t.Fatalf("expected write-key convergence on remote-new, got %q", rk.ConvergedID)
+	}
+}
+
+func TestNeedsNewKeyBlocksMintDuringRemoteKeyMigration(t *testing.T) {
+	key := state.KeyState{
+		Key:    apiserverconfigv1.Key{Name: "3", Secret: "c2VjcmV0"},
+		Mode:   state.KMS,
+		Backed: true,
+		Migrated: state.MigrationState{
+			Timestamp: time.Now(),
+			Resources: []schema.GroupResource{{Group: "", Resource: "secrets"}},
+		},
+		KMS: &state.KMSState{
+			RemoteKey: state.RemoteKeyState{
+				TargetRemoteKeyID:   "remote-new",
+				MigratedRemoteKeyID: "remote-old",
+			},
+		},
+	}
+	grKeys := state.GroupResourceState{
+		WriteKey: key,
+		ReadKeys: []state.KeyState{key},
+	}
+
+	_, _, needed, err := needsNewKey(grKeys, state.KMS, "", []schema.GroupResource{{Group: "", Resource: "secrets"}}, noopKMSProviderConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if needed {
+		t.Fatal("expected minting blocked while NeedsRemoteKeyMigration is true")
 	}
 }

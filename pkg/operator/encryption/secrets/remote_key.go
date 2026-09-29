@@ -71,6 +71,10 @@ func applyRemoteKeyAnnotations(annotations map[string]string, rk state.RemoteKey
 
 // PatchRemoteKeyState updates remote key annotations on a key secret using
 // get-modify-update with conflict retry. Other annotations are preserved.
+// Retrying on conflict keeps concurrent writers (keyController and
+// migrationController) from dropping each other's remote-key fields; failing
+// the whole sync and waiting for the next resync would also work but costs a
+// full controller cycle for a routine annotation race.
 func PatchRemoteKeyState(ctx context.Context, client corev1client.SecretInterface, secretName string, mutate func(*state.RemoteKeyState) (bool, error)) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		s, err := client.Get(ctx, secretName, metav1.GetOptions{})

@@ -199,8 +199,11 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
+	// Reconcile in-place annotations on the current write key before planning a
+	// new encryption key. Remote-key rotation must not race a mint in the same sync;
+	// needsNewKey also blocks minting while NeedsRemoteKeyMigration() is true.
 	if snap.CurrentMode == state.KMS {
-		if err := c.reconcileRemoteKeyRotationFromSnap(ctx, snap); err != nil {
+		if err := c.reconcileCurrentKeyFromSnap(ctx, snap); err != nil {
 			return err
 		}
 	}
@@ -236,9 +239,18 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	return nil
 }
 
-func (c *keyController) reconcileRemoteKeyRotationFromSnap(ctx context.Context, snap *KeyPlanningSnapshot) error {
+// reconcileCurrentKeyFromSnap applies in-place updates on the current KMS write
+// key (today: remote-key convergence annotations). It intentionally uses the
+// write key from DesiredBeforePlan — not the planner's latest/backup key —
+// because health and rotation annotations track the active write keyID.
+func (c *keyController) reconcileCurrentKeyFromSnap(ctx context.Context, snap *KeyPlanningSnapshot) error {
 	writeKey, ok := writeKeyForRemoteKeyRotation(snap.State.DesiredBeforePlan)
 	if !ok || writeKey.RemoteKey().TargetRemoteKeyID == "" {
+		// No KMS write key (or target not set yet): nothing to reconcile.
+		return nil
+	}
+
+	if c.encryptionStatusProvider == nil {
 		return nil
 	}
 
@@ -248,6 +260,7 @@ func (c *keyController) reconcileRemoteKeyRotationFromSnap(ctx context.Context, 
 	}
 
 	if encryptionStatus == nil {
+		// Status not published yet (e.g. preflight still running); retry next sync.
 		return nil
 	}
 
@@ -618,12 +631,18 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	}
 
 	if currentMode == state.KMS {
-		// We are here because Encryption Mode is not changed
-		// However, we need to create a new key if migration-triggering fields
-		// in the KMS provider configuration have changed.
 		if latestKey.KMS == nil {
 			return 0, "", false, fmt.Errorf("KMS-mode key %q has nil KMS state, possibly corrupted key secret", latestKey.Key.Name)
 		}
+		// Block all new encryption-key minting while remote-key migration is in flight,
+		// including kms-provider-changed. Remote-key rotation must finish on the current
+		// write key before a provider migration can mint another secret.
+		if latestKey.RemoteKey().NeedsRemoteKeyMigration() {
+			return 0, "", false, nil
+		}
+		// We are here because Encryption Mode is not changed
+		// However, we need to create a new key if migration-triggering fields
+		// in the KMS provider configuration have changed.
 		same, err := desiredProviderCfg.sameProviderInstance(latestKey.KMS.Plugin)
 		if err != nil {
 			return 0, "", false, fmt.Errorf("failed to check KMS provider instance: %w", err)
@@ -812,21 +831,30 @@ func reconcileRemoteKeyRotation(
 	reports := health.ReportsForKeyID(encryptionStatus.HealthReports, writeKey.Key.Name)
 	convergedRemoteKeyID := health.ConvergedRemoteKeyID(reports)
 	if convergedRemoteKeyID == "" {
+		// No unanimous remote key ID yet (empty reports, conflicting IDs, or any
+		// empty RemoteKeyID). Keep existing convergence annotations unchanged.
 		return nil
 	}
 
 	if convergedRemoteKeyID == rk.TargetRemoteKeyID {
+		// Current state: health already matches target-remote-key-id.
+		// Next: clear stale convergence clock annotations if any remain.
 		return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
 			return clearRemoteKeyConvergence(rk)
 		})
 	}
 
+	// Current state: health converged on a candidate different from target.
+	// Next: start or refresh the 5m convergence clock for that candidate.
 	now := clk.Now()
 	return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
 		return recordRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
 	})
 }
 
+// writeKeyForRemoteKeyRotation returns the first KMS write key from desired state.
+// Callers must use the write key (not ReadKeys[0]/ remote-key annotations and
+// health scoping follow the active write keyID.
 func writeKeyForRemoteKeyRotation(desiredState map[schema.GroupResource]state.GroupResourceState) (state.KeyState, bool) {
 	for _, grState := range desiredState {
 		if grState.WriteKey.Mode != state.KMS {
