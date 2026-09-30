@@ -7,6 +7,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	clocktesting "k8s.io/utils/clock/testing"
 
@@ -129,7 +130,7 @@ func TestReconcileRemoteKeyRecordsConvergence(t *testing.T) {
 		},
 	}
 
-	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), "test", status, writeKey, clocktesting.NewFakeClock(now))
+	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, status, writeKey, clocktesting.NewFakeClock(now))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -184,7 +185,7 @@ func TestReconcileRemoteKeyClearsConvergence(t *testing.T) {
 		},
 	}
 
-	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), "test", status, writeKey, clocktesting.NewFakeClock(now))
+	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, status, writeKey, clocktesting.NewFakeClock(now))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -240,7 +241,7 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 		},
 	}
 
-	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), "test", status, writeKey, clocktesting.NewFakeClock(now))
+	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, status, writeKey, clocktesting.NewFakeClock(now))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -258,5 +259,51 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 	}
 	if rk.ConvergedID != "remote-new" {
 		t.Fatalf("expected write-key convergence on remote-new, got %q", rk.ConvergedID)
+	}
+}
+
+func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		mode       state.Mode
+		keyID      uint64
+		remoteKey  state.RemoteKeyState
+		wantUpdate bool
+	}{
+		{name: "blocked plan", mode: state.KMS},
+		{name: "non-KMS mode", mode: state.AESCBC, keyID: 3},
+		{name: "steady key", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "a", MigratedRemoteKeyID: "a"}},
+		{name: "bootstrap", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "a"}},
+		{name: "pending migration", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "b", MigratedRemoteKeyID: "a"}, wantUpdate: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), []schema.GroupResource{{Resource: "secrets"}}, "3")
+			setRemoteKeyAnnotations(t, secret.Annotations, tc.remoteKey)
+			client := fake.NewSimpleClientset(secret)
+			c := &keyController{secretClient: client.CoreV1()}
+			// A skipped reconciliation must not even request health status.
+			if tc.wantUpdate {
+				c.encryptionStatusProvider = &fakeKMSStatusProvider{status: operatorv1.KMSEncryptionStatus{
+					HealthReports: []operatorv1.KMSPluginHealthReport{{KeyID: "3", RemoteKeyID: "c"}},
+				}}
+			}
+			snap := &KeyPlanningSnapshot{CurrentMode: tc.mode, State: EncryptionStateSnapshot{KeySecrets: []*corev1.Secret{secret}}}
+			if err := c.reconcileCurrentKey(context.Background(), snap, tc.keyID); err != nil {
+				t.Fatal(err)
+			}
+			if !tc.wantUpdate {
+				if len(client.Actions()) != 0 {
+					t.Fatalf("expected no Secret API calls, got %v", client.Actions())
+				}
+				return
+			}
+			updated, err := client.CoreV1().Secrets(secret.Namespace).Get(context.Background(), secret.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if updated.Annotations[annotationRemoteKeyConvergedID] != "c" {
+				t.Fatal("expected convergence recorded on the existing key")
+			}
+		})
 	}
 }
