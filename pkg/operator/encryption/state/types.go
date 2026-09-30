@@ -104,14 +104,6 @@ func (rk RemoteKeyState) Validate() error {
 	return nil
 }
 
-// NeedsRemoteKeyMigration reports whether a target remote key has not yet been
-// migrated. An unset migrated ID belongs to initial migration, not rotation.
-func (rk RemoteKeyState) NeedsRemoteKeyMigration() bool {
-	return rk.TargetRemoteKeyID != "" &&
-		rk.MigratedRemoteKeyID != "" &&
-		rk.TargetRemoteKeyID != rk.MigratedRemoteKeyID
-}
-
 // KMSState stores all KMS encryption mode related configurations
 type KMSState struct {
 	// Encoded EncryptionConfig that stores the KMS related fields
