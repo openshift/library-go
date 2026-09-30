@@ -150,6 +150,15 @@ func NewControllers(
 		eventRecorder,
 	))
 
+	encryptionControllers = append(encryptionControllers, controllers.NewKmsHealthController(
+		component,
+		provider,
+		encryptionEnabledChecker.PreconditionFulfilled,
+		operatorClient,
+		encryptionStatusProvider,
+		eventRecorder,
+	))
+
 	return encryptionControllers, nil
 }
 
