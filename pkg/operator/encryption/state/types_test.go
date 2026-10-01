@@ -179,3 +179,22 @@ func TestKMSReferenceDataFlatEntries(t *testing.T) {
 		t.Errorf("expected nil, got %v", empty.FlatEntries())
 	}
 }
+
+func TestRemoteKeyStateNeedsRemoteKeyMigration(t *testing.T) {
+	scenarios := []struct {
+		name string
+		rk   RemoteKeyState
+		want bool
+	}{
+		{name: "unset migrated", rk: RemoteKeyState{TargetRemoteKeyID: "a"}, want: false},
+		{name: "equal", rk: RemoteKeyState{TargetRemoteKeyID: "a", MigratedRemoteKeyID: "a"}, want: false},
+		{name: "differs", rk: RemoteKeyState{TargetRemoteKeyID: "b", MigratedRemoteKeyID: "a"}, want: true},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			if got := scenario.rk.NeedsRemoteKeyMigration(); got != scenario.want {
+				t.Fatalf("got %v want %v", got, scenario.want)
+			}
+		})
+	}
+}
