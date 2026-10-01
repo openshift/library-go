@@ -19,7 +19,9 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
+	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -280,5 +282,117 @@ func TestEncryptionPlannerLoadListKeysWhileProgressing(t *testing.T) {
 	}
 	if len(proceed.State.KeySecrets) == 0 {
 		t.Fatal("expected key secrets when ListKeysWhileProgressing is set")
+	}
+}
+
+func TestPlanKeyCreationOrRotation(t *testing.T) {
+	gr := schema.GroupResource{Resource: "secrets"}
+	for _, tc := range []struct {
+		name            string
+		migrated        bool
+		providerChanged bool
+		remoteKey       state.RemoteKeyState
+		mode            state.Mode
+		pruning         bool
+		wantNeeded      bool
+		wantID          uint64
+	}{
+		{name: "steady key available for reconciliation", migrated: true, wantID: 3},
+		{name: "remote migration", migrated: true, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "b", MigratedRemoteKeyID: "a"}, wantID: 3},
+		{name: "provider change takes priority over remote migration", migrated: true, providerChanged: true, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "b", MigratedRemoteKeyID: "a"}, wantNeeded: true, wantID: 4},
+		{name: "mode change to identity", mode: state.Identity, migrated: true, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "b", MigratedRemoteKeyID: "a"}, wantNeeded: true, wantID: 4},
+		{name: "mode change to AES", mode: state.AESCBC, migrated: true, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "b", MigratedRemoteKeyID: "a"}, wantNeeded: true, wantID: 4},
+		{name: "initial migration unfinished"},
+		{name: "pruning unfinished", migrated: true, pruning: true},
+		{name: "new provider key", migrated: true, providerChanged: true, wantNeeded: true, wantID: 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			key := state.KeyState{Mode: state.KMS, Backed: true, KMS: &state.KMSState{
+				Plugin:    kms.KMSPluginConfig{Type: kms.VaultKMSProvider},
+				RemoteKey: tc.remoteKey,
+			}}
+			key.Key.Name = "3"
+			if tc.migrated {
+				key.Migrated.Resources = []schema.GroupResource{gr}
+			}
+			readKeys := []state.KeyState{key}
+			if tc.pruning {
+				for _, id := range []string{"2", "1"} {
+					older := key
+					older.Key.Name = id
+					readKeys = append(readKeys, older)
+				}
+			}
+			provider := &vaultProviderConfig{}
+			if tc.providerChanged {
+				provider.vault.VaultAddress = "https://new-vault"
+			}
+			mode := tc.mode
+			if mode == "" {
+				mode = state.KMS
+			}
+			secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "encryption-key-test-3"}}
+			snap := &KeyPlanningSnapshot{
+				CurrentMode:        mode,
+				desiredProviderCfg: provider,
+				State: EncryptionStateSnapshot{
+					EncryptedGRs: []schema.GroupResource{gr},
+					KeySecrets:   []*corev1.Secret{secret},
+					DesiredBeforePlan: map[schema.GroupResource]state.GroupResourceState{
+						gr: {WriteKey: key, ReadKeys: readKeys},
+					},
+				},
+			}
+			plan, err := (&EncryptionPlanner{}).PlanNextKey(snap)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if plan.Needed != tc.wantNeeded || plan.KeyID != tc.wantID {
+				t.Fatalf("got Needed=%v KeyID=%d, want Needed=%v KeyID=%d", plan.Needed, plan.KeyID, tc.wantNeeded, tc.wantID)
+			}
+
+		})
+	}
+}
+
+// A missing Secret can leave one resource with a newer unbacked key while
+// another resource uses the backed key with pending remote-key migration.
+func TestPlanCreationTakesPriorityOverRotationAcrossResources(t *testing.T) {
+	grs := []schema.GroupResource{{Resource: "secrets"}, {Resource: "configmaps"}}
+	secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), grs, "3")
+	setRemoteKeyAnnotations(t, secret.Annotations, state.RemoteKeyState{
+		TargetRemoteKeyID: "new", MigratedRemoteKeyID: "old",
+	})
+	key, err := secrets.ToKeyState(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	missingKey := key
+	missingKey.Key.Name = "4"
+	missingKey.Backed = false
+	current, err := encryptiondata.FromEncryptionState(map[schema.GroupResource]state.GroupResourceState{
+		grs[0]: {WriteKey: missingKey, ReadKeys: []state.KeyState{missingKey, key}},
+		grs[1]: {WriteKey: key, ReadKeys: []state.KeyState{key}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	desired := statemachine.GetDesiredEncryptionState(current, []*corev1.Secret{secret}, grs)
+	provider := &vaultProviderConfig{vault: key.KMS.Plugin.Vault}
+	for i, gr := range grs {
+		_, _, needed, err := needsNewKey(desired[gr], state.KMS, "", grs, provider)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if needed != (i == 0) {
+			t.Fatalf("%s: expected creation=%v, got %v", gr, i == 0, needed)
+		}
+	}
+	plan, err := planNextEncryptionKey(desired, state.KMS, "", grs, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.needed || plan.keyID != 5 {
+		t.Fatalf("expected only creation of key 5, got %#v", plan)
 	}
 }

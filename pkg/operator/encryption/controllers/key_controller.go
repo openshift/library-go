@@ -199,18 +199,12 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return nil
 	}
 
-	if snap.CurrentMode == state.KMS {
-		if err := c.reconcileRemoteKeyRotationFromSnap(ctx, snap); err != nil {
-			return err
-		}
-	}
-
 	plan, err := planner.PlanNextKey(snap)
 	if err != nil {
 		return err
 	}
 	if !plan.Needed {
-		return nil
+		return c.reconcileCurrentKey(ctx, snap, plan.KeyID)
 	}
 
 	keySecret, preconditionMet, err := c.generateKeySecret(ctx, plan.KeyID, snap.CurrentMode, snap.PluginConfig, snap.desiredProviderCfg, plan.InternalReason, snap.ExternalReason)
@@ -236,9 +230,26 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	return nil
 }
 
-func (c *keyController) reconcileRemoteKeyRotationFromSnap(ctx context.Context, snap *KeyPlanningSnapshot) error {
-	writeKey, ok := writeKeyForRemoteKeyRotation(snap.State.DesiredBeforePlan)
-	if !ok || writeKey.RemoteKey().TargetRemoteKeyID == "" {
+func (c *keyController) reconcileCurrentKey(ctx context.Context, snap *KeyPlanningSnapshot, keyID uint64) error {
+	if snap.CurrentMode != state.KMS || keyID == 0 {
+		return nil
+	}
+	var keySecret *corev1.Secret
+	for _, secret := range snap.State.KeySecrets {
+		if id, ok := state.NameToKeyID(secret.Name); ok && id == keyID {
+			keySecret = secret
+			break
+		}
+	}
+	if keySecret == nil {
+		return fmt.Errorf("backing Secret for key %d missing from planning snapshot", keyID)
+	}
+	currentKey, err := secrets.ToKeyState(keySecret)
+	if err != nil {
+		return err
+	}
+	// Continue remote-key rotation on the existing key only when migration is pending.
+	if !currentKey.RemoteKey().NeedsRemoteKeyMigration() {
 		return nil
 	}
 
@@ -251,7 +262,7 @@ func (c *keyController) reconcileRemoteKeyRotationFromSnap(ctx context.Context, 
 		return nil
 	}
 
-	return reconcileRemoteKeyRotation(ctx, c.secretClient, c.instanceName, *encryptionStatus, writeKey, clock.RealClock{})
+	return reconcileRemoteKeyRotation(ctx, c.secretClient, keySecret.Name, *encryptionStatus, currentKey, clock.RealClock{})
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
@@ -530,6 +541,7 @@ func planNextEncryptionKey(desiredEncryptionState map[schema.GroupResource]state
 	reasons := []string{}
 
 	var (
+		latestExistingKeyID uint64
 		commonReason        string
 		hasCommonReason     bool
 		commonReasonDiffers bool
@@ -541,6 +553,9 @@ func planNextEncryptionKey(desiredEncryptionState map[schema.GroupResource]state
 			return nil, err
 		}
 		if !needed {
+			if latestKeyID > latestExistingKeyID {
+				latestExistingKeyID = latestKeyID
+			}
 			continue
 		}
 
@@ -560,6 +575,7 @@ func planNextEncryptionKey(desiredEncryptionState map[schema.GroupResource]state
 	}
 
 	if !plan.needed {
+		plan.keyID = latestExistingKeyID
 		return plan, nil
 	}
 	if hasCommonReason && !commonReasonDiffers && len(reasons) > 1 {
@@ -635,7 +651,8 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		// For KMS mode, we don't do time-based rotation. KMS keys are rotated
 		// externally by the KMS provider. Moreover, we don't trigger new key when external reason is changed.
 		// Because it would lead to duplicate providers which is not allowed.
-		return 0, "", false, nil
+		// Return the existing key ID so reconcileCurrentKey can check whether it needs an update.
+		return latestKeyID, "", false, nil
 	}
 
 	// if the most recent secret has a different external reason than the current reason, we need to generate a new key
@@ -795,13 +812,12 @@ func unstructuredUnsupportedConfigFromWithPrefix(rawConfig []byte, prefix []stri
 func reconcileRemoteKeyRotation(
 	ctx context.Context,
 	secretClient corev1client.SecretsGetter,
-	instanceName string,
+	secretName string,
 	encryptionStatus operatorv1.KMSEncryptionStatus,
-	writeKey state.KeyState,
+	currentKey state.KeyState,
 	clk clock.Clock,
 ) error {
-	secretName := fmt.Sprintf("encryption-key-%s-%s", instanceName, writeKey.Key.Name)
-	rk := writeKey.RemoteKey()
+	rk := currentKey.RemoteKey()
 	if len(rk.TargetRemoteKeyID) == 0 {
 		return nil
 	}
@@ -809,7 +825,7 @@ func reconcileRemoteKeyRotation(
 	// During KMS-to-KMS migration multiple plugin key IDs can report at once; scope
 	// convergence to the current write key's keyID so backup/read-only plugins are ignored.
 	// Stale reports from dead/replaced nodes are evicted by KmsHealthController.
-	reports := health.ReportsForKeyID(encryptionStatus.HealthReports, writeKey.Key.Name)
+	reports := health.ReportsForKeyID(encryptionStatus.HealthReports, currentKey.Key.Name)
 	convergedRemoteKeyID := health.ConvergedRemoteKeyID(reports)
 	if convergedRemoteKeyID == "" {
 		return nil
@@ -825,19 +841,6 @@ func reconcileRemoteKeyRotation(
 	return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
 		return recordRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
 	})
-}
-
-func writeKeyForRemoteKeyRotation(desiredState map[schema.GroupResource]state.GroupResourceState) (state.KeyState, bool) {
-	for _, grState := range desiredState {
-		if grState.WriteKey.Mode != state.KMS {
-			continue
-		}
-
-		if grState.HasWriteKey() {
-			return grState.WriteKey, true
-		}
-	}
-	return state.KeyState{}, false
 }
 
 func patchRemoteKeyState(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string, mutate func(state.RemoteKeyState) (state.RemoteKeyState, bool)) error {

@@ -77,12 +77,34 @@ func TestEncryptionTypeKMS(ctx context.Context, t testing.TB, scenario BasicScen
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	// Snapshot preflight before applying the new config so the assertion can confirm a fresh
 	// preflight ran for it (the remote key id advances when the config genuinely changes).
-	previousPreflight, err := ReadKMSPreflightForOperator(ctx, e, GetClients(e), scenario.OperatorNamespace)
+	previousPreflightStatus, err := ReadKMSPreflightForOperator(ctx, e, GetClients(e), scenario.OperatorNamespace)
 	require.NoError(e, err)
+	operandNamespace := operandNamespaceForOperator(scenario.OperatorNamespace)
+	require.NotEmpty(e, operandNamespace, "no operand namespace known for operator namespace %q", scenario.OperatorNamespace)
+	// Capture the preflight pod as the operator creates it; on success the operator reaps it,
+	// so it cannot be fetched live afterwards for the PodSpec drift check below.
+	capturedPreflightPod, stopCapture := StartCapturingLatestPreflightPod(ctx, e, GetClients(e), operandNamespace)
+	defer stopCapture()
 	clientSet := SetAndWaitForEncryptionType(ctx, e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	stopCapture() // preflight has run; join the watch before reading the capture
 	scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
-	AssertKMSPreflightSucceededForOperator(ctx, e, clientSet, scenario.OperatorNamespace, previousPreflight)
+	AssertKMSPreflight(ctx, e, clientSet, scenario.OperatorNamespace, operandNamespace, previousPreflightStatus, capturedPreflightPod.Load())
+}
+
+// operandNamespaceForOperator maps a control-plane operator namespace to the operand
+// namespace where it runs its apiserver and KMS preflight pods.
+func operandNamespaceForOperator(operatorNamespace string) string {
+	switch operatorNamespace {
+	case "openshift-kube-apiserver-operator":
+		return "openshift-kube-apiserver"
+	case "openshift-apiserver-operator":
+		return "openshift-apiserver"
+	case "openshift-authentication-operator":
+		return "openshift-oauth-apiserver"
+	default:
+		return ""
+	}
 }
 
 func TestEncryptionType(ctx context.Context, t testing.TB, scenario BasicScenario, provider EncryptionProvider) {
