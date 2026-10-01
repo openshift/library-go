@@ -56,7 +56,7 @@ func healthyFakeService() *fakeService {
 	}
 }
 
-func TestCheck(t *testing.T) {
+func TestCheckInternal(t *testing.T) {
 	scenarios := []struct {
 		name      string
 		service   *fakeService
@@ -159,7 +159,7 @@ func TestCheck(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			target := newTestChecker(scenario.service)
 
-			status, err := target.check(context.Background())
+			status, err := target.checkInternal(context.Background())
 
 			if scenario.expectErr == "" && err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -174,5 +174,81 @@ func TestCheck(t *testing.T) {
 				t.Fatalf("expected keyID key-1, got %q", status.KeyID)
 			}
 		})
+	}
+}
+
+func TestCheck(t *testing.T) {
+	svc := healthyFakeService()
+	originalEncrypt := svc.EncryptFn
+	encryptCalls := 0
+	svc.EncryptFn = func(ctx context.Context, uid string, data []byte) (*kmsservice.EncryptResponse, error) {
+		encryptCalls++
+		if encryptCalls == 1 {
+			return nil, fmt.Errorf("temporary network error")
+		}
+		return originalEncrypt(ctx, uid, data)
+	}
+
+	checker := newTestChecker(svc)
+	checker.randReader = bytes.NewReader(bytes.Repeat([]byte{0xAB}, 64))
+	if _, err := checker.check(context.Background()); err != nil {
+		t.Fatalf("expected second attempt to succeed: %v", err)
+	}
+	if encryptCalls != 2 {
+		t.Fatalf("expected two encrypt calls, got %d", encryptCalls)
+	}
+}
+
+func TestCheckReturnsLastError(t *testing.T) {
+	svc := healthyFakeService()
+	calls := 0
+	svc.EncryptFn = func(context.Context, string, []byte) (*kmsservice.EncryptResponse, error) {
+		calls++
+		return nil, fmt.Errorf("encrypt error %d", calls)
+	}
+
+	checker := newTestChecker(svc)
+	checker.randReader = bytes.NewReader(bytes.Repeat([]byte{0xAB}, 64))
+	_, err := checker.check(context.Background())
+	if calls != 2 || err == nil || !strings.Contains(err.Error(), "encrypt error 2") {
+		t.Fatalf("expected the second encrypt error after two attempts, got %d attempts and %v", calls, err)
+	}
+}
+
+func TestCheckCancellationDuringLastAttempt(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	svc := healthyFakeService()
+	calls := 0
+	svc.EncryptFn = func(context.Context, string, []byte) (*kmsservice.EncryptResponse, error) {
+		calls++
+		if calls == 2 {
+			cancel()
+		}
+		return nil, fmt.Errorf("temporary network error")
+	}
+
+	checker := newTestChecker(svc)
+	checker.randReader = bytes.NewReader(bytes.Repeat([]byte{0xAB}, 64))
+	_, err := checker.check(ctx)
+	if calls != 2 || err != context.Canceled {
+		t.Fatalf("expected cancellation during the second attempt, got %d attempts and %v", calls, err)
+	}
+}
+
+func TestCheckCancellationBeforeRetry(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	svc := healthyFakeService()
+	calls := 0
+	svc.EncryptFn = func(context.Context, string, []byte) (*kmsservice.EncryptResponse, error) {
+		calls++
+		cancel()
+		return nil, fmt.Errorf("temporary network error")
+	}
+
+	_, err := newTestChecker(svc).check(ctx)
+	if calls != 1 || err != context.Canceled {
+		t.Fatalf("expected cancellation before retry, got %d attempts and %v", calls, err)
 	}
 }

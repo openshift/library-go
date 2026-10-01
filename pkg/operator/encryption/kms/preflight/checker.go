@@ -37,12 +37,35 @@ func newChecker(service kmsservice.Service) *checker {
 	}
 }
 
-func (c *checker) check(ctx context.Context) (*kmsservice.StatusResponse, error) {
+func (c *checker) checkInternal(ctx context.Context) (*kmsservice.StatusResponse, error) {
 	status, err := c.checkStatus(ctx)
 	if err != nil {
 		return status, err
 	}
 	return status, c.checkEncryptDecrypt(ctx)
+}
+
+// check gives the full preflight check one more attempt after a failure.
+func (c *checker) check(ctx context.Context) (*kmsservice.StatusResponse, error) {
+	var status *kmsservice.StatusResponse
+	var checkErr error
+	err := wait.ExponentialBackoffWithContext(ctx, wait.Backoff{
+		Duration: 10 * time.Second,
+		Factor:   1,
+		Steps:    2,
+	}, func(ctx context.Context) (bool, error) {
+		status, checkErr = c.checkInternal(ctx)
+		// A non-nil error here would stop the backoff instead of retrying.
+		return checkErr == nil, nil
+	})
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return status, ctxErr
+		}
+		// report the KMS error rather than the backoff timeout.
+		return status, checkErr
+	}
+	return status, nil
 }
 
 // checkStatus polls the KMS plugin status endpoint until it reports healthy.
