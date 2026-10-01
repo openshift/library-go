@@ -272,7 +272,7 @@ func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
 	}{
 		{name: "blocked plan", mode: state.KMS},
 		{name: "non-KMS mode", mode: state.AESCBC, keyID: 3},
-		{name: "steady key", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "a", MigratedRemoteKeyID: "a"}},
+		{name: "target equals migrated", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "a", MigratedRemoteKeyID: "a"}, wantUpdate: true},
 		{name: "bootstrap", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "a"}},
 		{name: "pending migration", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "b", MigratedRemoteKeyID: "a"}, wantUpdate: true},
 	} {

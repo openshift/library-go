@@ -248,8 +248,11 @@ func (c *keyController) reconcileCurrentKey(ctx context.Context, snap *KeyPlanni
 	if err != nil {
 		return err
 	}
-	// Continue remote-key rotation on the existing key only when migration is pending.
-	if !currentKey.RemoteKey().NeedsRemoteKeyMigration() {
+	// Skip until initial migration completes and sets a migrated remote key ID.
+	// Once established, keep reconciling even when target == migrated so external
+	// rotation reported by health checks can start the convergence clock.
+	rk := currentKey.RemoteKey()
+	if rk.TargetRemoteKeyID == "" || rk.MigratedRemoteKeyID == "" {
 		return nil
 	}
 
