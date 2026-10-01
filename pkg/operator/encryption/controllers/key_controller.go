@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -204,7 +205,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return err
 	}
 	if !plan.Needed {
-		return c.reconcileCurrentKey(ctx, snap, plan.KeyID)
+		return c.reconcileCurrentKey(ctx, syncContext.Recorder(), snap, plan.KeyID)
 	}
 
 	keySecret, preconditionMet, err := c.generateKeySecret(ctx, plan.KeyID, snap.CurrentMode, snap.PluginConfig, snap.desiredProviderCfg, plan.InternalReason, snap.ExternalReason)
@@ -230,7 +231,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	return nil
 }
 
-func (c *keyController) reconcileCurrentKey(ctx context.Context, snap *KeyPlanningSnapshot, keyID uint64) error {
+func (c *keyController) reconcileCurrentKey(ctx context.Context, recorder events.Recorder, snap *KeyPlanningSnapshot, keyID uint64) error {
 	if snap.CurrentMode != state.KMS || keyID == 0 {
 		return nil
 	}
@@ -248,6 +249,23 @@ func (c *keyController) reconcileCurrentKey(ctx context.Context, snap *KeyPlanni
 	if err != nil {
 		return err
 	}
+	if !currentKey.HasKMSPlugin() {
+		return fmt.Errorf("secret %s/%s is not a KMS key secret", keySecret.Namespace, keySecret.Name)
+	}
+
+	// Carry over non-migration-triggering plugin
+	// fields (image, TLS, auth, and the referenced credential/CA data) into the existing
+	// key secret in place. When an update is applied this sync, skip rotation; it resumes
+	// next sync once fields are stable.
+	updated, err := c.reconcileInPlaceFieldUpdate(ctx, snap, keySecret, currentKey)
+	if err != nil {
+		return err
+	}
+	if updated {
+		recorder.Eventf("EncryptionKeyFieldsUpdated", "Secret %q KMS plugin fields updated in place (no new key, no re-encryption)", keySecret.Name)
+		return nil
+	}
+
 	// Skip until initial migration completes and sets a migrated remote key ID.
 	// Once established, keep reconciling even when target == migrated so external
 	// rotation reported by health checks can start the convergence clock.
@@ -266,6 +284,92 @@ func (c *keyController) reconcileCurrentKey(ctx context.Context, snap *KeyPlanni
 	}
 
 	return reconcileRemoteKeyRotation(ctx, c.secretClient, keySecret.Name, *encryptionStatus, currentKey, clock.RealClock{})
+}
+
+// reconcileInPlaceFieldUpdate carries non-migration-triggering plugin fields through to the
+// existing KMS key secret in place, without minting a new key or re-encrypting. Because this
+// path is only reached when the provider instance is unchanged, only carry-over fields can
+// differ, never migration-triggering ones.
+//
+// The returned bool reports whether an update was applied and so the in-place path owns this
+// sync and rotation must be skipped. A failed update (including a conflict) is returned as an
+// error; the controller then resyncs on its periodic timer and re-attempts the update.
+//
+// The caller guarantees currentKey carries a KMS plugin (currentKey.HasKMSPlugin()).
+func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, snap *KeyPlanningSnapshot, keySecret *corev1.Secret, currentKey state.KeyState) (bool, error) {
+	// Resolve the desired carry-over state: the plugin config plus the referenced Secret/ConfigMap
+	// data. Key material and the KMS encryption config are intentionally left untouched here — only
+	// carry-over fields are refreshed (that is buildEncryptionKeyState's job at key-creation time).
+	desiredKMS := &state.KMSState{Plugin: snap.PluginConfig}
+	refSecret, refCM, err := fetchReferencedResources(ctx, snap.desiredProviderCfg, c.secretClient, c.configMapClient, openshiftConfigNS)
+	if err != nil {
+		return false, err
+	}
+	if refSecret != nil {
+		secretName, expectedKeys, err := snap.desiredProviderCfg.referencedSecretName()
+		if err != nil {
+			return false, err
+		}
+		for _, key := range expectedKeys {
+			if err := desiredKMS.PluginSecretData.Set(secretName, key, refSecret.Data[key]); err != nil {
+				return false, err
+			}
+		}
+	}
+	if refCM != nil {
+		cmName, expectedKeys, err := snap.desiredProviderCfg.referencedConfigMapName()
+		if err != nil {
+			return false, err
+		}
+		for _, key := range expectedKeys {
+			if err := desiredKMS.PluginConfigMapData.Set(cmName, key, []byte(refCM.Data[key])); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	// We compare .Plugin as a whole for simplicity, but we don't expect the migration-triggering
+	// fields to differ here: this path only runs for an unchanged provider instance, so this
+	// comparison is really meant to catch changes in carry-over fields (image, auth, TLS).
+	// FlatEntries returns unordered maps, but DeepEqual compares them by key and value, so this
+	// comparison is safe.
+	if equality.Semantic.DeepEqual(currentKey.KMS.Plugin, desiredKMS.Plugin) &&
+		equality.Semantic.DeepEqual(currentKey.KMS.PluginSecretData.FlatEntries(), desiredKMS.PluginSecretData.FlatEntries()) &&
+		equality.Semantic.DeepEqual(currentKey.KMS.PluginConfigMapData.FlatEntries(), desiredKMS.PluginConfigMapData.FlatEntries()) {
+		return false, nil
+	}
+
+	// TODO(in-place-preflight): gate this write on the KMS preflight check, as
+	// generateKeySecret does for new keys (see key_controller.go generateKeySecret):
+	// compute the config hash via newKMSConfigHasher(...).hash(ctx), fetch
+	// GetKMSEncryptionStatus, and back off when ensureKMSPreflightPassed returns
+	// (false, nil). Without this gate an unvalidated image/credential can reach the
+	// plugin. The fetched refSecret/refCM above can feed prefetchedKMSConfigHasherResourceProvider.
+
+	// Overlay only the carry-over fields onto the existing key state and re-serialize. The
+	// desired plugin fields alone cannot be serialized directly: FromKeyState rebuilds the
+	// whole Data map (key material + KMS encryption config + plugin config + referenced data,
+	// pruning stale entries), so it needs the complete state carried in currentKey.
+	currentKey.KMS.Plugin = desiredKMS.Plugin
+	currentKey.KMS.PluginSecretData = desiredKMS.PluginSecretData
+	currentKey.KMS.PluginConfigMapData = desiredKMS.PluginConfigMapData
+
+	desired, err := secrets.FromKeyState(c.instanceName, currentKey)
+	if err != nil {
+		return false, err
+	}
+
+	// Write back only Data, onto a copy of the snapshot secret (whose resourceVersion drives
+	// optimistic concurrency). Annotations are never touched, so remote-key rotation annotations
+	// and any externally-set annotations are preserved.
+	s := keySecret.DeepCopy()
+	s.Data = desired.Data
+	// A failed update is propagated as an error so rotation is skipped this sync; the controller
+	// resyncs on its periodic timer and re-attempts the update with a fresh read.
+	if _, err := c.secretClient.Secrets(encryptionConfigManagedNS).Update(ctx, s, metav1.UpdateOptions{}); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
