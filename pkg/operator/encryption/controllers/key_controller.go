@@ -336,13 +336,6 @@ func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, snap *K
 	s := keySecret.DeepCopy()
 	s.Data = desired.Data
 	if _, err := c.secretClient.Secrets(encryptionConfigManagedNS).Update(ctx, s, metav1.UpdateOptions{}); err != nil {
-		if errors.IsConflict(err) {
-			// The secret changed under us. Drop this stale read and let the next sync
-			// re-attempt the update; hold off rotation so it does not race the pending
-			// field update.
-			klog.V(4).Infof("in-place KMS field update for %s/%s conflicted, deferring to next sync", s.Namespace, keySecret.Name)
-			return true, nil
-		}
 		return false, err
 	}
 	return true, nil
