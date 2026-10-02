@@ -525,7 +525,7 @@ func (c *keyController) ensureKMSPreflightPassed(ctx context.Context, configHash
 		return true, nil
 	}
 	// Scenario 3: preflight failed — surface the error.
-	if isPreflightResultFailed(&encryptionStatus.Preflight.Result, configHash) {
+	if failed, _ := isPreflightResultFailed(&encryptionStatus.Preflight.Result, configHash); failed {
 		return false, fmt.Errorf("KMS preflight check failed for config hash %s; fix the KMS configuration to proceed", configHash)
 	}
 	// Scenario 4: back off: preflight check is still in progress.

@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	clocktesting "k8s.io/utils/clock/testing"
+	"k8s.io/utils/ptr"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -333,15 +335,45 @@ type fakeDeployer struct {
 	deployedEncryptionConfig *corev1.Secret
 }
 
-func (f *fakeDeployer) Deploy(_ context.Context, configHash string, encryptionConfig *corev1.Secret) error {
+type fakeAttemptDeployer struct {
+	fakeDeployer
+	attempt int32
+}
+
+func (f *fakeAttemptDeployer) Deploy(ctx context.Context, hash string, secret *corev1.Secret, modify func(*corev1.Pod)) error {
+	pod := &corev1.Pod{}
+	modify(pod)
+	n, _ := strconv.ParseInt(pod.Annotations["encryption.apiserver.operator.openshift.io/kms-preflight-attempt"], 10, 32)
+	f.attempt = int32(n)
+	f.statusErr = nil
+	return f.fakeDeployer.Deploy(ctx, hash, secret, nil)
+}
+
+func (f *fakeAttemptDeployer) Status(ctx context.Context) (string, corev1.PodStatus, int32, error) {
+	hash, status, _, err := f.fakeDeployer.Status(ctx)
+	return hash, status, f.attempt, err
+}
+
+func (f *fakeAttemptDeployer) Cleanup(ctx context.Context) error {
+	if err := f.fakeDeployer.Cleanup(ctx); err != nil {
+		return err
+	}
+	f.statusErr = apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")
+	return nil
+}
+
+func (f *fakeDeployer) Deploy(_ context.Context, configHash string, encryptionConfig *corev1.Secret, modify func(*corev1.Pod)) error {
+	if modify != nil {
+		modify(&corev1.Pod{})
+	}
 	f.deployed = true
 	f.deployedHash = configHash
 	f.deployedEncryptionConfig = encryptionConfig
 	return f.deployErr
 }
 
-func (f *fakeDeployer) Status(_ context.Context) (string, corev1.PodStatus, error) {
-	return f.deployedHash, f.podStatus, f.statusErr
+func (f *fakeDeployer) Status(_ context.Context) (string, corev1.PodStatus, int32, error) {
+	return f.deployedHash, f.podStatus, 1, f.statusErr
 }
 
 func (f *fakeDeployer) Cleanup(_ context.Context) error {
@@ -383,6 +415,299 @@ func (f *fakeEncryptionStatusProvider) UpdateKMSEncryptionStatus(_ context.Conte
 }
 
 var _ kms.EncryptionStatusProvider = &fakeEncryptionStatusProvider{}
+
+func TestKMSPreflightRetries(t *testing.T) {
+	const hash = "I2-fBw=="
+	now := time.Now()
+	failedResult := func(attempts int32) *operatorv1.KMSPreflightResult {
+		return &operatorv1.KMSPreflightResult{
+			Status:         operatorv1.KMSPreflightResultFailed,
+			ConfigHash:     hash,
+			FailedAttempts: attempts,
+		}
+	}
+	checkPod := func(status corev1.ConditionStatus, at time.Time) corev1.PodStatus {
+		phase := corev1.PodSucceeded
+		if status == corev1.ConditionFalse {
+			phase = corev1.PodFailed
+		}
+		return corev1.PodStatus{
+			Phase: phase,
+			Conditions: []corev1.PodCondition{{
+				Type:               KMSPreflightResultPodCondition,
+				Status:             status,
+				LastTransitionTime: metav1.NewTime(at),
+			}},
+		}
+	}
+	crashedPod := func(at time.Time) corev1.PodStatus {
+		return corev1.PodStatus{
+			Phase:     corev1.PodFailed,
+			StartTime: ptr.To(metav1.NewTime(at.Add(-time.Minute))),
+			ContainerStatuses: []corev1.ContainerStatus{{
+				Name: "kms-preflight-check",
+				State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+					ExitCode:   1,
+					Reason:     "Error",
+					FinishedAt: metav1.NewTime(at),
+				}},
+			}},
+		}
+	}
+
+	tests := []struct {
+		name             string
+		existingResult   *operatorv1.KMSPreflightResult
+		podExists        bool
+		podAttempt       int32
+		podStatus        corev1.PodStatus
+		statusUpdateErr  error
+		cleanupErr       error
+		deployerClean    bool
+		wantRequeue      bool
+		wantProgress     string
+		wantMessage      string
+		wantError        string
+		wantDeploy       bool
+		wantAttempt      int32
+		wantCleanupCount int
+		wantUpdateCalls  int
+		wantResult       *operatorv1.KMSPreflightResult
+	}{
+		{
+			name:         "deploy first attempt",
+			wantRequeue:  true,
+			wantProgress: "RunningPreflightCheck",
+			wantMessage:  "Deploying preflight pod for hash " + hash,
+			wantDeploy:   true,
+			wantAttempt:  1,
+		},
+		{
+			name:           "deploy next attempt from recorded failure",
+			existingResult: failedResult(1),
+			wantRequeue:    true,
+			wantProgress:   "RunningPreflightCheck",
+			wantMessage:    "Deploying preflight pod for hash " + hash,
+			wantError:      "retrying failed preflight",
+			wantDeploy:     true,
+			wantAttempt:    2,
+			wantResult:     failedResult(1),
+		},
+		{
+			name:           "wait for running retry",
+			existingResult: failedResult(1),
+			podExists:      true,
+			podAttempt:     2,
+			podStatus:      corev1.PodStatus{Phase: corev1.PodRunning},
+			wantRequeue:    true,
+			wantProgress:   "RunningPreflightCheck",
+			wantMessage:    "Waiting for preflight pod to report result for " + hash,
+			wantError:      "retrying failed preflight",
+			wantResult:     failedResult(1),
+		},
+		{
+			name:        "reject pod without attempt annotation",
+			podExists:   true,
+			podStatus:   corev1.PodStatus{Phase: corev1.PodRunning},
+			wantRequeue: true,
+			wantError:   "no valid attempt annotation",
+		},
+		{
+			name:            "record failure and keep pod during retry delay",
+			podExists:       true,
+			podAttempt:      1,
+			podStatus:       checkPod(corev1.ConditionFalse, now),
+			wantRequeue:     true,
+			wantProgress:    "RunningPreflightCheck",
+			wantMessage:     "Waiting before retrying preflight",
+			wantError:       "preflight check failed",
+			wantUpdateCalls: 1,
+			wantResult:      failedResult(1),
+		},
+		{
+			name:            "report failure and status update error",
+			podExists:       true,
+			podAttempt:      1,
+			podStatus:       checkPod(corev1.ConditionFalse, now),
+			statusUpdateErr: fmt.Errorf("status update failed"),
+			wantError:       "also failed to write preflight result: status update failed",
+			wantUpdateCalls: 1,
+		},
+		{
+			name:           "do not record same failed pod twice",
+			existingResult: failedResult(1),
+			podExists:      true,
+			podAttempt:     1,
+			podStatus:      checkPod(corev1.ConditionFalse, now),
+			wantRequeue:    true,
+			wantProgress:   "RunningPreflightCheck",
+			wantMessage:    "Waiting before retrying preflight",
+			wantError:      "preflight check failed",
+			wantResult:     failedResult(1),
+		},
+		{
+			name:             "clean up failed check after retry delay",
+			podExists:        true,
+			podAttempt:       1,
+			podStatus:        checkPod(corev1.ConditionFalse, now.Add(-3*time.Minute)),
+			wantRequeue:      true,
+			wantProgress:     "RunningPreflightCheck",
+			wantMessage:      "Retrying preflight",
+			wantError:        "preflight check failed",
+			wantCleanupCount: 1,
+			wantUpdateCalls:  1,
+			wantResult:       failedResult(1),
+		},
+		{
+			name:             "report cleanup error after retry delay",
+			podExists:        true,
+			podAttempt:       1,
+			podStatus:        checkPod(corev1.ConditionFalse, now.Add(-3*time.Minute)),
+			cleanupErr:       fmt.Errorf("cleanup failed"),
+			wantRequeue:      true,
+			wantError:        "cleanup failed",
+			wantCleanupCount: 1,
+			wantUpdateCalls:  1,
+			wantResult:       failedResult(1),
+		},
+		{
+			name:           "succeed on retry",
+			existingResult: failedResult(1),
+			podExists:      true,
+			podAttempt:     2,
+			podStatus: func() corev1.PodStatus {
+				status := checkPod(corev1.ConditionTrue, now)
+				status.Conditions = append(status.Conditions, corev1.PodCondition{Type: KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "remote-key"})
+				return status
+			}(),
+			wantCleanupCount: 1,
+			wantUpdateCalls:  1,
+			wantResult: &operatorv1.KMSPreflightResult{
+				Status:         operatorv1.KMSPreflightResultSucceeded,
+				ConfigHash:     hash,
+				RemoteKeyID:    "remote-key",
+				FailedAttempts: 1,
+			},
+		},
+		{
+			name:             "retry crashed pod",
+			existingResult:   failedResult(1),
+			podExists:        true,
+			podAttempt:       2,
+			podStatus:        crashedPod(now.Add(-3 * time.Minute)),
+			wantRequeue:      true,
+			wantProgress:     "RunningPreflightCheck",
+			wantMessage:      "Retrying preflight",
+			wantError:        "preflight pod failed",
+			wantCleanupCount: 1,
+			wantUpdateCalls:  1,
+			wantResult:       failedResult(2),
+		},
+		{
+			name:           "retry crashed pod with only pod reason",
+			existingResult: failedResult(1),
+			podExists:      true,
+			podAttempt:     2,
+			podStatus: corev1.PodStatus{
+				Phase:  corev1.PodFailed,
+				Reason: "Evicted",
+			},
+			wantRequeue:      true,
+			wantProgress:     "RunningPreflightCheck",
+			wantMessage:      "Retrying preflight",
+			wantError:        "preflight pod failed for hash " + hash + ": unknown",
+			wantCleanupCount: 1,
+			wantUpdateCalls:  1,
+			wantResult:       failedResult(2),
+		},
+		{
+			name:            "stop after final failed check",
+			existingResult:  failedResult(2),
+			podExists:       true,
+			podAttempt:      3,
+			podStatus:       checkPod(corev1.ConditionFalse, now.Add(-3*time.Minute)),
+			wantError:       "preflight check failed",
+			wantUpdateCalls: 1,
+			wantResult:      failedResult(3),
+		},
+		{
+			name:            "stop after final crashed pod",
+			existingResult:  failedResult(2),
+			podExists:       true,
+			podAttempt:      3,
+			podStatus:       crashedPod(now.Add(-3 * time.Minute)),
+			wantError:       "preflight pod failed",
+			wantUpdateCalls: 1,
+			wantResult:      failedResult(3),
+		},
+		{
+			name:           "do not deploy after attempts exhausted",
+			existingResult: failedResult(3),
+			wantError:      "preflight exhausted 3 attempts",
+			wantResult:     failedResult(3),
+		},
+		{
+			name:           "skip cleanup when succeeded result is already clean",
+			existingResult: &operatorv1.KMSPreflightResult{Status: operatorv1.KMSPreflightResultSucceeded, ConfigHash: hash, FailedAttempts: 1},
+			deployerClean:  true,
+			wantResult:     &operatorv1.KMSPreflightResult{Status: operatorv1.KMSPreflightResultSucceeded, ConfigHash: hash, FailedAttempts: 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			apiServer := &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.APIServerSpec{Encryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: defaultKMSConfigReference}}}
+			configClient := configv1clientfake.NewSimpleClientset(apiServer)
+			coreClient := fake.NewSimpleClientset(&wellKnownBaseSecret, &wellKnownBaseConfigMap)
+			deployer := &fakeAttemptDeployer{
+				fakeDeployer: fakeDeployer{
+					deployedHash: hash,
+					podStatus:    tt.podStatus,
+					cleanupErr:   tt.cleanupErr,
+				},
+				attempt: tt.podAttempt,
+			}
+			if !tt.podExists {
+				deployer.statusErr = apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")
+			}
+			status := &fakeEncryptionStatusProvider{observedConfigHash: hash, writtenStatus: tt.existingResult, updateErr: tt.statusUpdateErr}
+			c := &kmsPreflightController{
+				apiServerClient: configClient.ConfigV1().APIServers(), dynamicClient: newKMSDynamicClient(t),
+				secretsClient: coreClient.CoreV1(), configMapsClient: coreClient.CoreV1(),
+				deployer: deployer, encryptionConfigurationComputer: &fakeEncryptionConfigurationComputer{secret: &corev1.Secret{}},
+				encryptionStatusProvider: status, dirtyDeployer: !tt.deployerClean,
+			}
+
+			requeue, progressReason, progressMessage, err := c.runPreflightChecks(context.Background())
+			if requeue != tt.wantRequeue {
+				t.Errorf("requeue = %v, want %v", requeue, tt.wantRequeue)
+			}
+			if progressReason != tt.wantProgress || progressMessage != tt.wantMessage {
+				t.Errorf("progress = (%q, %q), want (%q, %q)", progressReason, progressMessage, tt.wantProgress, tt.wantMessage)
+			}
+			if tt.wantError == "" && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			} else if tt.wantError != "" && (err == nil || !strings.Contains(err.Error(), tt.wantError)) {
+				t.Errorf("error = %v, want error containing %q", err, tt.wantError)
+			}
+			if deployer.deployed != tt.wantDeploy {
+				t.Errorf("deployed = %v, want %v", deployer.deployed, tt.wantDeploy)
+			}
+			if tt.wantDeploy && deployer.attempt != tt.wantAttempt {
+				t.Errorf("deployed attempt = %d, want %d", deployer.attempt, tt.wantAttempt)
+			}
+			if deployer.cleanupCount != tt.wantCleanupCount {
+				t.Errorf("cleanup calls = %d, want %d", deployer.cleanupCount, tt.wantCleanupCount)
+			}
+			if status.updateCallCount != tt.wantUpdateCalls {
+				t.Errorf("status update calls = %d, want %d", status.updateCallCount, tt.wantUpdateCalls)
+			}
+			if !equality.Semantic.DeepEqual(status.writtenStatus, tt.wantResult) {
+				t.Errorf("result = %#v, want %#v", status.writtenStatus, tt.wantResult)
+			}
+		})
+	}
+}
 
 type fakeEncryptionConfigurationComputer struct {
 	secret    *corev1.Secret
@@ -467,27 +792,29 @@ func TestKMSPreflightController(t *testing.T) {
 		},
 		{
 			// Scenario 2a: terminal — admin must change config.
-			name:     "result already Failed, pod manually removed — surface error without re-deploying",
+			name:     "result already Failed three times, pod manually removed — surface error without re-deploying",
 			deployer: &fakeDeployer{statusErr: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")},
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{
 				observedConfigHash: wellKnownMatchingHashForBaseVaultConfig,
 				writtenStatus: &operatorv1.KMSPreflightResult{
-					Status:     operatorv1.KMSPreflightResultFailed,
-					ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+					Status:         operatorv1.KMSPreflightResultFailed,
+					ConfigHash:     wellKnownMatchingHashForBaseVaultConfig,
+					FailedAttempts: 3,
 				},
 			},
 			apiServerObjects:     []runtime.Object{apiServerWithKMS},
 			coreObjects:          []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer: true,
 			preconditionsMet:     true,
-			expectedError:        "preflight check failed for hash I2-fBw==: pod was removed but failure is recorded in status",
+			expectedError:        "preflight exhausted 3 attempts for hash I2-fBw==",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash I2-fBw==: pod was removed but failure is recorded in status"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight exhausted 3 attempts for hash I2-fBw=="},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
-				Status:     operatorv1.KMSPreflightResultFailed,
-				ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				Status:         operatorv1.KMSPreflightResultFailed,
+				ConfigHash:     wellKnownMatchingHashForBaseVaultConfig,
+				FailedAttempts: 3,
 			},
 		},
 		{
@@ -592,13 +919,14 @@ func TestKMSPreflightController(t *testing.T) {
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
-				Status:      operatorv1.KMSPreflightResultSucceeded,
-				ConfigHash:  wellKnownMatchingHashForBaseVaultConfig,
-				RemoteKeyID: "remote-key-abc",
+				Status:         operatorv1.KMSPreflightResultSucceeded,
+				ConfigHash:     wellKnownMatchingHashForBaseVaultConfig,
+				RemoteKeyID:    "remote-key-abc",
+				FailedAttempts: 1,
 			},
 		},
 		{
-			// Scenario 3e: terminal — check failed.
+			// Scenario 3e: retryable — check failed.
 			name: "pod exists, hash matches, result is False, reports error",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -614,13 +942,14 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError:            "preflight check failed for hash I2-fBw==: encrypt call failed",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash I2-fBw==: encrypt call failed"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting before retrying preflight"},
 			},
 			expectedEncryptionStatusProviderUpdateCalls: 1,
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
-				Status:      operatorv1.KMSPreflightResultFailed,
-				ConfigHash:  wellKnownMatchingHashForBaseVaultConfig,
-				RemoteKeyID: "remote-key-xyz",
+				Status:         operatorv1.KMSPreflightResultFailed,
+				ConfigHash:     wellKnownMatchingHashForBaseVaultConfig,
+				RemoteKeyID:    "remote-key-xyz",
+				FailedAttempts: 1,
 			},
 		},
 		{
@@ -654,7 +983,7 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3e: ensurePreflightResult is a no-op (already written), terminal.
+			// Scenario 3e: ensurePreflightResult is a no-op (already written), retryable.
 			name: "result already written for this hash (failed), ensurePreflightResult is a no-op",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{
@@ -664,8 +993,9 @@ func TestKMSPreflightController(t *testing.T) {
 			encryptionStatusProvider: &fakeEncryptionStatusProvider{
 				observedConfigHash: wellKnownMatchingHashForBaseVaultConfig,
 				writtenStatus: &operatorv1.KMSPreflightResult{
-					Status:     operatorv1.KMSPreflightResultFailed,
-					ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+					Status:         operatorv1.KMSPreflightResultFailed,
+					ConfigHash:     wellKnownMatchingHashForBaseVaultConfig,
+					FailedAttempts: 1,
 				},
 			},
 			apiServerObjects:     []runtime.Object{apiServerWithKMS},
@@ -676,11 +1006,12 @@ func TestKMSPreflightController(t *testing.T) {
 			expectedError: "preflight check failed for hash I2-fBw==: encrypt call failed",
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "PreflightCheckFailed", Message: "preflight check failed for hash I2-fBw==: encrypt call failed"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting before retrying preflight"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
-				Status:     operatorv1.KMSPreflightResultFailed,
-				ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				Status:         operatorv1.KMSPreflightResultFailed,
+				ConfigHash:     wellKnownMatchingHashForBaseVaultConfig,
+				FailedAttempts: 1,
 			},
 		},
 		{
@@ -754,8 +1085,8 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3b: terminal — pod crashed.
-			name: "pod crashed without reporting conditions, keeps pod for inspection",
+			// Scenario 3b: retryable — pod crashed.
+			name: "pod crashed without reporting conditions, waits before retrying",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodFailed,
 				ContainerStatuses: []corev1.ContainerStatus{
@@ -777,9 +1108,15 @@ func TestKMSPreflightController(t *testing.T) {
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
 			expectedError:            "preflight pod failed for hash I2-fBw==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused",
+			expectedEncryptionStatusProviderUpdateCalls: 1,
+			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
+				Status:         operatorv1.KMSPreflightResultFailed,
+				ConfigHash:     wellKnownMatchingHashForBaseVaultConfig,
+				FailedAttempts: 1,
+			},
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash I2-fBw==: at least one container kms-preflight-check exited with 1 (Unknown): connection refused"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Waiting before retrying preflight"},
 			},
 		},
 		{
@@ -935,25 +1272,32 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
-			// Scenario 3b: terminal — pod crashed, no terminated container.
-			name: "pod crashed, no terminated container, keeps pod for inspection",
+			// Scenario 3b: retryable — pod crashed, no terminated container.
+			name: "pod crashed, no terminated container, retries",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase:   corev1.PodFailed,
 				Message: "node lost",
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
-			apiServerObjects:         []runtime.Object{apiServerWithKMS},
-			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			initialDirtyDeployer:     true,
-			preconditionsMet:         true,
-			expectedError:            "preflight pod failed for hash I2-fBw==: node lost",
+			encryptionStatusProvider:                    &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
+			apiServerObjects:                            []runtime.Object{apiServerWithKMS},
+			coreObjects:                                 []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:                        true,
+			preconditionsMet:                            true,
+			expectedError:                               "preflight pod failed for hash I2-fBw==: node lost",
+			expectedPreflightDeployerCleanupCount:       1,
+			expectedEncryptionStatusProviderUpdateCalls: 1,
+			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
+				Status:         operatorv1.KMSPreflightResultFailed,
+				ConfigHash:     wellKnownMatchingHashForBaseVaultConfig,
+				FailedAttempts: 1,
+			},
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash I2-fBw==: node lost"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Retrying preflight"},
 			},
 		},
 		{
-			// Scenario 3b: terminal — pod crashed with non-zero exit code.
+			// Scenario 3b: retryable — pod crashed with non-zero exit code.
 			name: "pod crashed with terminated container, no message, uses exit code",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
 				Phase: corev1.PodFailed,
@@ -968,15 +1312,22 @@ func TestKMSPreflightController(t *testing.T) {
 					},
 				},
 			}},
-			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
-			apiServerObjects:         []runtime.Object{apiServerWithKMS},
-			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
-			initialDirtyDeployer:     true,
-			preconditionsMet:         true,
-			expectedError:            "preflight pod failed for hash I2-fBw==: at least one container kms-preflight-check exited with 137 (Unknown)",
+			encryptionStatusProvider:                    &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
+			apiServerObjects:                            []runtime.Object{apiServerWithKMS},
+			coreObjects:                                 []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:                        true,
+			preconditionsMet:                            true,
+			expectedError:                               "preflight pod failed for hash I2-fBw==: at least one container kms-preflight-check exited with 137 (Unknown)",
+			expectedPreflightDeployerCleanupCount:       1,
+			expectedEncryptionStatusProviderUpdateCalls: 1,
+			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
+				Status:         operatorv1.KMSPreflightResultFailed,
+				ConfigHash:     wellKnownMatchingHashForBaseVaultConfig,
+				FailedAttempts: 1,
+			},
 			expectedConditions: []operatorv1.OperatorCondition{
 				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash I2-fBw==: at least one container kms-preflight-check exited with 137 (Unknown)"},
-				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "True", Reason: "RunningPreflightCheck", Message: "Retrying preflight"},
 			},
 		},
 		{
