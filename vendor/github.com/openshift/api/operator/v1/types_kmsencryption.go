@@ -140,9 +140,18 @@ const (
 )
 
 // KMSPreflightResult contains the outcome of a preflight validation.
+// A successful result requires remoteKeyID; a failed result may omit it.
 //
 // +openshift:compatibility-gen:level=1
+// +kubebuilder:validation:XValidation:rule="self.status != 'Succeeded' || has(self.remoteKeyID)",message="remoteKeyID is required when status is Succeeded"
 type KMSPreflightResult struct {
+	// failedAttempts is the number of failed preflight pod attempts for configHash.
+	// It is required with every result and resets for a new configuration.
+	// Zero means no failed attempts have been recorded.
+	// +required
+	// +kubebuilder:validation:Minimum=0
+	FailedAttempts int32 `json:"failedAttempts"`
+
 	// status indicates the outcome of the preflight check.
 	// Succeeded means the KMS plugin responded to Status, Encrypt, and
 	// Decrypt calls successfully.
@@ -164,8 +173,9 @@ type KMSPreflightResult struct {
 	// StatusResponse.key_id. This is not a cryptographic key, but a unique
 	// representation of the remote key used to encrypt data.
 	// The value must be between 1 and 1024 characters.
+	// When the preflight fails before receiving an ID, this field is omitted.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=1024
-	// +required
+	// +optional
 	RemoteKeyID string `json:"remoteKeyID,omitempty"`
 }

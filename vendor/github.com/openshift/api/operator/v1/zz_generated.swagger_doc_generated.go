@@ -1423,10 +1423,11 @@ func (KMSPreflightCheck) SwaggerDoc() map[string]string {
 }
 
 var map_KMSPreflightResult = map[string]string{
-	"":            "KMSPreflightResult contains the outcome of a preflight validation.",
-	"status":      "status indicates the outcome of the preflight check. Succeeded means the KMS plugin responded to Status, Encrypt, and Decrypt calls successfully. Failed means the validation did not pass.",
-	"configHash":  "configHash is the hash of the configuration that was validated. This is compared against observedConfigHash to confirm the result corresponds to the current configuration. The value must be exactly 8 characters.",
-	"remoteKeyID": "remoteKeyID is the remote key encryption key identifier from KMS v2 StatusResponse.key_id. This is not a cryptographic key, but a unique representation of the remote key used to encrypt data. The value must be between 1 and 1024 characters.",
+	"":               "KMSPreflightResult contains the outcome of a preflight validation. A successful result requires remoteKeyID; a failed result may omit it.",
+	"failedAttempts": "failedAttempts is the number of failed preflight pod attempts for configHash. It is required with every result and resets for a new configuration. Zero means no failed attempts have been recorded.",
+	"status":         "status indicates the outcome of the preflight check. Succeeded means the KMS plugin responded to Status, Encrypt, and Decrypt calls successfully. Failed means the validation did not pass.",
+	"configHash":     "configHash is the hash of the configuration that was validated. This is compared against observedConfigHash to confirm the result corresponds to the current configuration. The value must be exactly 8 characters.",
+	"remoteKeyID":    "remoteKeyID is the remote key encryption key identifier from KMS v2 StatusResponse.key_id. This is not a cryptographic key, but a unique representation of the remote key used to encrypt data. The value must be between 1 and 1024 characters. When the preflight fails before receiving an ID, this field is omitted.",
 }
 
 func (KMSPreflightResult) SwaggerDoc() map[string]string {
