@@ -2,18 +2,23 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 	clocktesting "k8s.io/utils/clock/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
@@ -262,6 +267,163 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 	}
 }
 
+func TestReconcileInPlaceFieldUpdate(t *testing.T) {
+	// The stored key carries the baseline vault config, AppRole credentials, and CA bundle.
+	storedPlugin := kms.KMSPluginConfig{
+		TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+		Type:     kms.VaultKMSProvider,
+		Vault:    wellKnownBaseVaultConfig,
+	}
+	storedPlugin.Vault.VaultKeyPath = "transit/keys/old-key"
+
+	for _, tc := range []struct {
+		name       string
+		refSecret  map[string][]byte
+		refCM      map[string]string
+		wantUpdate bool
+	}{
+		{
+			name:       "no change is a no-op",
+			refSecret:  map[string][]byte{"role-id": []byte("old-role-id"), "secret-id": []byte("old-secret-id")},
+			refCM:      map[string]string{"ca-bundle.crt": "old-ca-cert"},
+			wantUpdate: false,
+		},
+		{
+			name:       "rotated referenced credential writes in place",
+			refSecret:  map[string][]byte{"role-id": []byte("new-role-id"), "secret-id": []byte("new-secret-id")},
+			refCM:      map[string]string{"ca-bundle.crt": "old-ca-cert"},
+			wantUpdate: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), []schema.GroupResource{{Resource: "secrets"}}, "3")
+			// Annotations (remote-key rotation plus an unrelated one) must survive an in-place
+			// Data write — the writer only ever rewrites s.Data.
+			secret.Annotations["example.com/unrelated"] = "keep-me"
+			setRemoteKeyAnnotations(t, secret.Annotations, state.RemoteKeyState{TargetRemoteKeyID: "remote-old", MigratedRemoteKeyID: "remote-old"})
+			currentKey, err := secrets.ToKeyState(secret)
+			if err != nil {
+				t.Fatal(err)
+			}
+			providerCfg, err := newKMSProviderConfig(storedPlugin, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			refSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: openshiftConfigNS, Name: "vault-approle"},
+				Data:       tc.refSecret,
+			}
+			refCM := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: openshiftConfigNS, Name: "vault-ca-bundle"},
+				Data:       tc.refCM,
+			}
+			client := fake.NewSimpleClientset(secret, refSecret, refCM)
+			c := &keyController{secretClient: client.CoreV1(), configMapClient: client.CoreV1()}
+			snap := &KeyPlanningSnapshot{
+				CurrentMode:        state.KMS,
+				PluginConfig:       storedPlugin,
+				desiredProviderCfg: providerCfg,
+				State:              EncryptionStateSnapshot{KeySecrets: []*corev1.Secret{secret}},
+			}
+
+			updated, err := c.reconcileInPlaceFieldUpdate(context.Background(), snap, secret, currentKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if updated != tc.wantUpdate {
+				t.Fatalf("expected updated=%v, got %v", tc.wantUpdate, updated)
+			}
+
+			gotUpdate := false
+			for _, a := range client.Actions() {
+				if a.GetVerb() == "update" {
+					gotUpdate = true
+				}
+			}
+			if gotUpdate != tc.wantUpdate {
+				t.Fatalf("expected Secret Update=%v, got actions %v", tc.wantUpdate, client.Actions())
+			}
+			if !tc.wantUpdate {
+				return
+			}
+
+			persisted, err := client.CoreV1().Secrets(secret.Namespace).Get(context.Background(), secret.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ks, err := secrets.ToKeyState(persisted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := string(ks.KMS.PluginSecretData.FlatEntries()["vault-approle_role-id"]); got != "new-role-id" {
+				t.Fatalf("expected rotated role-id to be carried into the key secret, got %q", got)
+			}
+			if persisted.Annotations["example.com/unrelated"] != "keep-me" {
+				t.Fatalf("expected unrelated annotation to be preserved, got %#v", persisted.Annotations)
+			}
+			if persisted.Annotations[annotationTargetRemoteKeyID] != "remote-old" || persisted.Annotations[annotationMigratedRemoteKeyID] != "remote-old" {
+				t.Fatalf("expected remote-key annotations to be preserved, got %#v", persisted.Annotations)
+			}
+		})
+	}
+}
+
+// TestReconcileInPlaceFieldUpdateDefersOnConflict asserts that a conflicting Update is not
+// retried inline: the in-place path reports it owns the sync (so rotation is skipped) and
+// returns no error, deferring the write to the next sync.
+func TestReconcileInPlaceFieldUpdateDefersOnConflict(t *testing.T) {
+	storedPlugin := kms.KMSPluginConfig{
+		TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+		Type:     kms.VaultKMSProvider,
+		Vault:    wellKnownBaseVaultConfig,
+	}
+	storedPlugin.Vault.VaultKeyPath = "transit/keys/old-key"
+
+	secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), []schema.GroupResource{{Resource: "secrets"}}, "3")
+	currentKey, err := secrets.ToKeyState(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	providerCfg, err := newKMSProviderConfig(storedPlugin, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A rotated referenced credential forces an in-place write attempt.
+	refSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Namespace: openshiftConfigNS, Name: "vault-approle"},
+		Data:       map[string][]byte{"role-id": []byte("new-role-id"), "secret-id": []byte("new-secret-id")},
+	}
+	refCM := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Namespace: openshiftConfigNS, Name: "vault-ca-bundle"},
+		Data:       map[string]string{"ca-bundle.crt": "old-ca-cert"},
+	}
+	client := fake.NewSimpleClientset(secret, refSecret, refCM)
+	updates := 0
+	client.PrependReactor("update", "secrets", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		updates++
+		return true, nil, apierrors.NewConflict(schema.GroupResource{Resource: "secrets"}, secret.Name, fmt.Errorf("conflict"))
+	})
+
+	c := &keyController{instanceName: "test", secretClient: client.CoreV1(), configMapClient: client.CoreV1()}
+	snap := &KeyPlanningSnapshot{
+		CurrentMode:        state.KMS,
+		PluginConfig:       storedPlugin,
+		desiredProviderCfg: providerCfg,
+		State:              EncryptionStateSnapshot{KeySecrets: []*corev1.Secret{secret}},
+	}
+
+	owned, err := c.reconcileInPlaceFieldUpdate(context.Background(), snap, secret, currentKey)
+	if err != nil {
+		t.Fatalf("expected conflict to be swallowed, got error: %v", err)
+	}
+	if !owned {
+		t.Fatal("expected in-place path to own the sync (skip rotation) on conflict")
+	}
+	if updates != 1 {
+		t.Fatalf("expected exactly one Update attempt (no inline retry), got %d", updates)
+	}
+}
+
 func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
@@ -279,22 +441,52 @@ func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), []schema.GroupResource{{Resource: "secrets"}}, "3")
 			setRemoteKeyAnnotations(t, secret.Annotations, tc.remoteKey)
-			client := fake.NewSimpleClientset(secret)
-			c := &keyController{secretClient: client.CoreV1()}
+
+			// Build the snapshot's plugin config to exactly match the stored secret so
+			// the carry-over refresh is a no-op and only remote-key state can trigger a write.
+			storedPlugin := kms.KMSPluginConfig{
+				TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+				Type:     kms.VaultKMSProvider,
+				Vault:    wellKnownBaseVaultConfig,
+			}
+			storedPlugin.Vault.VaultKeyPath = "transit/keys/old-key"
+			providerCfg, err := newKMSProviderConfig(storedPlugin, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Referenced resources carrying the same values the stored key secret holds.
+			refSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: openshiftConfigNS, Name: "vault-approle"},
+				Data:       map[string][]byte{"role-id": []byte("old-role-id"), "secret-id": []byte("old-secret-id")},
+			}
+			refCM := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: openshiftConfigNS, Name: "vault-ca-bundle"},
+				Data:       map[string]string{"ca-bundle.crt": "old-ca-cert"},
+			}
+			client := fake.NewSimpleClientset(secret, refSecret, refCM)
+			c := &keyController{secretClient: client.CoreV1(), configMapClient: client.CoreV1()}
 			// A skipped reconciliation must not even request health status.
 			if tc.wantUpdate {
 				c.encryptionStatusProvider = &fakeKMSStatusProvider{status: operatorv1.KMSEncryptionStatus{
 					HealthReports: []operatorv1.KMSPluginHealthReport{{KeyID: "3", RemoteKeyID: "c"}},
 				}}
 			}
-			snap := &KeyPlanningSnapshot{CurrentMode: tc.mode, State: EncryptionStateSnapshot{KeySecrets: []*corev1.Secret{secret}}}
+			snap := &KeyPlanningSnapshot{
+				CurrentMode:        tc.mode,
+				PluginConfig:       storedPlugin,
+				desiredProviderCfg: providerCfg,
+				State:              EncryptionStateSnapshot{KeySecrets: []*corev1.Secret{secret}},
+			}
 			if err := c.reconcileCurrentKey(context.Background(), snap, tc.keyID); err != nil {
 				t.Fatal(err)
 			}
-			if !tc.wantUpdate {
-				if len(client.Actions()) != 0 {
-					t.Fatalf("expected no Secret API calls, got %v", client.Actions())
+			// The carry-over matches the stored secret, so no case should ever Update the key.
+			for _, a := range client.Actions() {
+				if a.GetVerb() == "update" && !tc.wantUpdate {
+					t.Fatalf("expected no Secret Update, got %v", client.Actions())
 				}
+			}
+			if !tc.wantUpdate {
 				return
 			}
 			updated, err := client.CoreV1().Secrets(secret.Namespace).Get(context.Background(), secret.Name, metav1.GetOptions{})
