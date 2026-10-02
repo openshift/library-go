@@ -77,7 +77,7 @@ func TestPreflightDeployAndPodMatchesOperand(ctx context.Context, t testing.TB, 
 		}
 	})
 
-	require.NoError(t, deployer.Deploy(ctx, preflightDeployConfigHash, secret))
+	require.NoError(t, deployer.Deploy(ctx, preflightDeployConfigHash, secret, nil))
 	scenario.AssertDeployFunc(ctx, t, clientSet, scenario.Namespace, deployer)
 	AssertNoPreflightConfigDrift(ctx, t, clientSet, scenario.Namespace, scenario.LabelSelector)
 }
@@ -101,7 +101,7 @@ func AssertPreflightDeploy(ctx context.Context, t testing.TB, clientSet ClientSe
 	var status corev1.PodStatus
 	err = wait.PollUntilContextTimeout(ctx, preflightStatusPollInterval, preflightStatusPollTimeout, true, func(ctx context.Context) (bool, error) {
 		var statusErr error
-		deployedHash, status, statusErr = deployer.Status(ctx)
+		deployedHash, status, _, statusErr = deployer.Status(ctx)
 		if statusErr != nil {
 			return false, statusErr
 		}
