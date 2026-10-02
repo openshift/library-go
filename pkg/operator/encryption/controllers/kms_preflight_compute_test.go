@@ -381,6 +381,91 @@ func TestKMSPreflightComputeEncryptionConfiguration(t *testing.T) {
 		assertKMSKeyCredentials(t, cfg, "3", "role-123", "secret-456", "test-ca-cert")
 	})
 
+	t.Run("no new key needed projects desired carry-over fields into preflight config", func(t *testing.T) {
+		// Same provider instance as desired (no migration), but the persisted key still
+		// carries the old image and old credentials. Preflight must validate the
+		// proposed fields — not the stale persisted ones — before in-place update.
+		storedPlugin := kms.KMSPluginConfig{
+			TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+			Type:     kms.VaultKMSProvider,
+			Vault:    wellKnownBaseVaultConfig,
+		}
+		storedPlugin.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+		desiredPlugin := kms.KMSPluginConfig{
+			TypeMeta: metav1.TypeMeta{APIVersion: kms.SchemeGroupVersion.String(), Kind: "KMSPluginConfig"},
+			Type:     kms.VaultKMSProvider,
+			Vault:    wellKnownBaseVaultConfig,
+		}
+		desiredPlugin.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+
+		ks := state.KeyState{
+			Key:  apiserverconfigv1.Key{Name: "3", Secret: base64.StdEncoding.EncodeToString(make([]byte, 16))},
+			Mode: state.KMS,
+			Migrated: state.MigrationState{
+				Resources: encryptedGRs,
+			},
+			KMS: &state.KMSState{
+				Encryption: &apiserverconfigv1.KMSConfiguration{
+					APIVersion: "v2",
+					Name:       "3",
+					Endpoint:   "unix:///var/run/kmsplugin/kms-3.sock",
+					Timeout:    &metav1.Duration{Duration: 10 * time.Second},
+				},
+				Plugin: storedPlugin,
+			},
+		}
+		if err := ks.KMS.PluginSecretData.Set("vault-approle", "role-id", []byte("old-role-id")); err != nil {
+			t.Fatalf("failed to set plugin secret data: %v", err)
+		}
+		if err := ks.KMS.PluginSecretData.Set("vault-approle", "secret-id", []byte("old-secret-id")); err != nil {
+			t.Fatalf("failed to set plugin secret data: %v", err)
+		}
+		if err := ks.KMS.PluginConfigMapData.Set("vault-ca-bundle", "ca-bundle.crt", []byte("old-ca-cert")); err != nil {
+			t.Fatalf("failed to set plugin configmap data: %v", err)
+		}
+		existingKeySecret, err := secrets.FromKeyState(instanceName, ks)
+		if err != nil {
+			t.Fatalf("failed to build existing key secret: %v", err)
+		}
+		deployed := newDeployedKMSEncryptionConfig(t, instanceName, encryptedGRs, existingKeySecret)
+		computer := newKMSPreflightComputeComputer(t,
+			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap, existingKeySecret},
+			&fakeEncryptionDeployer{converged: true, secret: deployed},
+			apiServerWithKMS,
+			newTestProvider(encryptedGRs),
+			instanceName,
+		)
+
+		secret, err := computer.ComputeEncryptionConfiguration(context.TODO(), &desiredPlugin, 0)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		cfg, err := encryptiondata.FromSecret(secret)
+		if err != nil {
+			t.Fatalf("failed to parse produced secret: %v", err)
+		}
+		kmsConfigs, err := encryptiondata.ExtractUniqueAndSortedKMSConfigurations(cfg)
+		if err != nil {
+			t.Fatalf("failed to extract KMS configurations: %v", err)
+		}
+		if len(kmsConfigs) != 1 || kmsConfigs[0].Name != "3" {
+			t.Fatalf("expected only write key 3 (no new key minted), got %+v", kmsConfigs)
+		}
+
+		plugin, ok := cfg.KMSPlugins["3"]
+		if !ok {
+			t.Fatal("expected plugin config for key 3")
+		}
+		if plugin.Vault.KMSPluginImage != desiredPlugin.Vault.KMSPluginImage {
+			t.Fatalf("expected projected plugin image %q, got %q", desiredPlugin.Vault.KMSPluginImage, plugin.Vault.KMSPluginImage)
+		}
+		// Desired referenced credentials (wellKnownBaseSecret/ConfigMap), not the stale ones
+		// still stored on the key secret.
+		assertKMSKeyCredentials(t, cfg, "3", "role-123", "secret-456", "test-ca-cert")
+	})
+
 	t.Run("API server revisions not converged, still computes preflight config", func(t *testing.T) {
 		computer := newKMSPreflightComputeComputer(t,
 			[]runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},

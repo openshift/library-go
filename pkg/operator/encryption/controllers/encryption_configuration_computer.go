@@ -12,6 +12,7 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -97,6 +98,13 @@ func (c *encryptionConfigurationComputer) ComputeEncryptionConfiguration(ctx con
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		// No new key: in-place carry-over fields (image, TLS, auth, referenced data) may still
+		// differ from the persisted write key. Project them into the snapshot so the preflight
+		// pod validates the proposed config rather than the still-persisted one.
+		if err := projectDesiredCarryOverForPreflight(ctx, c.instanceName, snap, plan.KeyID, c.secretsClient, c.configMapsClient); err != nil {
+			return nil, err
+		}
 	}
 
 	result, err := planner.ComputeConfig(&snap.State, plannedKey)
@@ -108,4 +116,51 @@ func (c *encryptionConfigurationComputer) ComputeEncryptionConfiguration(ctx con
 	}
 
 	return result.EncryptionSecret, nil
+}
+
+// projectDesiredCarryOverForPreflight overlays the desired in-place carry-over fields
+// (plugin config + referenced Secret/ConfigMap data) onto the write key in snap, then
+// recomputes DesiredBeforePlan. Without this, ComputeConfig would build a preflight
+// encryption config from the still-persisted key and a successful check of the old
+// plugin could authorize an untested image/credential update (or revoked old credentials
+// could block a valid replacement).
+func projectDesiredCarryOverForPreflight(ctx context.Context, instanceName string, snap *KeyPlanningSnapshot, keyID uint64, secretClient corev1client.SecretsGetter, configMapClient corev1client.ConfigMapsGetter) error {
+	if snap.CurrentMode != state.KMS || keyID == 0 {
+		return nil
+	}
+
+	refSecret, refCM, err := fetchReferencedResources(ctx, snap.desiredProviderCfg, secretClient, configMapClient, openshiftConfigNS)
+	if err != nil {
+		return fmt.Errorf("failed to fetch referenced resources for preflight: %w", err)
+	}
+	desiredKMS, err := buildKMSCarryOverState(snap.PluginConfig, snap.desiredProviderCfg, refSecret, refCM)
+	if err != nil {
+		return fmt.Errorf("failed to build desired KMS carry-over state for preflight: %w", err)
+	}
+
+	for i, keySecret := range snap.State.KeySecrets {
+		id, ok := state.NameToKeyID(keySecret.Name)
+		if !ok || id != keyID {
+			continue
+		}
+		ks, err := secrets.ToKeyState(keySecret)
+		if err != nil {
+			return fmt.Errorf("failed to parse key secret %s for preflight projection: %w", keySecret.Name, err)
+		}
+		if ks.KMS == nil {
+			return fmt.Errorf("secret %s/%s is not a KMS key secret", keySecret.Namespace, keySecret.Name)
+		}
+		ks.KMS.Plugin = desiredKMS.Plugin
+		ks.KMS.PluginSecretData = desiredKMS.PluginSecretData
+		ks.KMS.PluginConfigMapData = desiredKMS.PluginConfigMapData
+		updated, err := secrets.FromKeyState(instanceName, ks)
+		if err != nil {
+			return fmt.Errorf("failed to rebuild key secret %s for preflight projection: %w", keySecret.Name, err)
+		}
+		snap.State.KeySecrets[i] = updated
+		snap.State.DesiredBeforePlan = statemachine.GetDesiredEncryptionState(snap.State.CurrentConfig, snap.State.KeySecrets, snap.State.EncryptedGRs)
+		return nil
+	}
+
+	return fmt.Errorf("backing Secret for key %d missing from planning snapshot", keyID)
 }
