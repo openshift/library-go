@@ -6,6 +6,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
@@ -33,20 +34,37 @@ type KubeInformersForNamespaces interface {
 var _ KubeInformersForNamespaces = kubeInformersForNamespaces{}
 
 func NewKubeInformersForNamespacesWithResyncPeriod(kubeClient kubernetes.Interface, resyncInterval time.Duration, namespaces ...string) KubeInformersForNamespaces {
-	ret := kubeInformersForNamespaces{}
-	for _, namespace := range namespaces {
-		if len(namespace) == 0 {
-			ret[""] = informers.NewSharedInformerFactory(kubeClient, resyncInterval)
-			continue
-		}
-		ret[namespace] = informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncInterval, informers.WithNamespace(namespace))
-	}
-
-	return ret
+	return NewKubeInformersForNamespacesWithOptions(kubeClient, resyncInterval, namespaces)
 }
 
 func NewKubeInformersForNamespaces(kubeClient kubernetes.Interface, namespaces ...string) KubeInformersForNamespaces {
-	return NewKubeInformersForNamespacesWithResyncPeriod(kubeClient, 10*time.Minute, namespaces...)
+	return NewKubeInformersForNamespacesWithOptions(kubeClient, 10*time.Minute, namespaces)
+}
+
+func NewKubeInformersForNamespacesWithOptions(kubeClient kubernetes.Interface, resyncInterval time.Duration, namespaces []string, opts ...informers.SharedInformerOption) KubeInformersForNamespaces {
+	ret := kubeInformersForNamespaces{}
+	for _, namespace := range namespaces {
+		factoryOpts := make([]informers.SharedInformerOption, 0, len(opts)+1)
+		factoryOpts = append(factoryOpts, opts...)
+		if len(namespace) != 0 {
+			factoryOpts = append(factoryOpts, informers.WithNamespace(namespace))
+		}
+		ret[namespace] = informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncInterval, factoryOpts...)
+	}
+	return ret
+}
+
+// StripManagedFieldsTransform is a cache.TransformFunc that removes
+// ManagedFields from objects before they are stored in the informer cache.
+func StripManagedFieldsTransform(obj interface{}) (interface{}, error) {
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return obj, nil
+	}
+	if accessor.GetManagedFields() != nil {
+		accessor.SetManagedFields(nil)
+	}
+	return obj, nil
 }
 
 type kubeInformersForNamespaces map[string]informers.SharedInformerFactory
