@@ -8,9 +8,12 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/utils/clock"
+
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestControllerBuilder_getOnStartedLeadingFunc(t *testing.T) {
@@ -243,6 +246,47 @@ func TestInfraStatusTopologyLeaderElection(t *testing.T) {
 			leConfig := topologyLeaderElection(tc.topology, tc.original)
 			if !reflect.DeepEqual(tc.expected, leConfig) {
 				t.Errorf("expected %#v, got %#v", tc.expected, leConfig)
+			}
+		})
+	}
+}
+
+func TestWithUserAgentSuffix(t *testing.T) {
+	tests := []struct {
+		name                string
+		withUserAgentSuffix string
+		wantSuffix          string
+	}{
+		{
+			name:                "suffix is appended to default user agent",
+			withUserAgentSuffix: "cert-recovery",
+			wantSuffix:          "/cert-recovery",
+		},
+		{
+			name:                "no suffix leaves user agent empty for default handling",
+			withUserAgentSuffix: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := NewController("test-component", nil, clock.RealClock{}).
+				WithUserAgentSuffix(tt.withUserAgentSuffix)
+
+			cfg := &rest.Config{}
+			if len(b.userAgentSuffix) > 0 {
+				rest.AddUserAgent(cfg, b.userAgentSuffix)
+			}
+
+			if tt.withUserAgentSuffix == "" {
+				if cfg.UserAgent != "" {
+					t.Errorf("expected empty UserAgent, got %q", cfg.UserAgent)
+				}
+				return
+			}
+
+			if !strings.HasSuffix(cfg.UserAgent, tt.wantSuffix) {
+				t.Errorf("expected UserAgent to end with %q, but UserAgent is %q", tt.wantSuffix, cfg.UserAgent)
 			}
 		})
 	}
