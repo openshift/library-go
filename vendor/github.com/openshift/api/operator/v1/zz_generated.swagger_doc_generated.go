@@ -1424,7 +1424,7 @@ func (KMSPreflightCheck) SwaggerDoc() map[string]string {
 
 var map_KMSPreflightResult = map[string]string{
 	"":               "KMSPreflightResult contains the outcome of a preflight validation. A successful result requires remoteKeyID; a failed result may omit it.",
-	"failedAttempts": "failedAttempts is the number of failed preflight pod attempts for configHash. It is required with every result and resets for a new configuration. Zero means no failed attempts have been recorded.",
+	"failedAttempts": "failedAttempts is the number of failed preflight pod attempts for configHash. It is required with every result, resets for a new configuration, and must be between 0 and 3. Zero means no failed attempts have been recorded. When omitted, it defaults to 0.",
 	"status":         "status indicates the outcome of the preflight check. Succeeded means the KMS plugin responded to Status, Encrypt, and Decrypt calls successfully. Failed means the validation did not pass.",
 	"configHash":     "configHash is the hash of the configuration that was validated. This is compared against observedConfigHash to confirm the result corresponds to the current configuration. The value must be exactly 8 characters.",
 	"remoteKeyID":    "remoteKeyID is the remote key encryption key identifier from KMS v2 StatusResponse.key_id. This is not a cryptographic key, but a unique representation of the remote key used to encrypt data. The value must be between 1 and 1024 characters. When the preflight fails before receiving an ID, this field is omitted.",
@@ -1636,7 +1636,7 @@ func (MachineManager) SwaggerDoc() map[string]string {
 }
 
 var map_MachineManagerSelector = map[string]string{
-	"mode":    "mode determines how machine managers will be selected for updates. Valid values are All, Partial and None. All means that every resource matched by the machine manager will be updated. Partial requires specified selector(s) and allows customisation of which resources matched by the machine manager will be updated. Partial is not permitted for the controlplanemachinesets resource type as they are a singleton within the cluster. None means that every resource matched by the machine manager will not be updated.",
+	"mode":    "mode determines how machine managers will be selected for updates. Valid values are All, Partial and None. All means that every resource matched by the machine manager will be updated. Partial requires specified selector(s) and allows customisation of which resources matched by the machine manager will be updated. Partial is not permitted for the controlplanemachinesets resource type as they are a singleton within the cluster. None means that every resource matched by the machine manager will not be updated. When boot image skew enforcement is in Automatic mode, only All is permitted for the machinesets and machinedeployments resource types, in any API group.",
 	"partial": "partial provides label selector(s) that can be used to match machine management resources. Only permitted when mode is set to \"Partial\".",
 }
 

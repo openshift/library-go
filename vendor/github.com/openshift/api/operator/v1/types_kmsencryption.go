@@ -146,10 +146,13 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.status != 'Succeeded' || has(self.remoteKeyID)",message="remoteKeyID is required when status is Succeeded"
 type KMSPreflightResult struct {
 	// failedAttempts is the number of failed preflight pod attempts for configHash.
-	// It is required with every result and resets for a new configuration.
-	// Zero means no failed attempts have been recorded.
+	// It is required with every result, resets for a new configuration, and must
+	// be between 0 and 3. Zero means no failed attempts have been recorded.
+	// When omitted, it defaults to 0.
 	// +required
 	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=3
+	// +kubebuilder:default=0
 	FailedAttempts int32 `json:"failedAttempts"`
 
 	// status indicates the outcome of the preflight check.
