@@ -147,12 +147,12 @@ const (
 type KMSPreflightResult struct {
 	// failedAttempts is the number of failed preflight pod attempts for configHash.
 	// It is required with every result, resets for a new configuration, and must
-	// be between 0 and 3. Zero means no failed attempts have been recorded.
-	// When omitted, it defaults to 0.
+	// be between 1 and 10.
+	// When omitted, it defaults to 1.
 	// +required
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=3
-	// +kubebuilder:default=0
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=10
+	// +kubebuilder:default=1
 	FailedAttempts int32 `json:"failedAttempts"`
 
 	// status indicates the outcome of the preflight check.
