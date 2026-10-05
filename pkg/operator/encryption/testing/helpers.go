@@ -24,12 +24,39 @@ import (
 )
 
 const (
-	encryptionSecretKeyDataForTest             = "encryption.apiserver.operator.openshift.io-key"
-	encryptionSecretMigratedTimestampForTest   = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
-	encryptionSecretMigratedResourcesForTest   = "encryption.apiserver.operator.openshift.io/migrated-resources"
-	encryptionSecretKMSEncryptionConfigForTest = "encryption.apiserver.operator.openshift.io-kms-encryption-config"
-	encryptionSecretKMSPluginConfigForTest     = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+	encryptionSecretKeyDataForTest                = "encryption.apiserver.operator.openshift.io-key"
+	encryptionSecretMigratedTimestampForTest      = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
+	encryptionSecretMigratedResourcesForTest      = "encryption.apiserver.operator.openshift.io/migrated-resources"
+	encryptionSecretKMSEncryptionConfigForTest    = "encryption.apiserver.operator.openshift.io-kms-encryption-config"
+	encryptionSecretKMSPluginConfigForTest        = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+	encryptionSecretKMSSecretDataPrefixForTest    = "encryption.apiserver.operator.openshift.io-kms-plugin-secret-"
+	encryptionSecretKMSConfigMapDataPrefixForTest = "encryption.apiserver.operator.openshift.io-kms-plugin-configmap-"
 )
+
+// Canonical referenced-data values for the KMS test fixtures. The matching referenced
+// Secret/ConfigMap are built with CreateVaultAppRoleSecret/CreateVaultCABundleConfigMap
+// using the same values, so a stored key secret populated via WithKMSReferencedData is
+// in sync with the live referenced resources.
+const (
+	DefaultVaultRoleID   = "test-role-id"
+	DefaultVaultSecretID = "test-secret-id"
+	DefaultVaultCABundle = "test-ca-bundle"
+)
+
+// WithKMSReferencedData stores the AppRole and CA-bundle referenced data on a KMS key
+// secret, mirroring what the key controller persists at creation time. The reference
+// names come from pluginConfig, so callers can simulate a stored key whose referenced
+// data already matches (or diverges from) the live Secret/ConfigMap.
+func WithKMSReferencedData(secret *corev1.Secret, pluginConfig kms.KMSPluginConfig) *corev1.Secret {
+	if name := pluginConfig.Vault.Authentication.AppRole.Secret.Name; name != "" {
+		secret.Data[encryptionSecretKMSSecretDataPrefixForTest+name+"_role-id"] = []byte(DefaultVaultRoleID)
+		secret.Data[encryptionSecretKMSSecretDataPrefixForTest+name+"_secret-id"] = []byte(DefaultVaultSecretID)
+	}
+	if name := pluginConfig.Vault.TLS.CABundle.Name; name != "" {
+		secret.Data[encryptionSecretKMSConfigMapDataPrefixForTest+name+"_ca-bundle.crt"] = []byte(DefaultVaultCABundle)
+	}
+	return secret
+}
 
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
 	return CreateEncryptionKeySecretNoDataWithMode(targetNS, grs, keyID, "aescbc")

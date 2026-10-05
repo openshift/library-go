@@ -579,6 +579,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	vaultKMSConfigPrimary := component + "-vault"
 	vaultKMSConfigNew := component + "-vault-new"
 	vaultKMSConfigNewImage := component + "-vault-new-image"
+	vaultKMSConfigRotated := component + "-vault-rotated"
 	vaultKMSConfigFailing := component + "-vault-failing"
 	seedVaultKMSConfig := func(name, image, address string) {
 		t.Helper()
@@ -761,13 +762,117 @@ func TestEncryptionIntegration(tt *testing.T) {
 	pluginConfig13VaultKeyPath := pluginConfig13.Vault.VaultKeyPath
 	require.Equal(t, "transit/keys/test-transit-key", pluginConfig13VaultKeyPath)
 
-	t.Logf("KMS non-migration change: only KMSPluginImage changes (no new key expected)")
+	t.Logf("KMS non-migration change: only KMSPluginImage changes (no new key, carried over in place)")
 	// A distinct reference triggers reconciliation without waiting for the periodic resync.
+	// The provider instance is unchanged (same address/key path), so no new key is minted;
+	// the image is a carry-over field that is refreshed in place on the existing key (13).
+	// Because the provider list is unchanged, the encryption-config string stays identical,
+	// but the embedded KMS plugin image does change, so the state controller republishes the
+	// config. Drain publications until the new image has propagated for the current key.
 	seedVaultKMSConfig(vaultKMSConfigNewImage, kmsPluginImageB, "https://vault-new.example.com")
 	patchAPIServerKMSRef(vaultKMSConfigNewImage)
-	time.Sleep(5 * time.Second)
+	waitForConfigEventuallyCond(func(string) bool {
+		s, _, derr := deployer.DeployedEncryptionConfigSecret(ctx)
+		if derr != nil || s == nil {
+			return false
+		}
+		cfg, derr := encryptiondata.FromSecret(s)
+		if derr != nil {
+			return false
+		}
+		pc, ok := cfg.KMSPlugins["13"]
+		return ok && pc.Vault.KMSPluginImage == kmsPluginImageB
+	})
 	waitForKeys(12)
 	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
+
+	t.Logf("Verify the new plugin image was carried over into the existing key secret in place")
+	carriedKeySecret, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-key-%s-13", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	carriedConfig, err := encoding.DecodeKMSPluginConfig(carriedKeySecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"])
+	require.NoError(t, err)
+	require.Equal(t, kmsPluginImageB, carriedConfig.Vault.KMSPluginImage, "expected KMSPluginImage to be carried over in place")
+	// Migration-triggering provider-identity fields must be untouched by an in-place carry-over.
+	require.Equal(t, "https://vault-new.example.com", carriedConfig.Vault.VaultAddress, "VaultAddress must be unchanged by carry-over")
+	require.Equal(t, "transit/keys/test-transit-key", carriedConfig.Vault.VaultKeyPath, "VaultKeyPath must be unchanged by carry-over")
+	// The carried-over image must match between the key secret and the encryption-config secret,
+	// and referenced AppRole/CA data must remain intact.
+	verifyKMSPlugins()
+	verifyKMSSecretData()
+	verifyKMSConfigMapData()
+
+	t.Logf("KMS non-migration change: rotate referenced AppRole secret-id and CA bundle (no new key, carried over in place)")
+	// Rotate the contents of the referenced AppRole Secret and CA ConfigMap in place
+	// (same reference names, new values). These are carry-over fields: the provider
+	// instance is unchanged, so no new key is minted and no re-encryption happens; the
+	// rotated credential/CA data must be refreshed on the existing key (13) and flow
+	// through to the encryption-config secret.
+	//
+	// NOTE: the key controller does not watch openshift-config secrets/configmaps, so a
+	// bare content change is only picked up on the periodic resync (~1m), which can exceed
+	// the deployer wait budget. Point the APIServer at a fresh CRD with the SAME provider
+	// instance (same address/key path, same reference names, same image B) to trigger
+	// reconciliation immediately; because every migration-triggering field and the plugin
+	// image are unchanged, the only difference the carry-over sees is the rotated
+	// referenced data.
+	const (
+		rotatedSecretID = "rotated-secret-id"
+		rotatedCABundle = "rotated-ca-cert"
+	)
+	_, err = kubeClient.CoreV1().Secrets("openshift-config").Update(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "vault-approle-secret", Namespace: "openshift-config"},
+		Data: map[string][]byte{
+			"role-id":   []byte("test-role-id"),
+			"secret-id": []byte(rotatedSecretID),
+		},
+		Type: corev1.SecretTypeOpaque,
+	}, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.CoreV1().ConfigMaps("openshift-config").Update(ctx, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "vault-ca-bundle", Namespace: "openshift-config"},
+		Data:       map[string]string{"ca-bundle.crt": rotatedCABundle},
+	}, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	seedVaultKMSConfig(vaultKMSConfigRotated, kmsPluginImageB, "https://vault-new.example.com")
+	patchAPIServerKMSRef(vaultKMSConfigRotated)
+	waitForConfigEventuallyCond(func(string) bool {
+		s, _, derr := deployer.DeployedEncryptionConfigSecret(ctx)
+		if derr != nil || s == nil {
+			return false
+		}
+		cfg, derr := encryptiondata.FromSecret(s)
+		if derr != nil {
+			return false
+		}
+		secData, ok := cfg.KMSPluginsSecretData.Get("13")
+		if !ok {
+			return false
+		}
+		sid, ok := secData.Get("vault-approle-secret", "secret-id")
+		if !ok || string(sid) != rotatedSecretID {
+			return false
+		}
+		cmData, ok := cfg.KMSPluginsConfigMapData.Get("13")
+		if !ok {
+			return false
+		}
+		ca, ok := cmData.Get("vault-ca-bundle", "ca-bundle.crt")
+		return ok && string(ca) == rotatedCABundle
+	})
+	waitForKeys(12)
+	waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
+
+	t.Logf("Verify rotated referenced data was carried over into the existing key secret in place")
+	rotatedKeySecret, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, fmt.Sprintf("encryption-key-%s-13", component), metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, rotatedSecretID, string(rotatedKeySecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-secret-vault-approle-secret_secret-id"]), "expected rotated AppRole secret-id to be carried over in place")
+	require.Equal(t, "test-role-id", string(rotatedKeySecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-secret-vault-approle-secret_role-id"]), "unrotated AppRole role-id must be preserved")
+	require.Equal(t, rotatedCABundle, string(rotatedKeySecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt"]), "expected rotated CA bundle to be carried over in place")
+	// Migration-triggering provider-identity fields must be untouched by an in-place carry-over.
+	rotatedPluginConfig, err := encoding.DecodeKMSPluginConfig(rotatedKeySecret.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"])
+	require.NoError(t, err)
+	require.Equal(t, "https://vault-new.example.com", rotatedPluginConfig.Vault.VaultAddress, "VaultAddress must be unchanged by carry-over")
+	require.Equal(t, "transit/keys/test-transit-key", rotatedPluginConfig.Vault.VaultKeyPath, "VaultKeyPath must be unchanged by carry-over")
 
 	t.Logf("KMS preflight failure: key must not be created when preflight fails")
 	kmsPreflightDeployer.fail.Store(true)
