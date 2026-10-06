@@ -323,6 +323,105 @@ func TestCheckStatusErrorReporting(t *testing.T) {
 	}
 }
 
+func TestCheckEncryptDecryptErrorReporting(t *testing.T) {
+	encryptErr := errors.New("encrypt connection refused")
+	decryptErr := errors.New("decrypt connection refused")
+	tests := []struct {
+		name             string
+		failingCall      string
+		serviceErr       error
+		cancelOnCall     bool
+		wantErr          error
+		wantErrContains  string
+		wantEncryptCalls int
+		wantDecryptCalls int
+	}{
+		{
+			name:             "encrypt service error",
+			failingCall:      "encrypt",
+			serviceErr:       encryptErr,
+			wantErr:          encryptErr,
+			wantErrContains:  "encrypt call failed",
+			wantEncryptCalls: 2,
+		},
+		{
+			name:             "decrypt service error",
+			failingCall:      "decrypt",
+			serviceErr:       decryptErr,
+			wantErr:          decryptErr,
+			wantErrContains:  "decrypt call failed",
+			wantEncryptCalls: 2,
+			wantDecryptCalls: 2,
+		},
+		{
+			name:             "caller canceled during encrypt",
+			failingCall:      "encrypt",
+			serviceErr:       encryptErr,
+			cancelOnCall:     true,
+			wantErr:          context.Canceled,
+			wantEncryptCalls: 1,
+		},
+		{
+			name:             "caller canceled during decrypt",
+			failingCall:      "decrypt",
+			serviceErr:       decryptErr,
+			cancelOnCall:     true,
+			wantErr:          context.Canceled,
+			wantEncryptCalls: 1,
+			wantDecryptCalls: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			svc := healthyFakeService()
+			originalEncrypt := svc.EncryptFn
+			originalDecrypt := svc.DecryptFn
+			encryptCalls, decryptCalls := 0, 0
+			svc.EncryptFn = func(ctx context.Context, uid string, data []byte) (*kmsservice.EncryptResponse, error) {
+				encryptCalls++
+				if tt.failingCall == "encrypt" {
+					if tt.cancelOnCall {
+						cancel()
+					}
+					return nil, tt.serviceErr
+				}
+				return originalEncrypt(ctx, uid, data)
+			}
+			svc.DecryptFn = func(ctx context.Context, uid string, req *kmsservice.DecryptRequest) ([]byte, error) {
+				decryptCalls++
+				if tt.failingCall == "decrypt" {
+					if tt.cancelOnCall {
+						cancel()
+					}
+					return nil, tt.serviceErr
+				}
+				return originalDecrypt(ctx, uid, req)
+			}
+
+			checker := newTestChecker(svc)
+			checker.randReader = bytes.NewReader(bytes.Repeat([]byte{0xAB}, 64))
+			status, err := checker.check(ctx)
+			if status == nil || status.Healthz != "ok" {
+				t.Fatalf("expected healthy status, got %+v", status)
+			}
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("expected error matching %v, got %v", tt.wantErr, err)
+			}
+			if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErrContains, err)
+			}
+			if encryptCalls != tt.wantEncryptCalls || decryptCalls != tt.wantDecryptCalls {
+				t.Fatalf("got %d encrypt calls and %d decrypt calls, want %d and %d",
+					encryptCalls, decryptCalls, tt.wantEncryptCalls, tt.wantDecryptCalls)
+			}
+		})
+	}
+}
+
 func TestCheckCancellationDuringLastAttempt(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
