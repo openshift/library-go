@@ -396,3 +396,111 @@ func TestPlanCreationTakesPriorityOverRotationAcrossResources(t *testing.T) {
 		t.Fatalf("expected only creation of key 5, got %#v", plan)
 	}
 }
+
+func TestEncryptionPlannerMaterializeKeyCarryOver(t *testing.T) {
+	apiServerWithKMS := newKMSVaultAPIServer()
+	encryptedGRs := []schema.GroupResource{{Group: "", Resource: "secrets"}}
+	instanceName := "test"
+
+	existingKey := newExistingKMSKeySecret(t, instanceName, apiServerWithKMS, encryptedGRs, "3")
+	fakeKubeClient := fake.NewSimpleClientset(&wellKnownBaseSecret, &wellKnownBaseConfigMap, existingKey)
+	fakeConfigClient := configv1clientfake.NewSimpleClientset(apiServerWithKMS)
+	fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+		&operatorv1.StaticPodOperatorSpec{OperatorSpec: operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}},
+		&operatorv1.StaticPodOperatorStatus{},
+		nil,
+		nil,
+	)
+
+	planner := NewEncryptionPlanner(instanceName, nil, &fakeEncryptionDeployer{converged: true}, fakeKubeClient.CoreV1(), fakeKubeClient.CoreV1(), fakeConfigClient.ConfigV1().APIServers(), fakeOperatorClient, newKMSDynamicClient(t), metav1.ListOptions{})
+
+	snap, err := planner.Load(context.TODO(), encryptedGRs, LoadOptions{ListKeysWhileProgressing: true})
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	t.Run("in-place carry-over preserves key data and annotations while updating KMS credentials", func(t *testing.T) {
+		plan := &KeyPlan{
+			Needed:  false,
+			KeyID:   3,
+			Reasons: []string{"in-place-update"},
+		}
+
+		plannedKey, err := planner.MaterializeKey(context.TODO(), snap, plan)
+		if err != nil {
+			t.Fatalf("MaterializeKey failed: %v", err)
+		}
+		if plannedKey == nil || plannedKey.Secret == nil {
+			t.Fatal("expected planned key secret, got nil")
+		}
+
+		// Key material must be preserved exactly
+		if string(plannedKey.Secret.Data[secrets.EncryptionSecretKeyDataKey]) != string(existingKey.Data[secrets.EncryptionSecretKeyDataKey]) {
+			t.Errorf("key material was modified: got %v, want %v", plannedKey.Secret.Data[secrets.EncryptionSecretKeyDataKey], existingKey.Data[secrets.EncryptionSecretKeyDataKey])
+		}
+
+		// Migrated resources annotation must be preserved
+		if plannedKey.Secret.Annotations[secrets.EncryptionSecretMigratedResources] != existingKey.Annotations[secrets.EncryptionSecretMigratedResources] {
+			t.Errorf("migrated resources annotation was modified: got %s, want %s", plannedKey.Secret.Annotations[secrets.EncryptionSecretMigratedResources], existingKey.Annotations[secrets.EncryptionSecretMigratedResources])
+		}
+
+		// KMS credentials must be updated to desired state from wellKnownBaseSecret/ConfigMap
+		ks, err := secrets.ToKeyState(plannedKey.Secret)
+		if err != nil {
+			t.Fatalf("failed to parse materialized key: %v", err)
+		}
+		roleID, ok := ks.KMS.PluginSecretData.Get("vault-approle", "role-id")
+		if !ok || string(roleID) != "role-123" {
+			t.Errorf("expected updated role-id 'role-123', got %s", string(roleID))
+		}
+		secretID, ok := ks.KMS.PluginSecretData.Get("vault-approle", "secret-id")
+		if !ok || string(secretID) != "secret-456" {
+			t.Errorf("expected updated secret-id 'secret-456', got %s", string(secretID))
+		}
+		caCert, ok := ks.KMS.PluginConfigMapData.Get("vault-ca-bundle", "ca-bundle.crt")
+		if !ok || string(caCert) != "test-ca-cert" {
+			t.Errorf("expected updated ca cert 'test-ca-cert', got %s", string(caCert))
+		}
+	})
+
+	t.Run("missing backing secret returns error", func(t *testing.T) {
+		plan := &KeyPlan{
+			Needed: false,
+			KeyID:  99,
+		}
+
+		_, err := planner.MaterializeKey(context.TODO(), snap, plan)
+		if err == nil {
+			t.Fatal("expected error for missing backing secret, got nil")
+		}
+	})
+
+	t.Run("KMS mode rejects a persisted key without KMS plugin config", func(t *testing.T) {
+		keyState, err := secrets.ToKeyState(existingKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		keyState.Mode = state.AESCBC
+		keyState.KMS = nil
+		nonKMSSecret, err := secrets.FromKeyState(instanceName, keyState)
+		if err != nil {
+			t.Fatal(err)
+		}
+		nonKMSSnap := *snap
+		nonKMSSnap.State.KeySecrets = []*corev1.Secret{nonKMSSecret}
+
+		_, err = planner.carryOverKeyState(context.TODO(), &nonKMSSnap, 3)
+		if err == nil || err.Error() != "backing Secret for key 3 has no KMS plugin config" {
+			t.Fatalf("expected missing KMS plugin config error, got %v", err)
+		}
+
+		nonKMSSnap.CurrentMode = state.AESCBC
+		carried, err := planner.carryOverKeyState(context.TODO(), &nonKMSSnap, 3)
+		if err != nil {
+			t.Fatalf("non-KMS carry-over failed: %v", err)
+		}
+		if carried.Mode != state.AESCBC {
+			t.Fatalf("expected AESCBC key, got %q", carried.Mode)
+		}
+	})
+}

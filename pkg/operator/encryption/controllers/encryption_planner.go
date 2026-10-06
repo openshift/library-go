@@ -225,19 +225,32 @@ func (p *EncryptionPlanner) PlanNextKey(snap *KeyPlanningSnapshot) (*KeyPlan, er
 	}, nil
 }
 
-// MaterializeKey builds an in-memory key secret for plan. Non-deterministic (fresh key bytes). Requires plan.Needed == true.
+// MaterializeKey builds an in-memory key secret for plan, or returns (nil, nil) when the plan
+// contains no key (KeyID == 0, e.g. Identity that has never been on) so callers can hand the
+// result straight to ComputeConfig without branching.
+// When plan.Needed is true, plan.KeyID is the next key. When it is false, plan.KeyID is the
+// current write key and the secret carries the desired KMS plugin fields.
 func (p *EncryptionPlanner) MaterializeKey(ctx context.Context, snap *KeyPlanningSnapshot, plan *KeyPlan) (*PlannedEncryptionKey, error) {
-	if snap == nil {
-		return nil, fmt.Errorf("snapshot is required")
+	if snap == nil || plan == nil {
+		return nil, fmt.Errorf("snapshot and plan are required")
 	}
-	if plan == nil || !plan.Needed {
-		return nil, fmt.Errorf("MaterializeKey requires a needed key plan")
+	// A zero KeyID means this non-nil plan has no key to materialize (for example, initial Identity mode).
+	if plan.KeyID == 0 {
+		return nil, nil
 	}
 	if p.configMapClient == nil {
 		return nil, fmt.Errorf("configMapClient is required for MaterializeKey")
 	}
 
-	ks, _, _, err := buildEncryptionKeyState(ctx, plan.KeyID, snap.CurrentMode, snap.PluginConfig, snap.desiredProviderCfg, p.secretClient, p.configMapClient, plan.InternalReason, snap.ExternalReason)
+	var (
+		ks  state.KeyState
+		err error
+	)
+	if plan.Needed {
+		ks, _, _, err = buildEncryptionKeyState(ctx, plan.KeyID, snap.CurrentMode, snap.PluginConfig, snap.desiredProviderCfg, p.secretClient, p.configMapClient, plan.InternalReason, snap.ExternalReason)
+	} else {
+		ks, err = p.carryOverKeyState(ctx, snap, plan.KeyID)
+	}
 	if err != nil {
 		return nil, plannedKeyBuildError{err: err}
 	}
@@ -254,6 +267,8 @@ func (p *EncryptionPlanner) MaterializeKey(ctx context.Context, snap *KeyPlannin
 
 // ComputeConfig builds the desired encryption-config secret from persisted keys, optionally including plannedKey.
 // When plannedKey is nil it reuses DesiredBeforePlan instead of recomputing desired state.
+// A planned key with a new name is appended. The same name replaces the persisted secret so an
+// in-place field change is the write key the pod runs.
 func (p *EncryptionPlanner) ComputeConfig(state *EncryptionStateSnapshot, plannedKey *PlannedEncryptionKey) (*EncryptionPlanResult, error) {
 	if state == nil {
 		return nil, fmt.Errorf("snapshot is required")
@@ -261,7 +276,7 @@ func (p *EncryptionPlanner) ComputeConfig(state *EncryptionStateSnapshot, planne
 
 	keySecrets := state.KeySecrets
 	if plannedKey != nil && plannedKey.Secret != nil {
-		keySecrets = append(append([]*corev1.Secret{}, state.KeySecrets...), plannedKey.Secret)
+		keySecrets = mergePlannedKey(state.KeySecrets, plannedKey.Secret)
 	}
 
 	out := &EncryptionPlanResult{
@@ -274,7 +289,7 @@ func (p *EncryptionPlanner) ComputeConfig(state *EncryptionStateSnapshot, planne
 		return out, nil
 	}
 
-	// DesiredBeforePlan already reflects persisted keys. Recompute only when a planned key was appended
+	// DesiredBeforePlan already reflects persisted keys. Recompute when a planned key was merged.
 	out.DesiredState = state.DesiredBeforePlan
 	if plannedKey != nil && plannedKey.Secret != nil {
 		out.DesiredState = statemachine.GetDesiredEncryptionState(state.CurrentConfig, keySecrets, state.EncryptedGRs)
@@ -294,4 +309,65 @@ func (p *EncryptionPlanner) ComputeConfig(state *EncryptionStateSnapshot, planne
 	out.EncryptionSecret = secret
 
 	return out, nil
+}
+
+// mergePlannedKey returns a copy of existing with planned included.
+// The same secret name replaces the persisted secret. A new name is appended.
+func mergePlannedKey(existing []*corev1.Secret, planned *corev1.Secret) []*corev1.Secret {
+	keySecrets := append([]*corev1.Secret{}, existing...)
+	for i, secret := range keySecrets {
+		if secret.Name == planned.Name {
+			keySecrets[i] = planned
+			return keySecrets
+		}
+	}
+	return append(keySecrets, planned)
+}
+
+// carryOverKeyState loads the persisted write key identified by keyID and overlays the desired
+// in-place KMS carry-over fields (plugin config and referenced Secret/ConfigMap data) onto it.
+// Key material, migration state and annotations are preserved, so when the desired carry-over
+// matches what is already stored the result round-trips to the persisted secret unchanged.
+func (p *EncryptionPlanner) carryOverKeyState(ctx context.Context, snap *KeyPlanningSnapshot, keyID uint64) (state.KeyState, error) {
+	if keyID == 0 {
+		return state.KeyState{}, fmt.Errorf("cannot carry over key with ID 0")
+	}
+
+	var keySecret *corev1.Secret
+	for _, s := range snap.State.KeySecrets {
+		if id, ok := state.NameToKeyID(s.Name); ok && id == keyID {
+			keySecret = s
+			break
+		}
+	}
+	if keySecret == nil {
+		return state.KeyState{}, fmt.Errorf("backing Secret for key %d missing from planning snapshot", keyID)
+	}
+
+	ks, err := secrets.ToKeyState(keySecret)
+	if err != nil {
+		return state.KeyState{}, err
+	}
+
+	// Only KMS mode needs carry-over plugin/credential fields refreshed in place.
+	if snap.CurrentMode != state.KMS {
+		return ks, nil
+	}
+
+	if !ks.HasKMSPlugin() {
+		return state.KeyState{}, fmt.Errorf("backing Secret for key %d has no KMS plugin config", keyID)
+	}
+
+	refSecret, refCM, err := fetchReferencedResources(ctx, snap.desiredProviderCfg, p.secretClient, p.configMapClient, openshiftConfigNS)
+	if err != nil {
+		return state.KeyState{}, err
+	}
+	desiredKMS, err := buildKMSCarryOverState(snap.PluginConfig, snap.desiredProviderCfg, refSecret, refCM)
+	if err != nil {
+		return state.KeyState{}, err
+	}
+	ks.KMS.Plugin = desiredKMS.Plugin
+	ks.KMS.PluginSecretData = desiredKMS.PluginSecretData
+	ks.KMS.PluginConfigMapData = desiredKMS.PluginConfigMapData
+	return ks, nil
 }

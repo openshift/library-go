@@ -91,12 +91,12 @@ func (c *encryptionConfigurationComputer) ComputeEncryptionConfiguration(ctx con
 		return nil, err
 	}
 
-	var plannedKey *PlannedEncryptionKey
-	if plan.Needed {
-		plannedKey, err = planner.MaterializeKey(ctx, snap, plan)
-		if err != nil {
-			return nil, err
-		}
+	// MaterializeKey returns nil when the plan references no key. Otherwise it materializes the
+	// planned key: the next key when one is needed, or the current write key carrying the desired
+	// image, TLS, auth, and referenced data for an in-place field update.
+	plannedKey, err := planner.MaterializeKey(ctx, snap, plan)
+	if err != nil {
+		return nil, err
 	}
 
 	result, err := planner.ComputeConfig(&snap.State, plannedKey)
