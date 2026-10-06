@@ -297,35 +297,14 @@ func (c *keyController) reconcileCurrentKey(ctx context.Context, recorder events
 //
 // The caller guarantees currentKey carries a KMS plugin (currentKey.HasKMSPlugin()).
 func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, snap *KeyPlanningSnapshot, keySecret *corev1.Secret, currentKey state.KeyState) (bool, error) {
-	// Resolve the desired carry-over state: the plugin config plus the referenced Secret/ConfigMap
-	// data. Key material and the KMS encryption config are intentionally left untouched here — only
-	// carry-over fields are refreshed (that is buildEncryptionKeyState's job at key-creation time).
-	desiredKMS := &state.KMSState{Plugin: snap.PluginConfig}
 	refSecret, refCM, err := fetchReferencedResources(ctx, snap.desiredProviderCfg, c.secretClient, c.configMapClient, openshiftConfigNS)
 	if err != nil {
 		return false, err
 	}
-	if refSecret != nil {
-		secretName, expectedKeys, err := snap.desiredProviderCfg.referencedSecretName()
-		if err != nil {
-			return false, err
-		}
-		for _, key := range expectedKeys {
-			if err := desiredKMS.PluginSecretData.Set(secretName, key, refSecret.Data[key]); err != nil {
-				return false, err
-			}
-		}
-	}
-	if refCM != nil {
-		cmName, expectedKeys, err := snap.desiredProviderCfg.referencedConfigMapName()
-		if err != nil {
-			return false, err
-		}
-		for _, key := range expectedKeys {
-			if err := desiredKMS.PluginConfigMapData.Set(cmName, key, []byte(refCM.Data[key])); err != nil {
-				return false, err
-			}
-		}
+
+	desiredKMS, err := buildKMSCarryOverState(snap.PluginConfig, snap.desiredProviderCfg, refSecret, refCM)
+	if err != nil {
+		return false, err
 	}
 
 	// We compare .Plugin as a whole for simplicity, but we don't expect the migration-triggering
@@ -370,6 +349,39 @@ func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, snap *K
 		return false, err
 	}
 	return true, nil
+}
+
+// buildKMSCarryOverState assembles the desired in-place carry-over state for an
+// existing KMS key — the plugin config plus the referenced Secret/ConfigMap data —
+// from resources the caller has already fetched via fetchReferencedResources.
+// It is a pure transform: no API calls, and deliberately no key material or KMS
+// encryption config (that is buildEncryptionKeyState's job at key-creation time)
+// and no config hash (callers that need it build a hasher from the same resources).
+func buildKMSCarryOverState(pluginConfig kms.KMSPluginConfig, desiredProviderCfg kmsProviderConfig, refSecret *corev1.Secret, refCM *corev1.ConfigMap) (*state.KMSState, error) {
+	kmsState := &state.KMSState{Plugin: pluginConfig}
+	if refSecret != nil {
+		secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName()
+		if err != nil {
+			return nil, err
+		}
+		for _, key := range expectedKeys {
+			if err := kmsState.PluginSecretData.Set(secretName, key, refSecret.Data[key]); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if refCM != nil {
+		cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName()
+		if err != nil {
+			return nil, err
+		}
+		for _, key := range expectedKeys {
+			if err := kmsState.PluginConfigMapData.Set(cmName, key, []byte(refCM.Data[key])); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return kmsState, nil
 }
 
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
