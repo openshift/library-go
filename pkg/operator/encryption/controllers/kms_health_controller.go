@@ -108,11 +108,10 @@ func (c *kmsHealthController) sync(ctx context.Context, syncCtx factory.SyncCont
 	pruned := health.PruneStaleReports(encryptionStatus.HealthReports, now, health.DefaultReportPruneTTL)
 	if len(pruned) != len(encryptionStatus.HealthReports) {
 		// Prune inside the callback so conflict retries re-read status and do not
-	pruned := health.PruneStaleReports(encryptionStatus.HealthReports, now, health.DefaultReportPruneTTL)
-	if len(pruned) != len(encryptionStatus.HealthReports) {
+		// overwrite HealthReports concurrently published by health reporters via SSA.
 		if err := c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
-			s.HealthReports = health.PruneStaleReports(s.HealthReports, now, health.DefaultReportPruneTTL)
-			pruned = s.HealthReports
+			pruned = health.PruneStaleReports(s.HealthReports, now, health.DefaultReportPruneTTL)
+			s.HealthReports = pruned
 		}); err != nil {
 			return fmt.Errorf("failed to prune stale KMS health reports: %w", err)
 		}
