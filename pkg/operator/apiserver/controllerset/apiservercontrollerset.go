@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"time"
 
+	"k8s.io/utils/clock"
+
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
@@ -25,6 +27,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
+	"github.com/openshift/library-go/pkg/operator/revisionpruner"
 	"github.com/openshift/library-go/pkg/operator/secretspruner"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -82,6 +85,7 @@ type APIServerControllerSet struct {
 	logLevelController              controllerWrapper
 	pruneController                 controllerWrapper
 	revisionController              controllerWrapper
+	revisionPruneController         controllerWrapper
 	staticResourceController        controllerWrapper
 	workloadController              controllerWrapper
 	clock                           clock.PassiveClock
@@ -360,6 +364,29 @@ func (cs *APIServerControllerSet) WithoutPruneController() *APIServerControllerS
 	return cs
 }
 
+func (cs *APIServerControllerSet) WithRevisionPruneController(
+	targetNamespace string,
+	configMapPrefixes []string,
+	configMapGetter corev1client.ConfigMapsGetter,
+	kubeInformersForTargetNamespace v1helpers.KubeInformersForNamespaces,
+) *APIServerControllerSet {
+	cs.revisionPruneController.controller = revisionpruner.NewConfigMapRevisionPruneController(
+		targetNamespace,
+		configMapPrefixes,
+		labels.SelectorFromSet(map[string]string{"apiserver": "true"}),
+		configMapGetter,
+		kubeInformersForTargetNamespace,
+		cs.eventRecorder,
+	)
+	return cs
+}
+
+func (cs *APIServerControllerSet) WithoutRevisionPruneController() *APIServerControllerSet {
+	cs.revisionPruneController.controller = nil
+	cs.revisionPruneController.emptyAllowed = true
+	return cs
+}
+
 func (cs *APIServerControllerSet) WithEncryptionControllers(
 	component string,
 	provider controllers.Provider,
@@ -450,6 +477,7 @@ func (cs *APIServerControllerSet) PrepareRun() (preparedAPIServerControllerSet, 
 		"logLevelController":              cs.logLevelController,
 		"pruneController":                 cs.pruneController,
 		"revisionController":              cs.revisionController,
+		"revisionPruneController":         cs.revisionPruneController,
 		"staticResourceController":        cs.staticResourceController,
 		"workloadController":              cs.workloadController,
 	}
