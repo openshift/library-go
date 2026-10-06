@@ -73,12 +73,15 @@ func (c *checker) check(ctx context.Context) (*kmsservice.StatusResponse, error)
 // before reporting a failure.
 func (c *checker) checkStatus(ctx context.Context) (*kmsservice.StatusResponse, error) {
 	klog.Infof("[1/3] Checking KMS plugin status endpoint (interval %v, timeout %v)", c.statusInterval, c.statusTimeout)
+	pollStart := time.Now()
 	var status *kmsservice.StatusResponse
+	var lastErr error
 	err := wait.PollUntilContextTimeout(ctx, c.statusInterval, c.statusTimeout, true, func(ctx context.Context) (bool, error) {
-		start := time.Now()
+		callStart := time.Now()
 		resp, err := c.service.Status(ctx)
-		elapsed := time.Since(start)
+		elapsed := time.Since(callStart)
 		if err != nil {
+			lastErr = err
 			klog.Infof("  not ready: %v, latency=%v", err, elapsed)
 			return false, nil
 		}
@@ -86,13 +89,18 @@ func (c *checker) checkStatus(ctx context.Context) (*kmsservice.StatusResponse, 
 		// version and keyID validation is the apiserver's responsibility,
 		// the preflight check just confirms the plugin is reachable and healthy.
 		if resp.Healthz != healthzOK {
-			klog.Infof("  not ready: healthz=%q, latency=%v", resp.Healthz, elapsed)
+			lastErr = fmt.Errorf("last status: healthz=%q, version=%q, keyID=%q", resp.Healthz, resp.Version, resp.KeyID)
+			klog.Infof("  not ready: healthz=%q, version=%q, keyID=%q, latency=%v", resp.Healthz, resp.Version, resp.KeyID, elapsed)
 			return false, nil
 		}
+		lastErr = nil
 		klog.Infof("  Status: healthz=%q, version=%q, keyID=%q, latency=%v", resp.Healthz, resp.Version, resp.KeyID, elapsed)
 		status = resp
 		return true, nil
 	})
+	if lastErr != nil {
+		return status, fmt.Errorf("KMS plugin did not become healthy after %s: %w", time.Since(pollStart).Round(time.Millisecond), lastErr)
+	}
 	return status, err
 }
 
