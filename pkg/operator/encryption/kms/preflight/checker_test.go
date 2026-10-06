@@ -3,6 +3,7 @@ package preflight
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -88,7 +89,7 @@ func TestCheckInternal(t *testing.T) {
 					return nil, fmt.Errorf("connection refused")
 				},
 			},
-			expectErr: "context deadline exceeded",
+			expectErr: "connection refused",
 		},
 		{
 			name: "persistent unhealthy status exceeds timeout",
@@ -97,7 +98,7 @@ func TestCheckInternal(t *testing.T) {
 					return &kmsservice.StatusResponse{Healthz: "not-ready"}, nil
 				},
 			},
-			expectErr: "context deadline exceeded",
+			expectErr: "last status: healthz=\"not-ready\"",
 		},
 		{
 			name: "encrypt error",
@@ -215,6 +216,212 @@ func TestCheckReturnsLastError(t *testing.T) {
 	}
 }
 
+func TestCheckStatusErrorReporting(t *testing.T) {
+	connectionErr := errors.New("connection refused")
+	tests := []struct {
+		name            string
+		caller          string
+		statusErr       error
+		statusResponse  *kmsservice.StatusResponse
+		statusTimeout   time.Duration
+		statusInterval  time.Duration
+		wantErr         error
+		wantErrContains string
+		wantStatusCalls int
+	}{
+		{
+			name:            "unreachable KMS, caller active",
+			caller:          "active",
+			statusErr:       connectionErr,
+			statusTimeout:   100 * time.Millisecond,
+			statusInterval:  time.Second,
+			wantErr:         connectionErr,
+			wantStatusCalls: 2,
+		},
+		{
+			name:            "unhealthy KMS, caller active",
+			caller:          "active",
+			statusResponse:  &kmsservice.StatusResponse{Healthz: "not-ready", Version: "v2", KeyID: "key-1"},
+			statusTimeout:   100 * time.Millisecond,
+			statusInterval:  time.Second,
+			wantErrContains: `last status: healthz="not-ready", version="v2", keyID="key-1"`,
+			wantStatusCalls: 2,
+		},
+		{
+			name:            "caller canceled before check",
+			caller:          "canceled before call",
+			wantErr:         context.Canceled,
+			wantStatusCalls: 0,
+		},
+		{
+			name:            "caller canceled after status error",
+			caller:          "cancel on status",
+			statusErr:       connectionErr,
+			wantErr:         context.Canceled,
+			wantStatusCalls: 1,
+		},
+		{
+			name:            "caller deadline during status call",
+			caller:          "deadline during status",
+			statusErr:       connectionErr,
+			statusTimeout:   time.Second,
+			wantErr:         context.DeadlineExceeded,
+			wantStatusCalls: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if tt.caller == "deadline during status" {
+				ctx, cancel = context.WithTimeout(context.Background(), 100*time.Millisecond)
+			} else {
+				ctx, cancel = context.WithCancel(context.Background())
+			}
+			defer cancel()
+			if tt.caller == "canceled before call" {
+				cancel()
+			}
+
+			statusCalls := 0
+			svc := &fakeService{
+				StatusFn: func(callCtx context.Context) (*kmsservice.StatusResponse, error) {
+					statusCalls++
+					if tt.caller == "deadline during status" {
+						<-callCtx.Done()
+					}
+					if tt.caller == "cancel on status" {
+						cancel()
+					}
+					if tt.statusErr != nil {
+						return nil, tt.statusErr
+					}
+					if tt.statusResponse != nil {
+						return tt.statusResponse, nil
+					}
+					return &kmsservice.StatusResponse{Healthz: "ok"}, nil
+				},
+			}
+			checker := newTestChecker(svc)
+			if tt.statusTimeout > 0 {
+				checker.statusTimeout = tt.statusTimeout
+			}
+			if tt.statusInterval > 0 {
+				checker.statusInterval = tt.statusInterval
+			}
+
+			status, err := checker.check(ctx)
+			if status != nil || err == nil || (tt.wantErr != nil && !errors.Is(err, tt.wantErr)) || statusCalls != tt.wantStatusCalls {
+				t.Fatalf("got status %+v, error %v, status calls %d; want nil status, error matching %v, status calls %d",
+					status, err, statusCalls, tt.wantErr, tt.wantStatusCalls)
+			}
+			if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+				t.Fatalf("error %q does not contain %q", err, tt.wantErrContains)
+			}
+		})
+	}
+}
+
+func TestCheckEncryptDecryptErrorReporting(t *testing.T) {
+	encryptErr := errors.New("encrypt connection refused")
+	decryptErr := errors.New("decrypt connection refused")
+	tests := []struct {
+		name             string
+		failingCall      string
+		serviceErr       error
+		cancelOnCall     bool
+		wantErr          error
+		wantErrContains  string
+		wantEncryptCalls int
+		wantDecryptCalls int
+	}{
+		{
+			name:             "encrypt service error",
+			failingCall:      "encrypt",
+			serviceErr:       encryptErr,
+			wantErr:          encryptErr,
+			wantErrContains:  "encrypt call failed",
+			wantEncryptCalls: 2,
+		},
+		{
+			name:             "decrypt service error",
+			failingCall:      "decrypt",
+			serviceErr:       decryptErr,
+			wantErr:          decryptErr,
+			wantErrContains:  "decrypt call failed",
+			wantEncryptCalls: 2,
+			wantDecryptCalls: 2,
+		},
+		{
+			name:             "caller canceled during encrypt",
+			failingCall:      "encrypt",
+			serviceErr:       encryptErr,
+			cancelOnCall:     true,
+			wantErr:          context.Canceled,
+			wantEncryptCalls: 1,
+		},
+		{
+			name:             "caller canceled during decrypt",
+			failingCall:      "decrypt",
+			serviceErr:       decryptErr,
+			cancelOnCall:     true,
+			wantErr:          context.Canceled,
+			wantEncryptCalls: 1,
+			wantDecryptCalls: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			svc := healthyFakeService()
+			originalEncrypt := svc.EncryptFn
+			originalDecrypt := svc.DecryptFn
+			encryptCalls, decryptCalls := 0, 0
+			svc.EncryptFn = func(ctx context.Context, uid string, data []byte) (*kmsservice.EncryptResponse, error) {
+				encryptCalls++
+				if tt.failingCall == "encrypt" {
+					if tt.cancelOnCall {
+						cancel()
+					}
+					return nil, tt.serviceErr
+				}
+				return originalEncrypt(ctx, uid, data)
+			}
+			svc.DecryptFn = func(ctx context.Context, uid string, req *kmsservice.DecryptRequest) ([]byte, error) {
+				decryptCalls++
+				if tt.failingCall == "decrypt" {
+					if tt.cancelOnCall {
+						cancel()
+					}
+					return nil, tt.serviceErr
+				}
+				return originalDecrypt(ctx, uid, req)
+			}
+
+			checker := newTestChecker(svc)
+			checker.randReader = bytes.NewReader(bytes.Repeat([]byte{0xAB}, 64))
+			status, err := checker.check(ctx)
+			if status == nil || status.Healthz != "ok" {
+				t.Fatalf("expected healthy status, got %+v", status)
+			}
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("expected error matching %v, got %v", tt.wantErr, err)
+			}
+			if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErrContains, err)
+			}
+			if encryptCalls != tt.wantEncryptCalls || decryptCalls != tt.wantDecryptCalls {
+				t.Fatalf("got %d encrypt calls and %d decrypt calls, want %d and %d",
+					encryptCalls, decryptCalls, tt.wantEncryptCalls, tt.wantDecryptCalls)
+			}
+		})
+	}
+}
+
 func TestCheckCancellationDuringLastAttempt(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -231,7 +438,7 @@ func TestCheckCancellationDuringLastAttempt(t *testing.T) {
 	checker := newTestChecker(svc)
 	checker.randReader = bytes.NewReader(bytes.Repeat([]byte{0xAB}, 64))
 	_, err := checker.check(ctx)
-	if calls != 2 || err != context.Canceled {
+	if calls != 2 || !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected cancellation during the second attempt, got %d attempts and %v", calls, err)
 	}
 }
@@ -248,7 +455,7 @@ func TestCheckCancellationBeforeRetry(t *testing.T) {
 	}
 
 	_, err := newTestChecker(svc).check(ctx)
-	if calls != 1 || err != context.Canceled {
+	if calls != 1 || !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected cancellation before retry, got %d attempts and %v", calls, err)
 	}
 }
