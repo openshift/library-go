@@ -205,7 +205,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return err
 	}
 	if !plan.Needed {
-		return c.reconcileCurrentKey(ctx, syncContext.Recorder(), snap, plan.KeyID)
+		return c.reconcileCurrentKey(ctx, syncContext, snap, plan.KeyID)
 	}
 
 	keySecret, preconditionMet, err := c.generateKeySecret(ctx, plan.KeyID, snap.CurrentMode, snap.PluginConfig, snap.desiredProviderCfg, plan.InternalReason, snap.ExternalReason)
@@ -231,7 +231,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	return nil
 }
 
-func (c *keyController) reconcileCurrentKey(ctx context.Context, recorder events.Recorder, snap *KeyPlanningSnapshot, keyID uint64) error {
+func (c *keyController) reconcileCurrentKey(ctx context.Context, syncContext factory.SyncContext, snap *KeyPlanningSnapshot, keyID uint64) error {
 	if snap.CurrentMode != state.KMS || keyID == 0 {
 		return nil
 	}
@@ -257,13 +257,21 @@ func (c *keyController) reconcileCurrentKey(ctx context.Context, recorder events
 	// fields (image, TLS, auth, and the referenced credential/CA data) into the existing
 	// key secret in place. When an update is applied this sync, skip rotation; it resumes
 	// next sync once fields are stable.
-	updated, err := c.reconcileInPlaceFieldUpdate(ctx, snap, keySecret, currentKey)
+	updateResult, err := c.reconcileInPlaceFieldUpdate(ctx, syncContext, snap, keySecret, currentKey)
 	if err != nil {
 		return err
 	}
-	if updated {
-		recorder.Eventf("EncryptionKeyFieldsUpdated", "Secret %q KMS plugin fields updated in place (no new key, no re-encryption)", keySecret.Name)
+	switch updateResult {
+	case inPlaceUpdateApplied:
+		syncContext.Recorder().Eventf("EncryptionKeyFieldsUpdated", "Secret %q KMS plugin fields updated in place (no new key, no re-encryption)", keySecret.Name)
 		return nil
+	case inPlaceUpdatePending:
+		klog.V(4).Infof("KMS preflight is pending before in-place update of plugin fields in Secret %s/%s", keySecret.Namespace, keySecret.Name)
+		return nil
+	case inPlaceUpdateNoChange:
+		// Continue to remote key rotation when no in-place field update is needed.
+	default:
+		return fmt.Errorf("unknown in-place field update result %d", updateResult)
 	}
 
 	// Skip until initial migration completes and sets a migrated remote key ID.
@@ -290,21 +298,30 @@ func (c *keyController) reconcileCurrentKey(ctx context.Context, recorder events
 // existing KMS key secret in place, without minting a new key or re-encrypting. Because this
 // path is only reached when the provider instance is unchanged, only carry-over fields can
 // differ, never migration-triggering ones.
-//
-// The returned bool reports whether an update was applied and so the in-place path owns this
-// sync and rotation must be skipped. A failed update (including a conflict) is returned as an
-// error; the controller then resyncs on its periodic timer and re-attempts the update.
-//
-// The caller guarantees currentKey carries a KMS plugin (currentKey.HasKMSPlugin()).
-func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, snap *KeyPlanningSnapshot, keySecret *corev1.Secret, currentKey state.KeyState) (bool, error) {
+type inPlaceUpdateResult int
+
+const (
+	inPlaceUpdateNoChange inPlaceUpdateResult = iota
+	inPlaceUpdatePending
+	inPlaceUpdateApplied
+)
+
+// reconcileInPlaceFieldUpdate returns whether no update was needed, preflight is pending, or an
+// update was applied. A failed update (including a conflict) is returned as an error; the
+// controller resyncs and retries with a fresh read.
+func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, syncContext factory.SyncContext, snap *KeyPlanningSnapshot, keySecret *corev1.Secret, currentKey state.KeyState) (inPlaceUpdateResult, error) {
+	if currentKey.KMS == nil {
+		return inPlaceUpdateNoChange, fmt.Errorf("secret %s/%s is not a KMS key secret", keySecret.Namespace, keySecret.Name)
+	}
+
 	refSecret, refCM, err := fetchReferencedResources(ctx, snap.desiredProviderCfg, c.secretClient, c.configMapClient, openshiftConfigNS)
 	if err != nil {
-		return false, err
+		return inPlaceUpdateNoChange, err
 	}
 
 	desiredKMS, err := buildKMSCarryOverState(snap.PluginConfig, snap.desiredProviderCfg, refSecret, refCM)
 	if err != nil {
-		return false, err
+		return inPlaceUpdateNoChange, err
 	}
 
 	// We compare .Plugin as a whole for simplicity, but we don't expect the migration-triggering
@@ -315,15 +332,31 @@ func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, snap *K
 	if equality.Semantic.DeepEqual(currentKey.KMS.Plugin, desiredKMS.Plugin) &&
 		equality.Semantic.DeepEqual(currentKey.KMS.PluginSecretData.FlatEntries(), desiredKMS.PluginSecretData.FlatEntries()) &&
 		equality.Semantic.DeepEqual(currentKey.KMS.PluginConfigMapData.FlatEntries(), desiredKMS.PluginConfigMapData.FlatEntries()) {
-		return false, nil
+		return inPlaceUpdateNoChange, nil
 	}
 
-	// TODO(in-place-preflight): gate this write on the KMS preflight check, as
-	// generateKeySecret does for new keys (see key_controller.go generateKeySecret):
-	// compute the config hash via newKMSConfigHasher(...).hash(ctx), fetch
-	// GetKMSEncryptionStatus, and back off when ensureKMSPreflightPassed returns
-	// (false, nil). Without this gate an unvalidated image/credential can reach the
-	// plugin. The fetched refSecret/refCM above can feed prefetchedKMSConfigHasherResourceProvider.
+	hasher, err := newKMSConfigHasher(snap.desiredProviderCfg, &prefetchedKMSConfigHasherResourceProvider{secret: refSecret, configMap: refCM}, openshiftConfigNS)
+	if err != nil {
+		return inPlaceUpdateNoChange, fmt.Errorf("failed to create KMS config hasher: %w", err)
+	}
+	configHash, err := hasher.hash(ctx)
+	if err != nil {
+		return inPlaceUpdateNoChange, fmt.Errorf("failed to compute KMS config hash: %w", err)
+	}
+
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+	if err != nil {
+		return inPlaceUpdateNoChange, fmt.Errorf("failed to get KMS encryption status: %w", err)
+	}
+
+	preflightPassed, err := c.ensureKMSPreflightPassed(ctx, configHash, encryptionStatus)
+	if err != nil {
+		return inPlaceUpdateNoChange, err
+	}
+	if !preflightPassed {
+		syncContext.Queue().AddAfter(syncContext.QueueKey(), 30*time.Second)
+		return inPlaceUpdatePending, nil
+	}
 
 	// Overlay only the carry-over fields onto the existing key state and re-serialize. The
 	// desired plugin fields alone cannot be serialized directly: FromKeyState rebuilds the
@@ -335,7 +368,7 @@ func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, snap *K
 
 	desired, err := secrets.FromKeyState(c.instanceName, currentKey)
 	if err != nil {
-		return false, err
+		return inPlaceUpdateNoChange, err
 	}
 
 	// Write back only Data, onto a copy of the snapshot secret (whose resourceVersion drives
@@ -346,9 +379,9 @@ func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, snap *K
 	// A failed update is propagated as an error so rotation is skipped this sync; the controller
 	// resyncs on its periodic timer and re-attempts the update with a fresh read.
 	if _, err := c.secretClient.Secrets(encryptionConfigManagedNS).Update(ctx, s, metav1.UpdateOptions{}); err != nil {
-		return false, err
+		return inPlaceUpdateNoChange, err
 	}
-	return true, nil
+	return inPlaceUpdateApplied, nil
 }
 
 // buildKMSCarryOverState assembles the desired in-place carry-over state for an
@@ -383,7 +416,6 @@ func buildKMSCarryOverState(pluginConfig kms.KMSPluginConfig, desiredProviderCfg
 	}
 	return kmsState, nil
 }
-
 func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *corev1.Secret, keyID uint64) error {
 	actualKeySecret, err := c.secretClient.Secrets("openshift-config-managed").Get(ctx, keySecret.Name, metav1.GetOptions{})
 	if err != nil {
