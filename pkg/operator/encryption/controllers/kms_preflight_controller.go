@@ -708,13 +708,25 @@ func podStartupTimestamp(podStatus corev1.PodStatus) *metav1.Time {
 }
 
 func podStuckReasonAndMessage(podStatus corev1.PodStatus) (string, string) {
+	for _, cs := range podStatus.InitContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason != "" {
+			return waitingContainerReasonAndMessage(cs)
+		}
+		if terminated := cs.State.Terminated; terminated != nil && terminated.ExitCode != 0 {
+			reason := terminated.Reason
+			if reason == "" {
+				reason = "Unknown"
+			}
+			msg := fmt.Sprintf("init container %s exited with %d (%s)", cs.Name, terminated.ExitCode, reason)
+			if terminated.Message != "" {
+				msg = fmt.Sprintf("%s: %s", msg, terminated.Message)
+			}
+			return reason, msg
+		}
+	}
 	for _, cs := range podStatus.ContainerStatuses {
 		if cs.State.Waiting != nil && cs.State.Waiting.Reason != "" {
-			msg := fmt.Sprintf("at least one container %s is waiting: %s", cs.Name, cs.State.Waiting.Reason)
-			if cs.State.Waiting.Message != "" {
-				msg = fmt.Sprintf("%s: %s", msg, cs.State.Waiting.Message)
-			}
-			return cs.State.Waiting.Reason, msg
+			return waitingContainerReasonAndMessage(cs)
 		}
 	}
 	reason := "Unknown"
@@ -725,6 +737,14 @@ func podStuckReasonAndMessage(podStatus corev1.PodStatus) (string, string) {
 		return reason, podStatus.Message
 	}
 	return reason, fmt.Sprintf("pod is in %s phase", podStatus.Phase)
+}
+
+func waitingContainerReasonAndMessage(cs corev1.ContainerStatus) (string, string) {
+	msg := fmt.Sprintf("at least one container %s is waiting: %s", cs.Name, cs.State.Waiting.Reason)
+	if cs.State.Waiting.Message != "" {
+		msg = fmt.Sprintf("%s: %s", msg, cs.State.Waiting.Message)
+	}
+	return cs.State.Waiting.Reason, msg
 }
 
 func FindPodCondition(conditions []corev1.PodCondition, condType corev1.PodConditionType) *corev1.PodCondition {
