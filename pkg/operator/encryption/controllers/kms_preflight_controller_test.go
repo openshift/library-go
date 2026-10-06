@@ -904,6 +904,56 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			// Scenario 3c: a restartable plugin init container is crash-looping.
+			name: "pod stuck with crashing KMS plugin, reports init container backoff",
+			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
+				Phase:     corev1.PodRunning,
+				StartTime: &metav1.Time{Time: time.Now().Add(-5 * time.Minute)},
+				InitContainerStatuses: []corev1.ContainerStatus{{
+					Name: "kms-plugin",
+					State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{
+						Reason:  "CrashLoopBackOff",
+						Message: "back-off restarting failed container",
+					}},
+					LastTerminationState: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 42, Reason: "Error"}},
+				}},
+				ContainerStatuses: []corev1.ContainerStatus{{Name: "kms-preflight-check", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}},
+			}},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:     true,
+			preconditionsMet:         true,
+			expectedError:            "preflight pod has not reported result after 3m0s: at least one container kms-plugin is waiting: CrashLoopBackOff: back-off restarting failed container",
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "CrashLoopBackOff", Message: "preflight pod has not reported result after 3m0s: at least one container kms-plugin is waiting: CrashLoopBackOff: back-off restarting failed container"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+			},
+		},
+		{
+			// Scenario 3c: the same sidecar between restart attempts.
+			name: "pod stuck with terminated KMS plugin, reports init container exit",
+			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
+				Phase:     corev1.PodRunning,
+				StartTime: &metav1.Time{Time: time.Now().Add(-5 * time.Minute)},
+				InitContainerStatuses: []corev1.ContainerStatus{{
+					Name:  "kms-plugin",
+					State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 42, Reason: "Error"}},
+				}},
+				ContainerStatuses: []corev1.ContainerStatus{{Name: "kms-preflight-check", State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}},
+			}},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:     true,
+			preconditionsMet:         true,
+			expectedError:            "preflight pod has not reported result after 3m0s: init container kms-plugin exited with 42 (Error)",
+			expectedConditions: []operatorv1.OperatorCondition{
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Error", Message: "preflight pod has not reported result after 3m0s: init container kms-plugin exited with 42 (Error)"},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+			},
+		},
+		{
 			// Scenario 3c: terminal — timeout waiting for result.
 			name: "pod stuck without reporting result past timeout, goes degraded",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
