@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1385,19 +1386,27 @@ var _ kms.EncryptionStatusProvider = &dynamicKMSEncryptionStatusProvider{}
 type configurableKMSPreflightDeployer struct {
 	configHash string
 	deployed   bool
+	attempt    int32
 	// fail is set by the test goroutine and read by the controller goroutine in Status.
 	fail atomic.Bool
 }
 
-func (d *configurableKMSPreflightDeployer) Deploy(_ context.Context, configHash string, _ *corev1.Secret) error {
+func (d *configurableKMSPreflightDeployer) Deploy(_ context.Context, configHash string, _ *corev1.Secret, modify func(*corev1.Pod)) error {
+	pod := &corev1.Pod{}
+	modify(pod)
+	attempt, err := strconv.ParseInt(pod.Annotations["encryption.apiserver.operator.openshift.io/kms-preflight-attempt"], 10, 32)
+	if err != nil {
+		return err
+	}
+	d.attempt = int32(attempt)
 	d.configHash = configHash
 	d.deployed = true
 	return nil
 }
 
-func (d *configurableKMSPreflightDeployer) Status(_ context.Context) (string, corev1.PodStatus, error) {
+func (d *configurableKMSPreflightDeployer) Status(_ context.Context) (string, corev1.PodStatus, int32, error) {
 	if !d.deployed {
-		return "", corev1.PodStatus{}, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")
+		return "", corev1.PodStatus{}, 0, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kms-preflight")
 	}
 	resultStatus, resultMessage := corev1.ConditionTrue, ""
 	if d.fail.Load() {
@@ -1411,7 +1420,7 @@ func (d *configurableKMSPreflightDeployer) Status(_ context.Context) (string, co
 			// same config), mirroring a real KMS backend's per-key id.
 			{Type: controllers.KMSPreflightRemoteKeyIDPodCondition, Status: corev1.ConditionTrue, Message: "configurable-" + d.configHash},
 		},
-	}, nil
+	}, d.attempt, nil
 }
 
 func (d *configurableKMSPreflightDeployer) Cleanup(_ context.Context) error {

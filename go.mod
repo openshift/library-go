@@ -1,5 +1,7 @@
 module github.com/openshift/library-go
 
+replace github.com/openshift/api => /Users/lszaszki/go/src/github.com/openshift/api
+
 go 1.26.0
 
 require (

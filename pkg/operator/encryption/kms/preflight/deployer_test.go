@@ -524,7 +524,7 @@ func TestPodPreflightDeployer_Deploy(t *testing.T) {
 				t.Fatalf("failed to parse expected pod YAML: %v", err)
 			}
 
-			if err := deployer.Deploy(ctx, testConfigHash, encryptionConfigSecret); err != nil {
+			if err := deployer.Deploy(ctx, testConfigHash, encryptionConfigSecret, nil); err != nil {
 				t.Fatalf("Deploy() error = %v", err)
 			}
 
@@ -595,10 +595,54 @@ func TestPodPreflightDeployer_Deploy(t *testing.T) {
 	}
 }
 
+func TestPodPreflightDeployer_DeployWithPodModifier(t *testing.T) {
+	tests := []struct {
+		name              string
+		annotationChanges map[string]string
+		wantAnnotations   map[string]string
+	}{
+		{
+			name:              "add attempt annotation",
+			annotationChanges: map[string]string{attemptAnnotation: "2"},
+			wantAnnotations: map[string]string{
+				configHashAnnotation: testConfigHash,
+				attemptAnnotation:    "2",
+			},
+		},
+		{
+			name:              "overwrite rendered config hash annotation",
+			annotationChanges: map[string]string{configHashAnnotation: "modified-hash"},
+			wantAnnotations:   map[string]string{configHashAnnotation: "modified-hash"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deployer, client := newTestDeployer(t)
+			err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t), func(pod *corev1.Pod) {
+				for key, value := range tt.annotationChanges {
+					pod.Annotations[key] = value
+				}
+			})
+			if err != nil {
+				t.Fatalf("Deploy() error = %v", err)
+			}
+
+			pod, err := client.CoreV1().Pods(testNamespace).Get(context.Background(), PodName, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("Get() error = %v", err)
+			}
+			if !equality.Semantic.DeepEqual(pod.Annotations, tt.wantAnnotations) {
+				t.Errorf("annotations = %v, want %v", pod.Annotations, tt.wantAnnotations)
+			}
+		})
+	}
+}
+
 func TestPodPreflightDeployer_Deploy_emptyConfigHash(t *testing.T) {
 	deployer, kubeClient := newTestDeployer(t)
 
-	err := deployer.Deploy(context.Background(), "", testPreflightEncryptionConfigSecret(t))
+	err := deployer.Deploy(context.Background(), "", testPreflightEncryptionConfigSecret(t), nil)
 	if err == nil || !strings.Contains(err.Error(), "configHash is empty") {
 		t.Fatalf("expected configHash is empty error, got %v", err)
 	}
@@ -610,7 +654,7 @@ func TestPodPreflightDeployer_Deploy_emptyConfigHash(t *testing.T) {
 func TestPodPreflightDeployer_Deploy_nilEncryptionConfigSecret(t *testing.T) {
 	deployer, kubeClient := newTestDeployer(t)
 
-	err := deployer.Deploy(context.Background(), testConfigHash, nil)
+	err := deployer.Deploy(context.Background(), testConfigHash, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "encryptionConfigSecret is nil") {
 		t.Fatalf("expected encryptionConfigSecret is nil error, got %v", err)
 	}
@@ -627,7 +671,7 @@ func TestPodPreflightDeployer_Deploy_secretCreateFailure(t *testing.T) {
 		return true, nil, apierrors.NewForbidden(corev1.Resource("secrets"), EncryptionConfigSecretName, nil)
 	})
 
-	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t))
+	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t), nil)
 	if err == nil || !strings.Contains(err.Error(), "failed to create preflight encryption config secret") {
 		t.Fatalf("expected secret create error, got %v", err)
 	}
@@ -664,7 +708,7 @@ func TestPodPreflightDeployer_Deploy_pluginApplyFailure(t *testing.T) {
 		t.Fatalf("failed to build encryption config secret: %v", err)
 	}
 
-	err = deployer.Deploy(context.Background(), testConfigHash, secret)
+	err = deployer.Deploy(context.Background(), testConfigHash, secret, nil)
 	if err == nil || !strings.Contains(err.Error(), "failed to apply preflight plugin") {
 		t.Fatalf("expected plugin apply error, got %v", err)
 	}
@@ -696,7 +740,7 @@ func TestPodPreflightDeployer_Deploy_podCreateFailure(t *testing.T) {
 		return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
 	})
 
-	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t))
+	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t), nil)
 	if err == nil || !strings.Contains(err.Error(), "failed to create preflight pod") {
 		t.Fatalf("expected pod create error, got %v", err)
 	}
@@ -754,7 +798,7 @@ func TestPodPreflightDeployer_Deploy_cleanupFailure(t *testing.T) {
 		return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
 	})
 
-	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t))
+	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t), nil)
 	if err == nil || !strings.Contains(err.Error(), "failed to clean up existing preflight resources") {
 		t.Fatalf("expected cleanup error, got %v", err)
 	}
@@ -785,7 +829,7 @@ func TestPodPreflightDeployer_Deploy_deletesStaleResources(t *testing.T) {
 	staleSecret.Data = map[string][]byte{"stale": []byte("data")}
 	deployer, kubeClient := newTestDeployer(t, stalePod, staleSecret)
 
-	err := deployer.Deploy(ctx, testConfigHash, testPreflightEncryptionConfigSecret(t))
+	err := deployer.Deploy(ctx, testConfigHash, testPreflightEncryptionConfigSecret(t), nil)
 	if err != nil {
 		t.Fatalf("Deploy() error = %v", err)
 	}
@@ -831,11 +875,12 @@ func TestPodPreflightDeployer_Deploy_deletesStaleResources(t *testing.T) {
 
 func TestPodPreflightDeployer_Status(t *testing.T) {
 	scenarios := []struct {
-		name        string
-		objects     []runtime.Object
-		expectHash  string
-		expectPhase corev1.PodPhase
-		expectErr   string
+		name          string
+		objects       []runtime.Object
+		expectHash    string
+		expectAttempt int32
+		expectPhase   corev1.PodPhase
+		expectErr     string
 	}{
 		{
 			name:      "missing pod returns error",
@@ -848,13 +893,14 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        PodName,
 						Namespace:   testNamespace,
-						Annotations: map[string]string{configHashAnnotationKey: testConfigHash},
+						Annotations: map[string]string{configHashAnnotationKey: testConfigHash, attemptAnnotation: "2"},
 					},
 					Status: corev1.PodStatus{Phase: corev1.PodRunning},
 				},
 			},
-			expectHash:  testConfigHash,
-			expectPhase: corev1.PodRunning,
+			expectHash:    testConfigHash,
+			expectAttempt: 2,
+			expectPhase:   corev1.PodRunning,
 		},
 		{
 			name: "pod without annotation returns empty hash",
@@ -876,7 +922,7 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			deployer, _ := newTestDeployer(t, scenario.objects...)
 
-			hash, status, err := deployer.Status(context.Background())
+			hash, status, attempt, err := deployer.Status(context.Background())
 			if scenario.expectErr != "" {
 				if err == nil || !strings.Contains(err.Error(), scenario.expectErr) {
 					t.Fatalf("expected error containing %q, got %v", scenario.expectErr, err)
@@ -888,6 +934,9 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 			}
 			if hash != scenario.expectHash {
 				t.Fatalf("expected hash %q, got %q", scenario.expectHash, hash)
+			}
+			if attempt != scenario.expectAttempt {
+				t.Fatalf("expected attempt %d, got %d", scenario.expectAttempt, attempt)
 			}
 			if status.Phase != scenario.expectPhase {
 				t.Fatalf("expected phase %q, got %q", scenario.expectPhase, status.Phase)

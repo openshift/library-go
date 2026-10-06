@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
@@ -31,6 +32,7 @@ const (
 	// and read back by Status so the controller can detect a stale pod even when
 	// the pod never ran and therefore never reported any status condition.
 	configHashAnnotation = "encryption.apiserver.operator.openshift.io/kms-preflight-config-hash"
+	attemptAnnotation    = "encryption.apiserver.operator.openshift.io/kms-preflight-attempt"
 
 	preflightRBACName = "kms-preflight"
 	preflightAppLabel = "openshift-kms-preflight"
@@ -59,7 +61,7 @@ type PodPreflightDeployer struct {
 	virtualStaticPod bool
 }
 
-func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, encryptionConfigSecret *corev1.Secret) error {
+func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, encryptionConfigSecret *corev1.Secret, modify func(*corev1.Pod)) error {
 	if configHash == "" {
 		return fmt.Errorf("configHash is empty")
 	}
@@ -92,6 +94,9 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 	if err != nil {
 		return fmt.Errorf("failed to generate preflight pod template: %w", err)
 	}
+	if modify != nil {
+		modify(pod)
+	}
 
 	err = pluginlifecycle.NewKMSPluginBuilder().
 		WithSecretRequired().
@@ -118,16 +123,16 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 }
 
 // Status returns the config hash the current preflight pod was deployed for
-// (from its configHashAnnotation) along with the pod status. The hash lets the
+// (from its configHashAnnotation) along with the pod status and attempt. The hash lets the
 // controller detect a stale pod regardless of whether the pod ever ran.
-func (d *PodPreflightDeployer) Status(ctx context.Context) (string, corev1.PodStatus, error) {
+func (d *PodPreflightDeployer) Status(ctx context.Context) (string, corev1.PodStatus, int32, error) {
 	// preflight status checks are not very frequent, so we use the live client instead of a cached lister
 	pod, err := d.coreClient.Pods(d.namespace).Get(ctx, PodName, metav1.GetOptions{})
 	if err != nil {
-		return "", corev1.PodStatus{}, fmt.Errorf("failed to get pod for preflight %s/%s: %w", d.namespace, PodName, err)
+		return "", corev1.PodStatus{}, 0, fmt.Errorf("failed to get pod for preflight %s/%s: %w", d.namespace, PodName, err)
 	}
-
-	return pod.Annotations[configHashAnnotation], pod.Status, nil
+	attempt, _ := strconv.ParseInt(pod.Annotations[attemptAnnotation], 10, 32)
+	return pod.Annotations[configHashAnnotation], pod.Status, int32(attempt), nil
 }
 
 func (d *PodPreflightDeployer) Cleanup(ctx context.Context) error {
