@@ -131,6 +131,7 @@ func NewControllers(
 			kubeInformersForNamespaces,
 			secretsClient,
 			encryptionSecretSelector,
+			encryptionStatusProvider,
 			eventRecorder,
 		),
 	}
@@ -146,15 +147,6 @@ func NewControllers(
 		secretsClient,
 		configMapClient,
 		dynamicClient,
-		encryptionStatusProvider,
-		eventRecorder,
-	))
-
-	encryptionControllers = append(encryptionControllers, controllers.NewKmsHealthController(
-		component,
-		provider,
-		encryptionEnabledChecker.PreconditionFulfilled,
-		operatorClient,
 		encryptionStatusProvider,
 		eventRecorder,
 	))

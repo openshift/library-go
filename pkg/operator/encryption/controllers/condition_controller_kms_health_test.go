@@ -12,19 +12,20 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
-	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/health"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type fakeKMSHealthStatusProvider struct {
 	status *operatorv1.KMSEncryptionStatus
 	getErr error
+	gets   int
 }
 
 func (f *fakeKMSHealthStatusProvider) GetKMSEncryptionStatus(_ context.Context) (*operatorv1.KMSEncryptionStatus, error) {
+	f.gets++
 	if f.getErr != nil {
 		return nil, f.getErr
 	}
@@ -48,7 +49,27 @@ func (f *fakeKMSHealthStatusProvider) UpdateKMSEncryptionStatus(_ context.Contex
 
 var _ kms.EncryptionStatusProvider = &fakeKMSHealthStatusProvider{}
 
-func TestKmsHealthControllerPrunesAndProgresses(t *testing.T) {
+func kmsConfigWithPlugins() *encryptiondata.Config {
+	return &encryptiondata.Config{
+		KMSPlugins: map[string]kms.KMSPluginConfig{
+			"1": {Type: kms.VaultKMSProvider},
+		},
+	}
+}
+
+func applyKMSHealth(t *testing.T, c *conditionController, config *encryptiondata.Config) {
+	t.Helper()
+	progressing, degraded, err := c.kmsHealthConditions(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status := applyoperatorv1.OperatorStatus().WithConditions(progressing, degraded)
+	if err := c.operatorClient.ApplyOperatorStatus(context.Background(), c.controllerInstanceName, status); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConditionControllerKMSHealthPrunesAndProgresses(t *testing.T) {
 	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
 	fakeClock := clocktesting.NewFakePassiveClock(now)
 
@@ -83,8 +104,8 @@ func TestKmsHealthControllerPrunesAndProgresses(t *testing.T) {
 		nil,
 	)
 
-	c := &kmsHealthController{
-		controllerInstanceName:   "test-KmsHealth",
+	c := &conditionController{
+		controllerInstanceName:   "test-EncryptionCondition",
 		operatorClient:           fakeOperatorClient,
 		provider:                 newTestProvider(nil),
 		preconditionsFulfilledFn: alwaysFulfilledPreconditions,
@@ -92,10 +113,7 @@ func TestKmsHealthControllerPrunesAndProgresses(t *testing.T) {
 		clock:                    fakeClock,
 	}
 
-	syncCtx := factory.NewSyncContext("test", events.NewInMemoryRecorder("test", fakeClock))
-	if err := c.sync(context.Background(), syncCtx); err != nil {
-		t.Fatal(err)
-	}
+	applyKMSHealth(t, c, kmsConfigWithPlugins())
 
 	if got := len(provider.status.HealthReports); got != 2 {
 		t.Fatalf("expected stale report pruned, got %d reports", got)
@@ -105,7 +123,7 @@ func TestKmsHealthControllerPrunesAndProgresses(t *testing.T) {
 	assertCondition(t, fakeOperatorClient, kmsHealthReportsDegradedCondition, operatorv1.ConditionFalse, "")
 }
 
-func TestKmsHealthControllerDegradedAfterTimeout(t *testing.T) {
+func TestConditionControllerKMSHealthDegradedAfterTimeout(t *testing.T) {
 	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
 	fakeClock := clocktesting.NewFakePassiveClock(now)
 
@@ -141,8 +159,8 @@ func TestKmsHealthControllerDegradedAfterTimeout(t *testing.T) {
 		nil,
 	)
 
-	c := &kmsHealthController{
-		controllerInstanceName:   "test-KmsHealth",
+	c := &conditionController{
+		controllerInstanceName:   "test-EncryptionCondition",
 		operatorClient:           fakeOperatorClient,
 		provider:                 newTestProvider(nil),
 		preconditionsFulfilledFn: alwaysFulfilledPreconditions,
@@ -150,16 +168,13 @@ func TestKmsHealthControllerDegradedAfterTimeout(t *testing.T) {
 		clock:                    fakeClock,
 	}
 
-	syncCtx := factory.NewSyncContext("test", events.NewInMemoryRecorder("test", fakeClock))
-	if err := c.sync(context.Background(), syncCtx); err != nil {
-		t.Fatal(err)
-	}
+	applyKMSHealth(t, c, kmsConfigWithPlugins())
 
 	assertCondition(t, fakeOperatorClient, kmsHealthReportsProgressingCondition, operatorv1.ConditionTrue, "HealthReportsNotConverged")
 	assertCondition(t, fakeOperatorClient, kmsHealthReportsDegradedCondition, operatorv1.ConditionTrue, "HealthReportsNotConverged")
 }
 
-func TestKmsHealthControllerPreservesConditionsOnStatusError(t *testing.T) {
+func TestConditionControllerKMSHealthPreservesConditionsOnStatusError(t *testing.T) {
 	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
 	fakeClock := clocktesting.NewFakePassiveClock(now)
 	progressingSince := metav1.NewTime(now.Add(-30 * time.Minute))
@@ -185,8 +200,8 @@ func TestKmsHealthControllerPreservesConditionsOnStatusError(t *testing.T) {
 		nil,
 	)
 
-	c := &kmsHealthController{
-		controllerInstanceName:   "test-KmsHealth",
+	c := &conditionController{
+		controllerInstanceName:   "test-EncryptionCondition",
 		operatorClient:           fakeOperatorClient,
 		provider:                 newTestProvider(nil),
 		preconditionsFulfilledFn: alwaysFulfilledPreconditions,
@@ -194,8 +209,7 @@ func TestKmsHealthControllerPreservesConditionsOnStatusError(t *testing.T) {
 		clock:                    fakeClock,
 	}
 
-	syncCtx := factory.NewSyncContext("test", events.NewInMemoryRecorder("test", fakeClock))
-	if err := c.sync(context.Background(), syncCtx); err == nil {
+	if _, _, err := c.kmsHealthConditions(context.Background(), kmsConfigWithPlugins()); err == nil {
 		t.Fatal("expected status provider error")
 	}
 
@@ -203,16 +217,72 @@ func TestKmsHealthControllerPreservesConditionsOnStatusError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	progressing := v1helpers.FindOperatorCondition(operatorStatus.Conditions, kmsHealthReportsProgressingCondition)
-	if progressing == nil || progressing.Status != operatorv1.ConditionTrue {
-		t.Fatalf("expected Progressing to remain True, got %#v", progressing)
+	progressingCond := v1helpers.FindOperatorCondition(operatorStatus.Conditions, kmsHealthReportsProgressingCondition)
+	if progressingCond == nil || progressingCond.Status != operatorv1.ConditionTrue {
+		t.Fatalf("expected Progressing to remain True, got %#v", progressingCond)
 	}
-	if !progressing.LastTransitionTime.Equal(&progressingSince) {
-		t.Fatalf("Progressing LastTransitionTime changed: got %v want %v", progressing.LastTransitionTime, progressingSince)
+	if !progressingCond.LastTransitionTime.Equal(&progressingSince) {
+		t.Fatalf("Progressing LastTransitionTime changed: got %v want %v", progressingCond.LastTransitionTime, progressingSince)
 	}
-	degraded := v1helpers.FindOperatorCondition(operatorStatus.Conditions, kmsHealthReportsDegradedCondition)
-	if degraded == nil || degraded.Status != operatorv1.ConditionTrue {
-		t.Fatalf("expected Degraded to remain True, got %#v", degraded)
+	degradedCond := v1helpers.FindOperatorCondition(operatorStatus.Conditions, kmsHealthReportsDegradedCondition)
+	if degradedCond == nil || degradedCond.Status != operatorv1.ConditionTrue {
+		t.Fatalf("expected Degraded to remain True, got %#v", degradedCond)
+	}
+}
+
+func TestConditionControllerKMSHealthSkipsWithoutKMSPlugins(t *testing.T) {
+	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	fakeClock := clocktesting.NewFakePassiveClock(now)
+
+	tests := []struct {
+		name   string
+		config *encryptiondata.Config
+	}{
+		{name: "nil config", config: nil},
+		{name: "empty KMSPlugins", config: &encryptiondata.Config{}},
+		{name: "nil KMSPlugins map", config: &encryptiondata.Config{KMSPlugins: nil}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider := &fakeKMSHealthStatusProvider{
+				status: &operatorv1.KMSEncryptionStatus{
+					HealthReports: []operatorv1.KMSPluginHealthReport{{
+						NodeName:        "node-a",
+						KeyID:           "1",
+						RemoteKeyID:     "remote-a",
+						LastCheckedTime: metav1.NewTime(now.Add(-health.DefaultReportPruneTTL)),
+					}},
+				},
+				getErr: fmt.Errorf("should not be called"),
+			}
+
+			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+				&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
+				&operatorv1.OperatorStatus{},
+				nil,
+			)
+
+			c := &conditionController{
+				controllerInstanceName:   "test-EncryptionCondition",
+				operatorClient:           fakeOperatorClient,
+				provider:                 newTestProvider(nil),
+				preconditionsFulfilledFn: alwaysFulfilledPreconditions,
+				encryptionStatusProvider: provider,
+				clock:                    fakeClock,
+			}
+
+			applyKMSHealth(t, c, tt.config)
+
+			if provider.gets != 0 {
+				t.Fatalf("expected status provider not to be called, got %d gets", provider.gets)
+			}
+			if got := len(provider.status.HealthReports); got != 1 {
+				t.Fatalf("expected reports left untouched, got %d", got)
+			}
+			assertCondition(t, fakeOperatorClient, kmsHealthReportsProgressingCondition, operatorv1.ConditionFalse, "")
+			assertCondition(t, fakeOperatorClient, kmsHealthReportsDegradedCondition, operatorv1.ConditionFalse, "")
+		})
 	}
 }
 
