@@ -427,9 +427,9 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     stale pod is reaped even when it crashed or never ran
 //     (ImagePullBackOff, Pending), letting a corrected config make progress.
 //
-//     b) Deployed hash matches, pod phase is Failed — the pod crashed. Report
-//     degraded and keep the pod for inspection. The admin fixes the config,
-//     which triggers a new hash and cleanup via scenario (a).
+//     b) Deployed hash matches, pod phase is Failed — write Failed, report
+//     degraded, and keep the pod, whether or not it reported a check result.
+//     The admin fixes the config, which triggers a new hash and cleanup via (a).
 //
 //     c) Deployed hash matches, no KMSPreflightResult yet — the check is still
 //     running. If the pod phase is Succeeded, it exited without reporting;
@@ -440,18 +440,19 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     d) Hash matches, KMSPreflightResult is True — check passed.
 //     Clean up the pod immediately.
 //
-//     e) Hash matches, KMSPreflightResult is False — check failed. Report
-//     degraded with the failure message. Keep the pod for inspection.
+//     e) Hash matches, KMSPreflightResult is False and pod phase is not Failed —
+//     check failed. Report degraded with the failure message. Keep the pod.
 //     The admin fixes the config, which triggers a new hash and cleanup
 //     via scenario (a).
 //
-// KMSEncryptionStatus.Preflight.Result is written only when the checker ran
-// to completion; infrastructure failures are surfaced through the degraded
-// condition only:
+// KMSEncryptionStatus.Preflight.Result is written when the checker reports a
+// result or the pod fails. Other infrastructure failures are surfaced through
+// the degraded condition only:
 //
 //   - 3d (check passed):  writes Result{Succeeded, configHash, remoteKeyID}
 //   - 3e (check failed):  writes Result{Failed,    configHash, remoteKeyID}; EncryptionKMSPreflightControllerDegraded is also set
-//   - 3b, 3c (infrastructure failures): no write; EncryptionKMSPreflightControllerDegraded is set instead
+//   - 3b (pod failed):   writes Result{Failed,    configHash, remoteKeyID}; EncryptionKMSPreflightControllerDegraded is also set
+//   - 3c (no result):   no write; EncryptionKMSPreflightControllerDegraded is set for terminal failures
 //
 // Condition matrix:
 //
@@ -468,7 +469,7 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //	2b        No pod, Deploy error                              true     err   True      False        No
 //	3a        Stale pod — Cleanup success                       true     nil   False     True         No
 //	3a        Stale pod — Cleanup error                         true     err   True      False        No
-//	3b        Pod Failed — keep for inspection                  false    *pe   True      False        Yes
+//	3b        Pod Failed — write result + keep pod              false    *pe   True      False        Yes
 //	3c        No result, pod Running, no timeout                true     nil   False     True         No
 //	3c        No result, timeout exceeded                       true     *pe   True      False        Yes
 //	3c        No result, pod Succeeded without reporting        false    *pe   True      False        Yes
@@ -534,18 +535,26 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		return true, "RunningPreflightCheck", "Cleaning up preflight pod with stale configuration", nil
 	}
 
-	// Scenario 3b: pod crashed. Keep for inspection; the admin will update the
-	// config which triggers a new hash and cleanup via scenario 3a.
+	remoteKeyID := ""
+	if kc := FindPodCondition(podStatus.Conditions, KMSPreflightRemoteKeyIDPodCondition); kc != nil {
+		remoteKeyID = kc.Message
+	}
+
+	// Scenario 3b: a failed pod is a failed preflight, with or without a result condition.
+	// Keep it for inspection until a config change triggers cleanup via 3a.
+	resultCondition := FindPodCondition(podStatus.Conditions, KMSPreflightResultPodCondition)
 	if podStatus.Phase == corev1.PodFailed {
-		pe := podFailureError(podStatus)
-		pe.message = fmt.Sprintf("preflight pod failed for hash %s: %s", requiredHash, pe.message)
-		return false, "", "", pe
+		pe := preflightCheckError(requiredHash, resultCondition)
+		if pe == nil {
+			pe = podFailureError(podStatus)
+			pe.message = fmt.Sprintf("preflight pod failed for hash %s: %s", requiredHash, pe.message)
+		}
+		return false, "", "", c.reportFailedPreflight(ctx, existingResult, requiredHash, remoteKeyID, pe)
 	}
 
 	// Scenario 3c: pod has not reported its result yet. The checker writes its
 	// result condition once the check completes, so its absence means the check
 	// is still running (or the pod is stuck before it could run).
-	resultCondition := FindPodCondition(podStatus.Conditions, KMSPreflightResultPodCondition)
 	if resultCondition == nil {
 		if podStatus.Phase == corev1.PodSucceeded {
 			return false, "", "", &preflightError{reason: "PodCompletedWithoutResult", message: fmt.Sprintf("preflight pod completed without reporting result for hash %s", requiredHash)}
@@ -554,11 +563,6 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 			return true, "", "", pe
 		}
 		return true, "RunningPreflightCheck", fmt.Sprintf("Waiting for preflight pod to report result for %s", requiredHash), nil
-	}
-
-	remoteKeyID := ""
-	if kc := FindPodCondition(podStatus.Conditions, KMSPreflightRemoteKeyIDPodCondition); kc != nil {
-		remoteKeyID = kc.Message
 	}
 
 	// Scenario 3d: check passed.
@@ -575,18 +579,30 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 
 	// Scenario 3e: check failed. Keep pod for inspection; the admin will
 	// update the config which triggers a new hash and cleanup via scenario 3a.
-	pe := &preflightError{
+	pe := preflightCheckError(requiredHash, resultCondition)
+	return false, "", "", c.reportFailedPreflight(ctx, existingResult, requiredHash, remoteKeyID, pe)
+}
+
+// preflightCheckError returns nil when the pod has not reported a check failure.
+func preflightCheckError(requiredHash string, resultCondition *corev1.PodCondition) *preflightError {
+	if resultCondition == nil || resultCondition.Status == corev1.ConditionTrue {
+		return nil
+	}
+	return &preflightError{
 		reason:  "PreflightCheckFailed",
 		message: fmt.Sprintf("preflight check failed for hash %s: %s", requiredHash, resultCondition.Message),
 	}
+}
+
+func (c *kmsPreflightController) reportFailedPreflight(ctx context.Context, existingResult *operatorv1.KMSPreflightResult, requiredHash, remoteKeyID string, pe *preflightError) error {
 	if writeErr := c.ensurePreflightResult(ctx, existingResult, operatorv1.KMSPreflightResult{
 		Status:      operatorv1.KMSPreflightResultFailed,
 		ConfigHash:  requiredHash,
 		RemoteKeyID: remoteKeyID,
 	}); writeErr != nil {
-		return false, "", "", fmt.Errorf("%w; also failed to write preflight result: %v", pe, writeErr)
+		return fmt.Errorf("%w; also failed to write preflight result: %v", pe, writeErr)
 	}
-	return false, "", "", pe
+	return pe
 }
 
 // cleanupDeployer calls deployer.Cleanup only when dirtyDeployer is true, then clears
