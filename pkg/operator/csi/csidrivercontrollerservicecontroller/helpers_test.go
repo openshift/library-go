@@ -408,6 +408,24 @@ func withObservedServingInfoValue(ciphers []string, version string, cipherSuites
 	}
 }
 
+// withObservedServingInfoAndGroups is like withObservedServingInfo but also
+// stores the observed TLS group (curve) preferences as group names.
+func withObservedServingInfoAndGroups(ciphers []string, version string, groups []string) driverModifier {
+	return func(i *fakeDriverInstance) *fakeDriverInstance {
+		observedConfig := map[string]interface{}{}
+		if len(ciphers) > 0 {
+			unstructured.SetNestedStringSlice(observedConfig, ciphers, csiconfigobservercontroller.CipherSuitesPath()...)
+		}
+		unstructured.SetNestedField(observedConfig, version, csiconfigobservercontroller.MinTLSVersionPath()...)
+		if groups != nil {
+			unstructured.SetNestedStringSlice(observedConfig, groups, csiconfigobservercontroller.CurvePreferencesPath()...)
+		}
+		d, _ := json.Marshal(observedConfig)
+		i.Spec.ObservedConfig = runtime.RawExtension{Raw: d, Object: &unstructured.Unstructured{Object: observedConfig}}
+		return i
+	}
+}
+
 func withDeploymentHTTPProxyAnnotation(containerName string) deploymentModifier {
 	return func(instance *appsv1.Deployment) *appsv1.Deployment {
 		instance.Annotations = map[string]string{"config.openshift.io/inject-proxy": containerName}
@@ -482,6 +500,37 @@ func makeServingInfoManifestWithoutCipherSuites(version string) []byte {
 `)
 }
 
+// makeServingInfoManifestWithCurves renders a manifest that additionally
+// contains the --tls-curve-preferences flag. An empty curves value leaves the
+// ${TLS_CURVE_PREFERENCES} placeholder in place.
+func makeServingInfoManifestWithCurves(ciphers, version, curves string) []byte {
+	manifest := `
+           - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+           - --tls-min-version=${TLS_MIN_VERSION}
+           - --tls-curve-preferences=${TLS_CURVE_PREFERENCES}
+`
+	if ciphers != "" {
+		manifest = strings.ReplaceAll(manifest, "${TLS_CIPHER_SUITES}", ciphers)
+	}
+	if version != "" {
+		manifest = strings.ReplaceAll(manifest, "${TLS_MIN_VERSION}", version)
+	}
+	if curves != "" {
+		manifest = strings.ReplaceAll(manifest, "${TLS_CURVE_PREFERENCES}", curves)
+	}
+	return []byte(manifest)
+}
+
+// makeServingInfoManifestWithoutCurves renders a manifest with cipher-suites and
+// min-version lines but no --tls-curve-preferences line (the expected result
+// when no curve preferences are observed).
+func makeServingInfoManifestWithoutCurves(ciphers, version string) []byte {
+	return []byte(`
+           - --tls-cipher-suites=` + ciphers + `
+           - --tls-min-version=` + version + `
+`)
+}
+
 func TestWithServingInfoHook(t *testing.T) {
 	testCases := []struct {
 		name             string
@@ -530,6 +579,41 @@ func TestWithServingInfoHook(t *testing.T) {
 			expectedManifest: makeServingInfoManifestWithoutCipherSuites("VersionTLS13"),
 			expectedAbsent:   []string{"${TLS_CIPHER_SUITES}", "--tls-cipher-suites="},
 		},
+		{
+			name: "observed curve preferences, manifest patched with numeric curve IDs",
+			initialDriver: makeFakeDriverInstance(withObservedServingInfoAndGroups(
+				[]string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, "VersionTLS12",
+				[]string{"X25519", "secp256r1"})),
+			initialManifest: makeServingInfoManifestWithCurves("" /*ciphers*/, "" /*version*/, "" /*curves*/),
+			// X25519 => 29, secp256r1 => 23.
+			expectedManifest: makeServingInfoManifestWithCurves("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", "VersionTLS12", "29,23"),
+		},
+		{
+			name: "no observed curve preferences, curve argument removed",
+			initialDriver: makeFakeDriverInstance(withObservedServingInfoAndGroups(
+				[]string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, "VersionTLS12",
+				nil /*groups*/)),
+			initialManifest:  makeServingInfoManifestWithCurves("" /*ciphers*/, "" /*version*/, "" /*curves*/),
+			expectedManifest: makeServingInfoManifestWithoutCurves("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", "VersionTLS12"),
+			expectedAbsent:   []string{"${TLS_CURVE_PREFERENCES}", "--tls-curve-preferences="},
+		},
+		{
+			name: "empty observed curve preferences, curve argument removed",
+			initialDriver: makeFakeDriverInstance(withObservedServingInfoAndGroups(
+				[]string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, "VersionTLS12",
+				[]string{} /*groups*/)),
+			initialManifest:  makeServingInfoManifestWithCurves("" /*ciphers*/, "" /*version*/, "" /*curves*/),
+			expectedManifest: makeServingInfoManifestWithoutCurves("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", "VersionTLS12"),
+			expectedAbsent:   []string{"${TLS_CURVE_PREFERENCES}", "--tls-curve-preferences="},
+		},
+		{
+			name: "unrecognized curve preference ignored, recognized ones patched",
+			initialDriver: makeFakeDriverInstance(withObservedServingInfoAndGroups(
+				[]string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, "VersionTLS12",
+				[]string{"X25519", "FutureGroup"})),
+			initialManifest:  makeServingInfoManifestWithCurves("" /*ciphers*/, "" /*version*/, "" /*curves*/),
+			expectedManifest: makeServingInfoManifestWithCurves("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", "VersionTLS12", "29"),
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -551,6 +635,127 @@ func TestWithServingInfoHook(t *testing.T) {
 				}
 			}
 
+		})
+	}
+}
+
+// kubeRBACProxyDeploymentManifest is a realistic Deployment manifest with a
+// kube-rbac-proxy sidecar whose TLS flags use the placeholders substituted by
+// WithServingInfo. It is used by the integration-level test below to verify that
+// the rendered output is still valid YAML (in particular after a flag line is
+// removed from the middle of the container's args list).
+const kubeRBACProxyDeploymentManifest = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-csi-driver-controller
+  namespace: openshift-cluster-csi-drivers
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: test-csi-driver-controller
+  template:
+    metadata:
+      labels:
+        app: test-csi-driver-controller
+    spec:
+      containers:
+        - name: csi-driver
+          image: ${DRIVER_IMAGE}
+          args:
+            - --endpoint=unix:///csi/csi.sock
+        - name: kube-rbac-proxy
+          image: ${KUBE_RBAC_PROXY_IMAGE}
+          args:
+            - --secure-listen-address=0.0.0.0:9203
+            - --upstream=http://127.0.0.1:8203/
+            - --tls-cipher-suites=${TLS_CIPHER_SUITES}
+            - --tls-min-version=${TLS_MIN_VERSION}
+            - --tls-curve-preferences=${TLS_CURVE_PREFERENCES}
+            - --logtostderr=true
+          ports:
+            - containerPort: 9203
+              name: metrics
+`
+
+// TestWithServingInfoHookIntegration exercises WithServingInfo against a full,
+// realistic kube-rbac-proxy Deployment manifest and asserts that the rendered
+// output still parses as a Deployment and that the kube-rbac-proxy container ends
+// up with exactly the expected args. This complements TestWithServingInfoHook
+// (which operates on bare arg snippets) by proving the raw line removal performed
+// for an unset --tls-curve-preferences flag does not corrupt the surrounding YAML.
+func TestWithServingInfoHookIntegration(t *testing.T) {
+	const kubeRBACProxyContainer = "kube-rbac-proxy"
+
+	testCases := []struct {
+		name          string
+		initialDriver *fakeDriverInstance
+		expectedArgs  []string
+	}{
+		{
+			name: "curve preferences observed are substituted as numeric curve IDs",
+			initialDriver: makeFakeDriverInstance(withObservedServingInfoAndGroups(
+				[]string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, "VersionTLS12",
+				[]string{"X25519", "secp256r1"})),
+			expectedArgs: []string{
+				"--secure-listen-address=0.0.0.0:9203",
+				"--upstream=http://127.0.0.1:8203/",
+				"--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+				"--tls-min-version=VersionTLS12",
+				"--tls-curve-preferences=29,23",
+				"--logtostderr=true",
+			},
+		},
+		{
+			name: "no curve preferences observed drops the flag but keeps a valid deployment",
+			initialDriver: makeFakeDriverInstance(withObservedServingInfoAndGroups(
+				[]string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"}, "VersionTLS12",
+				nil /*groups*/)),
+			expectedArgs: []string{
+				"--secure-listen-address=0.0.0.0:9203",
+				"--upstream=http://127.0.0.1:8203/",
+				"--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+				"--tls-min-version=VersionTLS12",
+				"--logtostderr=true",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			hook := WithServingInfo()
+			out, err := hook(&tc.initialDriver.Spec, []byte(kubeRBACProxyDeploymentManifest))
+			if err != nil {
+				t.Fatalf("unexpected error: %s", err)
+			}
+
+			// The output must still be a valid Deployment; ReadDeploymentV1OrDie
+			// panics on malformed YAML, which would be the symptom of a botched
+			// flag-line removal.
+			deployment := resourceread.ReadDeploymentV1OrDie(out)
+
+			var proxy *v1.Container
+			for i := range deployment.Spec.Template.Spec.Containers {
+				if deployment.Spec.Template.Spec.Containers[i].Name == kubeRBACProxyContainer {
+					proxy = &deployment.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+			if proxy == nil {
+				t.Fatalf("container %q not found in rendered deployment:\n%s", kubeRBACProxyContainer, string(out))
+			}
+
+			if diff := cmp.Diff(tc.expectedArgs, proxy.Args); diff != "" {
+				t.Errorf("unexpected kube-rbac-proxy args (-want +got):\n%s", diff)
+			}
+
+			// Placeholders must never survive into the rendered output.
+			for _, placeholder := range []string{"${TLS_CIPHER_SUITES}", "${TLS_MIN_VERSION}", "${TLS_CURVE_PREFERENCES}"} {
+				if strings.Contains(string(out), placeholder) {
+					t.Errorf("rendered output still contains placeholder %q:\n%s", placeholder, string(out))
+				}
+			}
 		})
 	}
 }
