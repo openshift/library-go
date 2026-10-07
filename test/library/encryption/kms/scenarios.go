@@ -121,6 +121,8 @@ func EncryptionInPlaceUpdateScenarios(ctx context.Context, t testing.TB) []libra
 	updateImage := resolveVaultKMSPluginImageUpdate(t)
 	return []library.InPlaceUpdateScenario{
 		kasInPlaceUpdateScenario(ctx, t, updateImage),
+		authInPlaceUpdateScenario(ctx, updateImage),
+		oasInPlaceUpdateScenario(ctx, updateImage),
 	}
 }
 
@@ -153,6 +155,48 @@ func kasInPlaceUpdateScenario(ctx context.Context, t testing.TB, updateImage str
 		EncryptionProvider:        DefaultVaultEncryptionProvider(ctx, t),
 		UpdatedEncryptionProvider: UpdatedVaultEncryptionProvider(ctx, t),
 		AssertInPlaceUpdateFunc:   assertKMSInPlaceUpdate(ctx, kubeAPIServerComponent, updateImage),
+	}
+}
+
+func authInPlaceUpdateScenario(ctx context.Context, updateImage string) library.InPlaceUpdateScenario {
+	return library.InPlaceUpdateScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(oauthAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", oauthAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               authenticationOperatorNamespace,
+			TargetGRs:                       library.WellKnownAuthTargetGRs,
+			AssertFunc:                      library.AssertWellKnownTokens,
+		},
+		CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) runtime.Object {
+			return library.CreateAndStoreWellKnownTokenOfLife(ctx, t, clientSet)
+		},
+		AssertResourceEncryptedFunc: library.AssertWellKnownTokenOfLifeEncrypted,
+		ResourceFunc:                library.WellKnownTokenOfLife,
+		ResourceName:                "TokenOfLife",
+		AssertInPlaceUpdateFunc:     assertKMSInPlaceUpdate(ctx, oauthAPIServerComponent, updateImage),
+	}
+}
+
+func oasInPlaceUpdateScenario(ctx context.Context, updateImage string) library.InPlaceUpdateScenario {
+	return library.InPlaceUpdateScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(openshiftAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", openshiftAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               openshiftAPIServerOperatorNamespace,
+			TargetGRs:                       library.WellKnownOASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownRoutes,
+		},
+		CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, ns string) runtime.Object {
+			return library.CreateAndStoreWellKnownRouteOfLife(ctx, t, clientSet, ns)
+		},
+		AssertResourceEncryptedFunc: library.AssertWellKnownRouteOfLifeEncrypted,
+		ResourceFunc:                library.WellKnownRouteOfLife,
+		ResourceName:                "RouteOfLife",
+		AssertInPlaceUpdateFunc:     assertKMSInPlaceUpdate(ctx, openshiftAPIServerComponent, updateImage),
 	}
 }
 
