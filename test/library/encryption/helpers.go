@@ -841,16 +841,28 @@ func StartCapturingLatestPreflightPod(ctx context.Context, t testing.TB, clientS
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		defer w.Stop()
+		defer func() {
+			if w != nil {
+				w.Stop()
+			}
+		}()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case ev, ok := <-w.ResultChan():
 				if !ok {
-					if w, err = clientSet.Kube.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{FieldSelector: "metadata.name=" + preflight.PodName}); err != nil {
+					for {
+						w, err = clientSet.Kube.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{FieldSelector: "metadata.name=" + preflight.PodName})
+						if err == nil {
+							break
+						}
 						t.Logf("preflight pod watch restart: %v", err)
-						return
+						select {
+						case <-ctx.Done():
+							return
+						case <-time.After(time.Second):
+						}
 					}
 					continue
 				}
