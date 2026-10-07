@@ -96,9 +96,21 @@ const (
 // It resolves the Vault Service ClusterIP at call time to avoid DNS resolution issues,
 // and bundles the AppRole secret setup.
 func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	return defaultVaultEncryptionProvider(ctx, t, resolveVaultKMSPluginImage(t))
+}
+
+// UpdatedVaultEncryptionProvider returns a provider for the same default Vault instance but with the
+// update plugin image. It drives an in-place field update: the KMS reference ("vault") is unchanged,
+// so the provider identity is unchanged and only the plugin image differs. Its Setup updates the
+// existing VaultKMSConfig CR's status.kmsPluginImage; the APIServer config is not touched.
+func UpdatedVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	return defaultVaultEncryptionProvider(ctx, t, resolveVaultKMSPluginImageUpdate(t))
+}
+
+func defaultVaultEncryptionProvider(ctx context.Context, t testing.TB, image string) library.EncryptionProvider {
 	cfg := DefaultVaultKMSPluginConfig
 	vault := defaultVaultConfig.DeepCopy()
-	require.NoError(t, unstructured.SetNestedField(vault.Object, resolveVaultKMSPluginImage(t), "status", "kmsPluginImage"))
+	require.NoError(t, unstructured.SetNestedField(vault.Object, image, "status", "kmsPluginImage"))
 	// Use the Service ClusterIP instead of DNS name because kube-apiserver pods
 	// cannot resolve cluster-local Service names (they use host network DNS).
 	require.NoError(t, unstructured.SetNestedField(vault.Object, getVaultServiceAddress(ctx, t, defaultVaultNamespace, defaultVaultServiceName), "spec", "vaultAddress"))
