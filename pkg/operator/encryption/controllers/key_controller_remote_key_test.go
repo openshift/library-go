@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
@@ -278,22 +280,46 @@ func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 	storedPlugin.Vault.VaultKeyPath = "transit/keys/old-key"
 
 	for _, tc := range []struct {
-		name       string
-		refSecret  map[string][]byte
-		refCM      map[string]string
-		wantUpdate bool
+		name             string
+		refSecret        map[string][]byte
+		refCM            map[string]string
+		preflight        *fakeKMSStatusProvider // nil → newPreflightSucceededProvider for desired refs
+		wantUpdate       bool
+		wantResult       inPlaceUpdateResult
+		wantErrSubstring string
+		wantObservedHash bool // pending: ObservedConfigHash written
 	}{
 		{
 			name:       "no change is a no-op",
 			refSecret:  map[string][]byte{"role-id": []byte("old-role-id"), "secret-id": []byte("old-secret-id")},
 			refCM:      map[string]string{"ca-bundle.crt": "old-ca-cert"},
 			wantUpdate: false,
+			wantResult: inPlaceUpdateNoChange,
 		},
 		{
-			name:       "rotated referenced credential writes in place",
+			name:       "rotated referenced credential writes in place when preflight succeeded",
 			refSecret:  map[string][]byte{"role-id": []byte("new-role-id"), "secret-id": []byte("new-secret-id")},
 			refCM:      map[string]string{"ca-bundle.crt": "old-ca-cert"},
 			wantUpdate: true,
+			wantResult: inPlaceUpdateApplied,
+		},
+		{
+			name:             "backs off when preflight has not run",
+			refSecret:        map[string][]byte{"role-id": []byte("new-role-id"), "secret-id": []byte("new-secret-id")},
+			refCM:            map[string]string{"ca-bundle.crt": "old-ca-cert"},
+			preflight:        &fakeKMSStatusProvider{},
+			wantUpdate:       false,
+			wantResult:       inPlaceUpdatePending,
+			wantObservedHash: true,
+		},
+		{
+			name:      "fails when preflight check failed",
+			refSecret: map[string][]byte{"role-id": []byte("new-role-id"), "secret-id": []byte("new-secret-id")},
+			refCM:     map[string]string{"ca-bundle.crt": "old-ca-cert"},
+			// preflight seeded below after hash is known
+			wantUpdate:       false,
+			wantResult:       inPlaceUpdateNoChange,
+			wantErrSubstring: "KMS preflight check failed",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -306,7 +332,8 @@ func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			providerCfg, err := newKMSProviderConfig(storedPlugin, 1)
+			// generation 0 matches newPreflightSucceededProvider so the preflight hash aligns.
+			providerCfg, err := newKMSProviderConfig(storedPlugin, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -319,7 +346,31 @@ func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 				Data:       tc.refCM,
 			}
 			client := fake.NewSimpleClientset(secret, refSecret, refCM)
-			c := &keyController{secretClient: client.CoreV1(), configMapClient: client.CoreV1()}
+
+			statusProvider := tc.preflight
+			if statusProvider == nil {
+				if tc.wantErrSubstring != "" {
+					// Seed a Failed result for the hash of the desired (rotated) config.
+					hashProvider := newPreflightSucceededProvider(t, storedPlugin, refSecret, refCM)
+					hash := hashProvider.status.Preflight.ObservedConfigHash
+					statusProvider = &fakeKMSStatusProvider{}
+					statusProvider.status.Preflight.ObservedConfigHash = hash
+					statusProvider.status.Preflight.Result = operatorv1.KMSPreflightResult{
+						Status:     operatorv1.KMSPreflightResultFailed,
+						ConfigHash: hash,
+					}
+				} else {
+					statusProvider = newPreflightSucceededProvider(t, storedPlugin, refSecret, refCM)
+				}
+			}
+
+			syncCtx := factory.NewSyncContext("test", events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())))
+			c := &keyController{
+				instanceName:             "test",
+				secretClient:             client.CoreV1(),
+				configMapClient:          client.CoreV1(),
+				encryptionStatusProvider: statusProvider,
+			}
 			snap := &KeyPlanningSnapshot{
 				CurrentMode:        state.KMS,
 				PluginConfig:       storedPlugin,
@@ -327,12 +378,16 @@ func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 				State:              EncryptionStateSnapshot{KeySecrets: []*corev1.Secret{secret}},
 			}
 
-			updated, err := c.reconcileInPlaceFieldUpdate(context.Background(), snap, secret, currentKey)
-			if err != nil {
+			result, err := c.reconcileInPlaceFieldUpdate(context.Background(), syncCtx, snap, secret, currentKey)
+			if tc.wantErrSubstring != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErrSubstring) {
+					t.Fatalf("expected error containing %q, got %v", tc.wantErrSubstring, err)
+				}
+			} else if err != nil {
 				t.Fatal(err)
 			}
-			if updated != tc.wantUpdate {
-				t.Fatalf("expected updated=%v, got %v", tc.wantUpdate, updated)
+			if result != tc.wantResult {
+				t.Fatalf("expected result=%v, got %v", tc.wantResult, result)
 			}
 
 			gotUpdate := false
@@ -343,6 +398,11 @@ func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 			}
 			if gotUpdate != tc.wantUpdate {
 				t.Fatalf("expected Secret Update=%v, got actions %v", tc.wantUpdate, client.Actions())
+			}
+			if tc.wantObservedHash {
+				if statusProvider.status.Preflight.ObservedConfigHash == "" {
+					t.Fatal("expected ObservedConfigHash to be written when preflight is pending")
+				}
 			}
 			if !tc.wantUpdate {
 				return
@@ -385,7 +445,7 @@ func TestReconcileInPlaceFieldUpdateReturnsConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	providerCfg, err := newKMSProviderConfig(storedPlugin, 1)
+	providerCfg, err := newKMSProviderConfig(storedPlugin, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,7 +465,13 @@ func TestReconcileInPlaceFieldUpdateReturnsConflict(t *testing.T) {
 		return true, nil, apierrors.NewConflict(schema.GroupResource{Resource: "secrets"}, secret.Name, fmt.Errorf("conflict"))
 	})
 
-	c := &keyController{instanceName: "test", secretClient: client.CoreV1(), configMapClient: client.CoreV1()}
+	syncCtx := factory.NewSyncContext("test", events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())))
+	c := &keyController{
+		instanceName:             "test",
+		secretClient:             client.CoreV1(),
+		configMapClient:          client.CoreV1(),
+		encryptionStatusProvider: newPreflightSucceededProvider(t, storedPlugin, refSecret, refCM),
+	}
 	snap := &KeyPlanningSnapshot{
 		CurrentMode:        state.KMS,
 		PluginConfig:       storedPlugin,
@@ -413,12 +479,12 @@ func TestReconcileInPlaceFieldUpdateReturnsConflict(t *testing.T) {
 		State:              EncryptionStateSnapshot{KeySecrets: []*corev1.Secret{secret}},
 	}
 
-	owned, err := c.reconcileInPlaceFieldUpdate(context.Background(), snap, secret, currentKey)
+	result, err := c.reconcileInPlaceFieldUpdate(context.Background(), syncCtx, snap, secret, currentKey)
 	if !apierrors.IsConflict(err) {
 		t.Fatalf("expected a conflict error to be surfaced, got: %v", err)
 	}
-	if owned {
-		t.Fatal("expected owned=false when the update did not succeed")
+	if result != inPlaceUpdateNoChange {
+		t.Fatalf("expected no-change result when update failed, got %v", result)
 	}
 	if updates != 1 {
 		t.Fatalf("expected exactly one Update attempt (no inline retry), got %d", updates)
@@ -478,8 +544,8 @@ func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
 				desiredProviderCfg: providerCfg,
 				State:              EncryptionStateSnapshot{KeySecrets: []*corev1.Secret{secret}},
 			}
-			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
-			if err := c.reconcileCurrentKey(context.Background(), recorder, snap, tc.keyID); err != nil {
+			syncCtx := factory.NewSyncContext("test", events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())))
+			if err := c.reconcileCurrentKey(context.Background(), syncCtx, snap, tc.keyID); err != nil {
 				t.Fatal(err)
 			}
 			// The carry-over matches the stored secret, so no case should ever Update the key.

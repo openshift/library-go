@@ -62,6 +62,29 @@ func TestKeyController(t *testing.T) {
 		ConfigHash: kmsPreflightFailedHash,
 	}
 
+	inPlaceImageConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
+	inPlaceImageConfig.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	inPlaceImageStatusProvider := newPreflightSucceededProvider(t, *inPlaceImageConfig,
+		encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", encryptiontesting.DefaultVaultRoleID, encryptiontesting.DefaultVaultSecretID),
+		encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", encryptiontesting.DefaultVaultCABundle),
+	)
+
+	inPlaceAuthConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
+	inPlaceAuthConfig.Vault.Authentication.AppRole.Secret.Name = "new-approle-secret"
+	inPlaceAuthStatusProvider := newPreflightSucceededProvider(t, *inPlaceAuthConfig,
+		encryptiontesting.CreateVaultAppRoleSecret("new-approle-secret", encryptiontesting.DefaultVaultRoleID, encryptiontesting.DefaultVaultSecretID),
+		encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", encryptiontesting.DefaultVaultCABundle),
+	)
+
+	inPlaceTLSConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
+	inPlaceTLSConfig.Vault.TLS = kms.VaultTLSConfig{
+		CABundle: kms.VaultConfigMapReference{Name: "my-ca"},
+	}
+	inPlaceTLSStatusProvider := newPreflightSucceededProvider(t, *inPlaceTLSConfig,
+		encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", encryptiontesting.DefaultVaultRoleID, encryptiontesting.DefaultVaultSecretID),
+		encryptiontesting.CreateVaultCABundleConfigMap("my-ca", encryptiontesting.DefaultVaultCABundle),
+	)
+
 	scenarios := []struct {
 		name                     string
 		initialObjects           []runtime.Object
@@ -854,13 +877,10 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", encryptiontesting.DefaultVaultRoleID, encryptiontesting.DefaultVaultSecretID),
 				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", encryptiontesting.DefaultVaultCABundle),
 			},
-			apiServerObjects: []runtime.Object{apiServerWithKMS},
-			pluginConfig: func() *kms.KMSPluginConfig {
-				changedConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
-				changedConfig.Vault.KMSPluginImage = "registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-				return changedConfig
-			}(),
-			targetNamespace: "kms",
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			pluginConfig:             inPlaceImageConfig,
+			encryptionStatusProvider: inPlaceImageStatusProvider,
+			targetNamespace:          "kms",
 			// A new plugin image is carry-over data: refresh the existing key in place
 			// with a single Update rather than minting a new key.
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
@@ -884,13 +904,10 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateVaultAppRoleSecret("new-approle-secret", encryptiontesting.DefaultVaultRoleID, encryptiontesting.DefaultVaultSecretID),
 				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", encryptiontesting.DefaultVaultCABundle),
 			},
-			apiServerObjects: []runtime.Object{apiServerWithKMS},
-			pluginConfig: func() *kms.KMSPluginConfig {
-				changedConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
-				changedConfig.Vault.Authentication.AppRole.Secret.Name = "new-approle-secret"
-				return changedConfig
-			}(),
-			targetNamespace: "kms",
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			pluginConfig:             inPlaceAuthConfig,
+			encryptionStatusProvider: inPlaceAuthStatusProvider,
+			targetNamespace:          "kms",
 			// A new AppRole reference is carry-over data: refresh the existing key in place.
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
@@ -913,15 +930,10 @@ func TestKeyController(t *testing.T) {
 				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", encryptiontesting.DefaultVaultRoleID, encryptiontesting.DefaultVaultSecretID),
 				encryptiontesting.CreateVaultCABundleConfigMap("my-ca", encryptiontesting.DefaultVaultCABundle),
 			},
-			apiServerObjects: []runtime.Object{apiServerWithKMS},
-			pluginConfig: func() *kms.KMSPluginConfig {
-				changedConfig := encryptiontesting.DefaultKMSPluginConfig.DeepCopy()
-				changedConfig.Vault.TLS = kms.VaultTLSConfig{
-					CABundle: kms.VaultConfigMapReference{Name: "my-ca"},
-				}
-				return changedConfig
-			}(),
-			targetNamespace: "kms",
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			pluginConfig:             inPlaceTLSConfig,
+			encryptionStatusProvider: inPlaceTLSStatusProvider,
+			targetNamespace:          "kms",
 			// A new CA-bundle reference is carry-over data: refresh the existing key in place.
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config", "update:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
@@ -931,6 +943,25 @@ func TestKeyController(t *testing.T) {
 					}
 				})
 			},
+		},
+
+		{
+			name: "in-place update backs off when KMS preflight has not run",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms", "node-1"),
+				encryptiontesting.WithKMSReferencedData(encryptiontesting.CreateMigratedEncryptionKeySecretWithKMSPluginConfig("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, time.Now()), encryptiontesting.DefaultKMSPluginConfig),
+				encryptiontesting.CreateVaultAppRoleSecret("vault-approle-secret", encryptiontesting.DefaultVaultRoleID, encryptiontesting.DefaultVaultSecretID),
+				encryptiontesting.CreateVaultCABundleConfigMap("vault-ca-bundle", encryptiontesting.DefaultVaultCABundle),
+			},
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			pluginConfig:             inPlaceImageConfig,
+			encryptionStatusProvider: &fakeKMSStatusProvider{},
+			targetNamespace:          "kms",
+			// Preflight has not passed for the new image hash: do not Update the key secret.
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config", "get:configmaps:openshift-config"},
 		},
 	}
 
