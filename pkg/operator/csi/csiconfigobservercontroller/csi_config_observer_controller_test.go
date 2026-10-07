@@ -13,12 +13,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 
 	opv1 "github.com/openshift/api/operator/v1"
 	fakeconfig "github.com/openshift/client-go/config/clientset/versioned/fake"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -216,6 +218,84 @@ func TestSync(t *testing.T) {
 				if !equality.Semantic.DeepEqual(test.expectedObjects.driver.Spec, *actualSpec) {
 					t.Fatalf("Unexpected Driver %+v content:\n%s", operandName, cmp.Diff(test.expectedObjects.driver.Spec, *actualSpec))
 				}
+			}
+		})
+	}
+}
+
+// TestObserveTLSSecurityProfileWithFeatureGates verifies that the
+// FeatureGate-aware controller only observes TLS group (curve) preferences when
+// the TLSGroupPreferences feature gate is enabled. With no APIServer/cluster
+// object the observer falls back to the Intermediate profile, whose baked Groups
+// would leak as curvePreferences if gating were missing.
+func TestObserveTLSSecurityProfileWithFeatureGates(t *testing.T) {
+	notObserved := make(chan struct{}) // never closed => initial gates not observed
+
+	tests := []struct {
+		name                   string
+		featureGateAccess      featuregates.FeatureGateAccess
+		expectCurvePreferences bool
+	}{
+		{
+			name: "gate enabled: curvePreferences observed",
+			featureGateAccess: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{features.FeatureGateTLSGroupPreferences}, nil),
+			expectCurvePreferences: true,
+		},
+		{
+			name: "gate disabled: curvePreferences not observed",
+			featureGateAccess: featuregates.NewHardcodedFeatureGateAccess(
+				nil, []configv1.FeatureGateName{features.FeatureGateTLSGroupPreferences}),
+			expectCurvePreferences: false,
+		},
+		{
+			name:                   "initial gates not observed: curvePreferences not observed",
+			featureGateAccess:      featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, notObserved, nil),
+			expectCurvePreferences: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := makeFakeProxyInstance(noHTTPProxyValue)
+			configClient := fakeconfig.NewSimpleClientset(proxy)
+			configInformerFactory := configinformers.NewSharedInformerFactory(configClient, 0)
+			configInformerFactory.Config().V1().Proxies().Informer().GetIndexer().Add(proxy)
+
+			driver := makeFakeDriverInstance()
+			fakeOperatorClient := v1helpers.NewFakeOperatorClient(&driver.Spec, &driver.Status, nil)
+
+			controller := NewCSIConfigObserverControllerWithFeatureGates(
+				controllerName,
+				fakeOperatorClient,
+				configInformerFactory,
+				events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())),
+				tt.featureGateAccess,
+			)
+
+			if err := controller.Controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
+				t.Fatalf("sync() returned unexpected error: %v", err)
+			}
+
+			actualSpec, _, _, err := fakeOperatorClient.GetOperatorState()
+			if err != nil {
+				t.Fatalf("Failed to get Driver: %v", err)
+			}
+			observedConfig := actualSpec.ObservedConfig.Object.(*unstructured.Unstructured).Object
+
+			got, found, err := unstructured.NestedSlice(observedConfig, CurvePreferencesPath()...)
+			if err != nil {
+				t.Fatalf("failed to read curvePreferences: %v", err)
+			}
+			if tt.expectCurvePreferences {
+				if !found {
+					t.Fatalf("expected curvePreferences to be observed, got none; config: %+v", observedConfig)
+				}
+				if len(got) == 0 {
+					t.Fatalf("expected non-empty curvePreferences, got empty")
+				}
+			} else if found {
+				t.Fatalf("expected curvePreferences NOT to be observed, got: %v", got)
 			}
 		})
 	}
