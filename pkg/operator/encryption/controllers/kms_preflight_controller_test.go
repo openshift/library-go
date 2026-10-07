@@ -1041,8 +1041,9 @@ func TestKMSPreflightController(t *testing.T) {
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
-				Status:     operatorv1.KMSPreflightResultFailed,
-				ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				Status:      operatorv1.KMSPreflightResultFailed,
+				ConfigHash:  wellKnownMatchingHashForBaseVaultConfig,
+				RemoteKeyID: failedPreflightRemoteKeyID,
 			},
 		},
 		{
@@ -1073,8 +1074,9 @@ func TestKMSPreflightController(t *testing.T) {
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
-				Status:     operatorv1.KMSPreflightResultFailed,
-				ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+				Status:      operatorv1.KMSPreflightResultFailed,
+				ConfigHash:  wellKnownMatchingHashForBaseVaultConfig,
+				RemoteKeyID: failedPreflightRemoteKeyID,
 			},
 		},
 		{

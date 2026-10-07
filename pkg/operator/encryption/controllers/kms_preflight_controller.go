@@ -173,6 +173,9 @@ const (
 	KMSPreflightRemoteKeyIDPodCondition corev1.PodConditionType = "KMSPreflightRemoteKeyID"
 
 	preflightPodStartupTimeout = 3 * time.Minute
+	// The operator API requires a non-empty remoteKeyID even when the plugin
+	// failed before it could report one. Use this value only for failed results.
+	failedPreflightRemoteKeyID = "unavailable"
 )
 
 // KMSPreflightDeployer abstracts the lifecycle of a preflight workload that
@@ -595,6 +598,9 @@ func preflightCheckError(requiredHash string, resultCondition *corev1.PodConditi
 }
 
 func (c *kmsPreflightController) reportFailedPreflight(ctx context.Context, existingResult *operatorv1.KMSPreflightResult, requiredHash, remoteKeyID string, pe *preflightError) error {
+	if remoteKeyID == "" {
+		remoteKeyID = failedPreflightRemoteKeyID
+	}
 	if writeErr := c.ensurePreflightResult(ctx, existingResult, operatorv1.KMSPreflightResult{
 		Status:      operatorv1.KMSPreflightResultFailed,
 		ConfigHash:  requiredHash,
