@@ -59,7 +59,7 @@ func setRemoteKeyAnnotations(t *testing.T, annotations map[string]string, rk sta
 	}
 }
 
-func setupRemoteKeyReconcile(t *testing.T, secret *corev1.Secret, status operatorv1.KMSEncryptionStatus, encryptedGRs []schema.GroupResource) (*keyController, *fake.Clientset, state.KeyState) {
+func setupRemoteKeyReconcile(t *testing.T, secret *corev1.Secret, status operatorv1.KMSEncryptionStatus, encryptedGRs []schema.GroupResource) (*keyController, *fake.Clientset, *KeyPlanningSnapshot, state.KeyState) {
 	t.Helper()
 	client := fake.NewSimpleClientset(secret)
 	currentKey, err := secrets.ToKeyState(secret)
@@ -70,7 +70,14 @@ func setupRemoteKeyReconcile(t *testing.T, secret *corev1.Secret, status operato
 		secretClient:             client.CoreV1(),
 		encryptionStatusProvider: &fakeKMSStatusProvider{status: status},
 	}
-	return c, client, currentKey
+	snap := &KeyPlanningSnapshot{
+		CurrentMode: state.KMS,
+		State: EncryptionStateSnapshot{
+			KeySecrets:   []*corev1.Secret{secret},
+			EncryptedGRs: encryptedGRs,
+		},
+	}
+	return c, client, snap, currentKey
 }
 
 func TestRecordRemoteKeyConvergence(t *testing.T) {
@@ -145,9 +152,9 @@ func TestReconcileRemoteKeyRecordsConvergence(t *testing.T) {
 			{KeyID: "3", RemoteKeyID: "remote-new"},
 		},
 	}
-	c, client, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
+	c, client, snap, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
 
-	if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, currentKey); err != nil {
+	if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, snap, currentKey); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -183,9 +190,9 @@ func TestReconcileRemoteKeyClearsConvergence(t *testing.T) {
 			{KeyID: "3", RemoteKeyID: "remote-old"},
 		},
 	}
-	c, client, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
+	c, client, snap, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
 
-	if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, currentKey); err != nil {
+	if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, snap, currentKey); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -221,9 +228,9 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 			{KeyID: "2", RemoteKeyID: "remote-old"},
 		},
 	}
-	c, client, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
+	c, client, snap, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
 
-	if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, currentKey); err != nil {
+	if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, snap, currentKey); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -240,6 +247,78 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 	}
 	if rk.ConvergedID != "remote-new" {
 		t.Fatalf("expected write-key convergence on remote-new, got %q", rk.ConvergedID)
+	}
+}
+
+func TestReconcileRemoteKeyBootstrap(t *testing.T) {
+	grs := []schema.GroupResource{{Resource: "secrets"}}
+	status := operatorv1.KMSEncryptionStatus{
+		HealthReports: []operatorv1.KMSPluginHealthReport{
+			{KeyID: "3", RemoteKeyID: "remote-new"},
+			{KeyID: "3", RemoteKeyID: "remote-new"},
+		},
+	}
+
+	for _, tc := range []struct {
+		name             string
+		migratedGRs      []schema.GroupResource
+		status           operatorv1.KMSEncryptionStatus
+		wantMigrated     string
+		wantSecretUpdate bool
+	}{
+		{
+			name:   "waits for initial migration",
+			status: status,
+		},
+		{
+			name:        "waits for health convergence",
+			migratedGRs: grs,
+			status:      operatorv1.KMSEncryptionStatus{},
+		},
+		{
+			name:             "bootstraps migrated from target without requiring match",
+			migratedGRs:      grs,
+			status:           status,
+			wantMigrated:     "remote-old",
+			wantSecretUpdate: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), tc.migratedGRs, "3")
+			setRemoteKeyAnnotations(t, secret.Annotations, state.RemoteKeyState{TargetRemoteKeyID: "remote-old"})
+			c, client, snap, currentKey := setupRemoteKeyReconcile(t, secret, tc.status, grs)
+
+			if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, snap, currentKey); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			updated, err := client.CoreV1().Secrets("openshift-config-managed").Get(context.Background(), secret.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("get secret: %v", err)
+			}
+			rk, err := secrets.ReadRemoteKeyStateFromSecret(updated)
+			if err != nil {
+				t.Fatalf("read remote key annotations: %v", err)
+			}
+			if rk.MigratedRemoteKeyID != tc.wantMigrated {
+				t.Fatalf("migrated-remote-key-id=%q, want %q", rk.MigratedRemoteKeyID, tc.wantMigrated)
+			}
+			if rk.TargetRemoteKeyID != "remote-old" {
+				t.Fatalf("expected target unchanged during bootstrap, got %q", rk.TargetRemoteKeyID)
+			}
+			if tc.wantSecretUpdate && (rk.ConvergedID != "" || !rk.ConvergedAt.IsZero()) {
+				t.Fatalf("bootstrap must not start the convergence clock, got %#v", rk)
+			}
+			gotUpdate := false
+			for _, action := range client.Actions() {
+				if action.Matches("update", "secrets") {
+					gotUpdate = true
+				}
+			}
+			if gotUpdate != tc.wantSecretUpdate {
+				t.Fatalf("secret update=%v, want %v", gotUpdate, tc.wantSecretUpdate)
+			}
+		})
 	}
 }
 
@@ -465,6 +544,7 @@ func TestReconcileInPlaceFieldUpdateReturnsConflict(t *testing.T) {
 }
 
 func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
+	grs := []schema.GroupResource{{Resource: "secrets"}}
 	for _, tc := range []struct {
 		name       string
 		mode       state.Mode
@@ -475,11 +555,11 @@ func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
 		{name: "blocked plan", mode: state.KMS},
 		{name: "non-KMS mode", mode: state.AESCBC, keyID: 3},
 		{name: "target equals migrated", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "a", MigratedRemoteKeyID: "a"}, wantUpdate: true},
-		{name: "bootstrap", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "a"}},
+		{name: "bootstrap", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "a"}, wantUpdate: true},
 		{name: "pending migration", mode: state.KMS, keyID: 3, remoteKey: state.RemoteKeyState{TargetRemoteKeyID: "b", MigratedRemoteKeyID: "a"}, wantUpdate: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), []schema.GroupResource{{Resource: "secrets"}}, "3")
+			secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), grs, "3")
 			setRemoteKeyAnnotations(t, secret.Annotations, tc.remoteKey)
 
 			// Build the snapshot's plugin config to exactly match the stored secret so
@@ -505,7 +585,6 @@ func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
 			}
 			client := fake.NewSimpleClientset(secret, refSecret, refCM)
 			c := &keyController{secretClient: client.CoreV1(), configMapClient: client.CoreV1()}
-			// A skipped reconciliation must not even request health status.
 			if tc.wantUpdate {
 				c.encryptionStatusProvider = &fakeKMSStatusProvider{status: operatorv1.KMSEncryptionStatus{
 					HealthReports: []operatorv1.KMSPluginHealthReport{{KeyID: "3", RemoteKeyID: "c"}},
@@ -515,13 +594,15 @@ func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
 				CurrentMode:        tc.mode,
 				PluginConfig:       storedPlugin,
 				desiredProviderCfg: providerCfg,
-				State:              EncryptionStateSnapshot{KeySecrets: []*corev1.Secret{secret}},
+				State: EncryptionStateSnapshot{
+					KeySecrets:   []*corev1.Secret{secret},
+					EncryptedGRs: grs,
+				},
 			}
 			syncCtx := factory.NewSyncContext("test", events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())))
 			if err := c.reconcileCurrentKey(context.Background(), syncCtx, snap, tc.keyID); err != nil {
 				t.Fatal(err)
 			}
-			// The carry-over matches the stored secret, so no case should ever Update the key.
 			for _, a := range client.Actions() {
 				if a.GetVerb() == "update" && !tc.wantUpdate {
 					t.Fatalf("expected no Secret Update, got %v", client.Actions())
@@ -534,8 +615,19 @@ func TestReconcileCurrentKeyChecksRemoteMigration(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if updated.Annotations[annotationRemoteKeyConvergedID] != "c" {
-				t.Fatal("expected convergence recorded on the existing key")
+			rk, err := secrets.ReadRemoteKeyStateFromSecret(updated)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch tc.name {
+			case "bootstrap":
+				if rk.MigratedRemoteKeyID != "a" {
+					t.Fatalf("expected bootstrap migrated-remote-key-id=a, got %#v", rk)
+				}
+			case "target equals migrated", "pending migration":
+				if rk.ConvergedID != "c" {
+					t.Fatalf("expected convergence recorded on the existing key, got %#v", rk)
+				}
 			}
 		})
 	}

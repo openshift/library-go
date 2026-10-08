@@ -273,7 +273,7 @@ func (c *keyController) reconcileCurrentKey(ctx context.Context, syncContext fac
 		return fmt.Errorf("unknown in-place field update result %d", updateResult)
 	}
 
-	return c.reconcileRemoteKeyRotation(ctx, c.secretClient, keySecret.Name, currentKey)
+	return c.reconcileRemoteKeyRotation(ctx, c.secretClient, keySecret.Name, snap, currentKey)
 }
 
 // reconcileInPlaceFieldUpdate carries non-migration-triggering plugin fields through to the
@@ -938,16 +938,15 @@ func unstructuredUnsupportedConfigFromWithPrefix(rawConfig []byte, prefix []stri
 	return json.Marshal(actualConfig)
 }
 
-// reconcileRemoteKeyRotation maintains KMS remote key rotation convergence
-// annotations on the encryption key secret for the current KMS write key.
-// This slice records and clears the 5m convergence clock only; target promotion
-// and bootstrap land in follow-up PRs.
-func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string, currentKey state.KeyState) error {
+// reconcileRemoteKeyRotation maintains remote-key annotations on the write-key secret:
+// first-enablement bootstrap of migrated-remote-key-id, and the KEP-3299 5m
+// convergence clock. Target promotion lands in a follow-up commit.
+func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string,
+	snap *KeyPlanningSnapshot, currentKey state.KeyState) error {
+
+	// no need to reconcile if we don't have a target remote key id, preflight likely hasn't finished yet
 	rk := currentKey.RemoteKey()
-	// Skip until initial migration completes and sets a migrated remote key ID.
-	// Once established, keep reconciling even when target == migrated so external
-	// rotation reported by health checks can start the convergence clock.
-	if rk.TargetRemoteKeyID == "" || rk.MigratedRemoteKeyID == "" {
+	if rk.TargetRemoteKeyID == "" {
 		return nil
 	}
 
@@ -964,12 +963,27 @@ func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretCl
 	// TODO(thomas): we need to ensure the amount of reports match the number of operand pods
 	convergedRemoteKeyID := health.ConvergedRemoteKeyID(health.ReportsForKeyID(encryptionStatus.HealthReports, currentKey.Key.Name))
 	managedSecrets := secretClient.Secrets("openshift-config-managed")
+
+	// clear the convergence clock when health already matches the target, but never during bootstrap
+	if rk.MigratedRemoteKeyID != "" && convergedRemoteKeyID == rk.TargetRemoteKeyID {
+		return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, clearRemoteKeyConvergence)
+	}
+
+	// no sense reconciling remote-key annotations any further until health has converged
 	if convergedRemoteKeyID == "" {
 		return nil
 	}
 
-	if convergedRemoteKeyID == rk.TargetRemoteKeyID {
-		return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, clearRemoteKeyConvergence)
+	// if there was no migration yet, we have to bootstrap the first one
+	if rk.MigratedRemoteKeyID == "" {
+		initialMigrationComplete, _, _ := state.MigratedFor(snap.State.EncryptedGRs, currentKey)
+		if !initialMigrationComplete {
+			return nil
+		}
+		return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, func(rk *state.RemoteKeyState) (bool, error) {
+			rk.MigratedRemoteKeyID = rk.TargetRemoteKeyID
+			return true, nil
+		})
 	}
 
 	now := time.Now()
