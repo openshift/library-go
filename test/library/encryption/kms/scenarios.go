@@ -111,6 +111,95 @@ func PreflightDeployScenario(ctx context.Context, t testing.TB) library.Prefligh
 	}
 }
 
+// EncryptionInPlaceUpdateScenarios returns ready-to-use in-place field-update scenarios.
+//
+// Provider handling matches the on/off and migration builders: only the KAS scenario sets the
+// providers (the cluster-wide APIServer config and the shared VaultKMSConfig CR). The updated
+// provider changes only the plugin image, so the operator refreshes the existing key in place
+// without minting a new key or re-encrypting.
+func EncryptionInPlaceUpdateScenarios(ctx context.Context, t testing.TB) []library.InPlaceUpdateScenario {
+	updateImage := resolveVaultKMSPluginImageUpdate(t)
+	return []library.InPlaceUpdateScenario{
+		kasInPlaceUpdateScenario(ctx, t, updateImage),
+		authInPlaceUpdateScenario(ctx, updateImage),
+		oasInPlaceUpdateScenario(ctx, updateImage),
+	}
+}
+
+// assertKMSInPlaceUpdate asserts the operator applied the in-place image update: the write key Secret
+// carries updateImage, and the operand (operandNamespace) rolled out a new revision whose KMS plugin
+// sidecar runs that image.
+func assertKMSInPlaceUpdate(ctx context.Context, operandNamespace, updateImage string) func(testing.TB, library.ClientSet, library.EncryptionKeyMeta) {
+	return func(t testing.TB, clientSet library.ClientSet, keyMeta library.EncryptionKeyMeta) {
+		library.AssertKMSKeyPluginImage(t, clientSet, globalMachineSpecifiedConfigNamespace, keyMeta.Name, updateImage)
+		library.AssertKMSPluginImageRolledOut(ctx, t, clientSet, operandNamespace, keyMeta.Name, updateImage)
+	}
+}
+
+func kasInPlaceUpdateScenario(ctx context.Context, t testing.TB, updateImage string) library.InPlaceUpdateScenario {
+	return library.InPlaceUpdateScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(kubeAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", kubeAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               kubeAPIServerOperatorNamespace,
+			TargetGRs:                       library.WellKnownKASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
+		},
+		CreateResourceFunc:          library.CreateAndStoreWellKnownSecretOfLife,
+		AssertResourceEncryptedFunc: library.AssertWellKnownSecretOfLifeEncrypted,
+		ResourceFunc:                library.WellKnownSecretOfLife,
+		ResourceName:                "SecretOfLife",
+		// Cluster-wide APIServer config + shared VaultKMSConfig CR — only KAS sets these.
+		EncryptionProvider:        DefaultVaultEncryptionProvider(ctx, t),
+		UpdatedEncryptionProvider: UpdatedVaultEncryptionProvider(ctx, t),
+		AssertInPlaceUpdateFunc:   assertKMSInPlaceUpdate(ctx, kubeAPIServerComponent, updateImage),
+	}
+}
+
+func authInPlaceUpdateScenario(ctx context.Context, updateImage string) library.InPlaceUpdateScenario {
+	return library.InPlaceUpdateScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(oauthAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", oauthAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               authenticationOperatorNamespace,
+			TargetGRs:                       library.WellKnownAuthTargetGRs,
+			AssertFunc:                      library.AssertWellKnownTokens,
+		},
+		CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) runtime.Object {
+			return library.CreateAndStoreWellKnownTokenOfLife(ctx, t, clientSet)
+		},
+		AssertResourceEncryptedFunc: library.AssertWellKnownTokenOfLifeEncrypted,
+		ResourceFunc:                library.WellKnownTokenOfLife,
+		ResourceName:                "TokenOfLife",
+		AssertInPlaceUpdateFunc:     assertKMSInPlaceUpdate(ctx, oauthAPIServerComponent, updateImage),
+	}
+}
+
+func oasInPlaceUpdateScenario(ctx context.Context, updateImage string) library.InPlaceUpdateScenario {
+	return library.InPlaceUpdateScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(openshiftAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", openshiftAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               openshiftAPIServerOperatorNamespace,
+			TargetGRs:                       library.WellKnownOASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownRoutes,
+		},
+		CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, ns string) runtime.Object {
+			return library.CreateAndStoreWellKnownRouteOfLife(ctx, t, clientSet, ns)
+		},
+		AssertResourceEncryptedFunc: library.AssertWellKnownRouteOfLifeEncrypted,
+		ResourceFunc:                library.WellKnownRouteOfLife,
+		ResourceName:                "RouteOfLife",
+		AssertInPlaceUpdateFunc:     assertKMSInPlaceUpdate(ctx, openshiftAPIServerComponent, updateImage),
+	}
+}
+
 func kasOnOffScenario(provider library.EncryptionProvider) library.OnOffScenario {
 	return library.OnOffScenario{
 		BasicScenario: library.BasicScenario{

@@ -30,6 +30,7 @@ import (
 	oauthapiv1 "github.com/openshift/api/oauth/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -269,6 +270,71 @@ func AssertWellKnownSecretOfLifeNotEncrypted(t testing.TB, clientSet ClientSet, 
 	if !strings.Contains(rawValue, string(secret.Data["quote"])) {
 		t.Errorf("secret not decrypted, etcd value does not contain quote in plain text")
 	}
+}
+
+// AssertKMSKeyPluginImage verifies that the KMS write-key Secret keyName in namespace carries
+// expectedImage in its embedded KMS plugin config. An in-place field update is applied by the
+// operator on resync (the APIServer config is unchanged), so this polls until it converges.
+func AssertKMSKeyPluginImage(t testing.TB, clientSet ClientSet, namespace, keyName, expectedImage string) {
+	t.Helper()
+	// Data key written by secrets.FromKeyState for the KMS plugin config (unexported there).
+	const pluginConfigDataKey = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+	var lastImage string
+	err := wait.PollUntilContextTimeout(context.TODO(), 15*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, keyName, metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		data := secret.Data[pluginConfigDataKey]
+		if len(data) == 0 {
+			return false, nil
+		}
+		pluginConfig, err := encoding.DecodeKMSPluginConfig(data)
+		if err != nil {
+			return false, err
+		}
+		lastImage = pluginConfig.Vault.KMSPluginImage
+		return lastImage == expectedImage, nil
+	})
+	require.NoError(t, err, "KMS plugin image was not carried into key %s/%s in place; last observed %q, want %q", namespace, keyName, lastImage, expectedImage)
+}
+
+// AssertKMSPluginImageRolledOut verifies the operator actually rolled out the updated KMS plugin
+// image: it waits until an operand apiserver pod (selector apiserver=true in operandNamespace) runs
+// the write key's KMS plugin sidecar (vault-kms-plugin-<keyID>) with expectedImage, started and
+// ready. The operand restarts into a new revision to pick up the config change, so observing the new
+// image on a running sidecar confirms the rollout completed — not just that the key Secret was
+// updated.
+func AssertKMSPluginImageRolledOut(ctx context.Context, t testing.TB, clientSet ClientSet, operandNamespace, keyName, expectedImage string) {
+	t.Helper()
+	WaitForPodContainerCondition(ctx, t, clientSet.Kube, operandNamespace, "apiserver=true", keyName, func(pod corev1.Pod, keyName string) bool {
+		keyID, ok := encryptionKeyNameToKeyID(keyName)
+		if !ok {
+			return false
+		}
+		containerName := fmt.Sprintf("vault-kms-plugin-%d", keyID)
+		// The sidecar spec must carry the updated image (a new revision rolled out)...
+		hasImage := false
+		for _, c := range pod.Spec.InitContainers {
+			if c.Name == containerName {
+				hasImage = c.Image == expectedImage
+				break
+			}
+		}
+		if !hasImage {
+			return false
+		}
+		// ...and it must be started and ready (restartable init container).
+		for _, cs := range pod.Status.InitContainerStatuses {
+			if cs.Name == containerName {
+				return cs.Ready && cs.State.Running != nil
+			}
+		}
+		return false
+	})
 }
 
 func AssertWellKnownSecretsAndConfigMaps(t testing.TB, clientSet ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string) {

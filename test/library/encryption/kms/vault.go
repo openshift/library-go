@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 	"testing"
@@ -28,21 +29,35 @@ import (
 )
 
 // resolveVaultKMSPluginImage determines the vault-kube-kms plugin image to use.
-// It checks SHARED_DIR because the openshift-e2e-test step ref is a widely-used
-// shared ref that does not declare VAULT_KMS_PLUGIN_IMAGE in its env list.
-// The vault-install step writes the image reference to a file in SHARED_DIR,
-// allowing subsequent steps to pick it up without modifying the shared ref.
 func resolveVaultKMSPluginImage(t testing.TB) string {
 	t.Helper()
-	if img := os.Getenv("VAULT_KMS_PLUGIN_IMAGE"); img != "" {
-		t.Logf("Using vault KMS plugin image from VAULT_KMS_PLUGIN_IMAGE env: %s", img)
+	return resolveKMSPluginImage(t, "VAULT_KMS_PLUGIN_IMAGE", "vault-kms-plugin-image")
+}
+
+// resolveVaultKMSPluginImageUpdate determines the second vault-kube-kms plugin image used by the
+// in-place field-update scenario. CI provisions it from a distinct repository so that updating to
+// it is a genuine image change the operator must carry over in place.
+func resolveVaultKMSPluginImageUpdate(t testing.TB) string {
+	t.Helper()
+	return resolveKMSPluginImage(t, "VAULT_KMS_PLUGIN_IMAGE_UPDATE", "vault-kms-plugin-image-update")
+}
+
+// resolveKMSPluginImage reads a vault-kube-kms plugin image from the given environment variable,
+// falling back to ${SHARED_DIR}/<sharedDirFile>. It checks SHARED_DIR because the openshift-e2e-test
+// step ref is a widely-used shared ref that does not declare these image env vars in its env list;
+// the vault-install step writes the image reference to a file in SHARED_DIR, allowing subsequent
+// steps to pick it up without modifying the shared ref.
+func resolveKMSPluginImage(t testing.TB, envVar, sharedDirFile string) string {
+	t.Helper()
+	if img := os.Getenv(envVar); img != "" {
+		t.Logf("Using vault KMS plugin image from %s env: %s", envVar, img)
 		return img
 	}
 	sharedDir := os.Getenv("SHARED_DIR")
 	if sharedDir == "" {
-		t.Fatal("SHARED_DIR environment variable is not set; cannot resolve vault KMS plugin image")
+		t.Fatalf("SHARED_DIR environment variable is not set; cannot resolve vault KMS plugin image from %s", envVar)
 	}
-	imagePath := sharedDir + "/vault-kms-plugin-image"
+	imagePath := path.Join(sharedDir, sharedDirFile)
 	data, err := os.ReadFile(imagePath)
 	if err != nil {
 		t.Fatalf("failed to read vault KMS plugin image from %s: %v", imagePath, err)
@@ -81,9 +96,21 @@ const (
 // It resolves the Vault Service ClusterIP at call time to avoid DNS resolution issues,
 // and bundles the AppRole secret setup.
 func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	return defaultVaultEncryptionProvider(ctx, t, resolveVaultKMSPluginImage(t))
+}
+
+// UpdatedVaultEncryptionProvider returns a provider for the same default Vault instance but with the
+// update plugin image. It drives an in-place field update: the KMS reference ("vault") is unchanged,
+// so the provider identity is unchanged and only the plugin image differs. Its Setup updates the
+// existing VaultKMSConfig CR's status.kmsPluginImage; the APIServer config is not touched.
+func UpdatedVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	return defaultVaultEncryptionProvider(ctx, t, resolveVaultKMSPluginImageUpdate(t))
+}
+
+func defaultVaultEncryptionProvider(ctx context.Context, t testing.TB, image string) library.EncryptionProvider {
 	cfg := DefaultVaultKMSPluginConfig
 	vault := defaultVaultConfig.DeepCopy()
-	require.NoError(t, unstructured.SetNestedField(vault.Object, resolveVaultKMSPluginImage(t), "status", "kmsPluginImage"))
+	require.NoError(t, unstructured.SetNestedField(vault.Object, image, "status", "kmsPluginImage"))
 	// Use the Service ClusterIP instead of DNS name because kube-apiserver pods
 	// cannot resolve cluster-local Service names (they use host network DNS).
 	require.NoError(t, unstructured.SetNestedField(vault.Object, getVaultServiceAddress(ctx, t, defaultVaultNamespace, defaultVaultServiceName), "spec", "vaultAddress"))
