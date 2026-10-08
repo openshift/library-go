@@ -20,7 +20,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -47,6 +46,9 @@ const (
 	kmsEndpointFormat                 = "unix:///var/run/kmsplugin/kms-%d.sock"
 	defaultKMSTimeout                 = 10 * time.Second
 	openshiftConfigNS                 = "openshift-config"
+	// remoteKeyConvergenceDuration is the KEP-3299 wait before promoting target-remote-key-id
+	// after health reports a stable new RemoteKeyId for the write key.
+	remoteKeyConvergenceDuration = 5 * time.Minute
 )
 
 // keyController creates new keys if necessary. It
@@ -274,24 +276,7 @@ func (c *keyController) reconcileCurrentKey(ctx context.Context, syncContext fac
 		return fmt.Errorf("unknown in-place field update result %d", updateResult)
 	}
 
-	// Skip until initial migration completes and sets a migrated remote key ID.
-	// Once established, keep reconciling even when target == migrated so external
-	// rotation reported by health checks can start the convergence clock.
-	rk := currentKey.RemoteKey()
-	if rk.TargetRemoteKeyID == "" || rk.MigratedRemoteKeyID == "" {
-		return nil
-	}
-
-	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get KMS encryption status for remote key rotation: %w", err)
-	}
-
-	if encryptionStatus == nil {
-		return nil
-	}
-
-	return reconcileRemoteKeyRotation(ctx, c.secretClient, keySecret.Name, *encryptionStatus, currentKey, clock.RealClock{})
+	return c.reconcileRemoteKeyRotation(ctx, c.secretClient, keySecret.Name, snap, currentKey)
 }
 
 // reconcileInPlaceFieldUpdate carries non-migration-triggering plugin fields through to the
@@ -956,73 +941,105 @@ func unstructuredUnsupportedConfigFromWithPrefix(rawConfig []byte, prefix []stri
 	return json.Marshal(actualConfig)
 }
 
-// reconcileRemoteKeyRotation maintains KMS remote key rotation convergence
-// annotations on the encryption key secret for the current KMS write key.
-// This slice records and clears the 5m convergence clock only; target promotion
-// and bootstrap land in follow-up PRs.
-func reconcileRemoteKeyRotation(
-	ctx context.Context,
-	secretClient corev1client.SecretsGetter,
-	secretName string,
-	encryptionStatus operatorv1.KMSEncryptionStatus,
-	currentKey state.KeyState,
-	clk clock.Clock,
-) error {
+// reconcileRemoteKeyRotation maintains remote-key annotations on the write-key secret:
+// first-enablement bootstrap of migrated-remote-key-id, the KEP-3299 5m convergence
+// clock, and target-remote-key-id promotion once that clock elapses.
+func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string,
+	snap *KeyPlanningSnapshot, currentKey state.KeyState) error {
+
+	// no need to reconcile if we don't have a target remote key id, preflight likely hasn't finished yet
 	rk := currentKey.RemoteKey()
-	if len(rk.TargetRemoteKeyID) == 0 {
+	if rk.TargetRemoteKeyID == "" {
+		return nil
+	}
+
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get KMS encryption status for remote key rotation: %w", err)
+	}
+	if encryptionStatus == nil {
 		return nil
 	}
 
 	// During KMS-to-KMS migration multiple plugin key IDs can report at once; scope
 	// convergence to the current write key's keyID so backup/read-only plugins are ignored.
 	// TODO(thomas): we need to ensure the amount of reports match the number of operand pods
-	reports := health.ReportsForKeyID(encryptionStatus.HealthReports, currentKey.Key.Name)
-	convergedRemoteKeyID := health.ConvergedRemoteKeyID(reports)
-	if convergedRemoteKeyID == "" {
-		return nil
+	convergedRemoteKeyID := health.ConvergedRemoteKeyID(health.ReportsForKeyID(encryptionStatus.HealthReports, currentKey.Key.Name))
+	managedSecrets := secretClient.Secrets("openshift-config-managed")
+
+	// clear the convergence clock when health already matches the target, but never during bootstrap
+	if rk.MigratedRemoteKeyID != "" && convergedRemoteKeyID == rk.TargetRemoteKeyID {
+		return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, clearRemoteKeyConvergence)
 	}
 
-	if convergedRemoteKeyID == rk.TargetRemoteKeyID {
-		return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
-			return clearRemoteKeyConvergence(rk)
+	// no sense reconciling remote-key annotations any further until health has converged
+	// we still clear the convergence here for good measure, it may happen that the health reports are flapping
+	if convergedRemoteKeyID == "" {
+		return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, clearRemoteKeyConvergence)
+	}
+
+	// if there was no migration yet, we have to bootstrap the first one
+	if rk.MigratedRemoteKeyID == "" {
+		initialMigrationComplete, _, _ := state.MigratedFor(snap.State.EncryptedGRs, currentKey)
+		if !initialMigrationComplete {
+			return nil
+		}
+		return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, func(rk *state.RemoteKeyState) (bool, error) {
+			rk.MigratedRemoteKeyID = rk.TargetRemoteKeyID
+			return true, nil
 		})
 	}
 
-	now := clk.Now()
-	return patchRemoteKeyState(ctx, secretClient, secretName, func(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
-		return recordRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
+	now := time.Now()
+	return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, func(rk *state.RemoteKeyState) (bool, error) {
+		return advanceRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
 	})
 }
 
-func patchRemoteKeyState(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string, mutate func(state.RemoteKeyState) (state.RemoteKeyState, bool)) error {
-	return secrets.PatchRemoteKeyState(ctx, secretClient.Secrets("openshift-config-managed"), secretName, func(rk *state.RemoteKeyState) (bool, error) {
-		next, changed := mutate(*rk)
-		if !changed {
-			return false, nil
-		}
-		*rk = next
-		return true, nil
-	})
+func advanceRemoteKeyConvergence(rk *state.RemoteKeyState, convergedRemoteKeyID string, now time.Time) (bool, error) {
+	changed, err := recordRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
+	if err != nil {
+		return false, err
+	}
+	// Migration gate: never promote target while needsMigration is true.
+	if rk.NeedsRemoteKeyMigration() {
+		return changed, nil
+	}
+
+	// Convergence gate: never promote a different remote key (during convergence time)
+	if rk.ConvergedID != convergedRemoteKeyID || rk.ConvergedAt.IsZero() {
+		return changed, nil
+	}
+
+	// Convergence gate: never promote before the convergence duration elapsed
+	if now.Sub(rk.ConvergedAt) < remoteKeyConvergenceDuration {
+		return changed, nil
+	}
+
+	// declare our new target key to migrate towards and wipe the convergence
+	rk.TargetRemoteKeyID = convergedRemoteKeyID
+	_, _ = clearRemoteKeyConvergence(rk)
+	return true, nil
 }
 
 // recordRemoteKeyConvergence stamps ConvergedID/ConvergedAt for a newly observed
 // unanimous remote key ID. Returns false when the candidate is already recorded.
-func recordRemoteKeyConvergence(rk state.RemoteKeyState, candidateRemoteKeyID string, now time.Time) (state.RemoteKeyState, bool) {
+func recordRemoteKeyConvergence(rk *state.RemoteKeyState, candidateRemoteKeyID string, now time.Time) (bool, error) {
 	if rk.ConvergedID == candidateRemoteKeyID && !rk.ConvergedAt.IsZero() {
-		return rk, false
+		return false, nil
 	}
 	rk.ConvergedID = candidateRemoteKeyID
 	rk.ConvergedAt = now
-	return rk, true
+	return true, nil
 }
 
 // clearRemoteKeyConvergence removes ConvergedID/ConvergedAt when the write key is
 // already on the converged remote key. Returns false when already clear.
-func clearRemoteKeyConvergence(rk state.RemoteKeyState) (state.RemoteKeyState, bool) {
+func clearRemoteKeyConvergence(rk *state.RemoteKeyState) (bool, error) {
 	if rk.ConvergedID == "" && rk.ConvergedAt.IsZero() {
-		return rk, false
+		return false, nil
 	}
 	rk.ConvergedID = ""
 	rk.ConvergedAt = time.Time{}
-	return rk, true
+	return true, nil
 }
