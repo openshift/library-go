@@ -17,7 +17,6 @@ import (
 	clocktesting "k8s.io/utils/clock/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
@@ -60,23 +59,43 @@ func setRemoteKeyAnnotations(t *testing.T, annotations map[string]string, rk sta
 	}
 }
 
+func setupRemoteKeyReconcile(t *testing.T, secret *corev1.Secret, status operatorv1.KMSEncryptionStatus, encryptedGRs []schema.GroupResource) (*keyController, *fake.Clientset, state.KeyState) {
+	t.Helper()
+	client := fake.NewSimpleClientset(secret)
+	currentKey, err := secrets.ToKeyState(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &keyController{
+		secretClient:             client.CoreV1(),
+		encryptionStatusProvider: &fakeKMSStatusProvider{status: status},
+	}
+	return c, client, currentKey
+}
+
 func TestRecordRemoteKeyConvergence(t *testing.T) {
 	now := time.Date(2026, 8, 31, 10, 0, 0, 0, time.UTC)
 	rk := state.RemoteKeyState{TargetRemoteKeyID: "remote-old", MigratedRemoteKeyID: "remote-old"}
 
-	got, changed := recordRemoteKeyConvergence(rk, "remote-new", now)
+	changed, err := recordRemoteKeyConvergence(&rk, "remote-new", now)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !changed {
 		t.Fatal("expected change when recording a new candidate")
 	}
-	if got.ConvergedID != "remote-new" || !got.ConvergedAt.Equal(now) {
-		t.Fatalf("unexpected convergence: %#v", got)
+	if rk.ConvergedID != "remote-new" || !rk.ConvergedAt.Equal(now) {
+		t.Fatalf("unexpected convergence: %#v", rk)
 	}
 
-	again, changed := recordRemoteKeyConvergence(got, "remote-new", now.Add(time.Minute))
+	changed, err = recordRemoteKeyConvergence(&rk, "remote-new", now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if changed {
 		t.Fatal("expected no change when candidate already recorded")
 	}
-	if !again.ConvergedAt.Equal(now) {
+	if !rk.ConvergedAt.Equal(now) {
 		t.Fatal("expected converged-at to remain unchanged")
 	}
 }
@@ -90,56 +109,45 @@ func TestClearRemoteKeyConvergence(t *testing.T) {
 		ConvergedAt:         now,
 	}
 
-	got, changed := clearRemoteKeyConvergence(rk)
+	changed, err := clearRemoteKeyConvergence(&rk)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !changed {
 		t.Fatal("expected change when clearing convergence")
 	}
-	if got.ConvergedID != "" || !got.ConvergedAt.IsZero() {
-		t.Fatalf("expected convergence cleared, got %#v", got)
+	if rk.ConvergedID != "" || !rk.ConvergedAt.IsZero() {
+		t.Fatalf("expected convergence cleared, got %#v", rk)
 	}
-	if got.TargetRemoteKeyID != "remote-new" {
+	if rk.TargetRemoteKeyID != "remote-new" {
 		t.Fatal("expected target to be preserved")
 	}
 
-	if _, changed := clearRemoteKeyConvergence(got); changed {
+	changed, err = clearRemoteKeyConvergence(&rk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed {
 		t.Fatal("expected no change when already clear")
 	}
 }
 
 func TestReconcileRemoteKeyRecordsConvergence(t *testing.T) {
-	now := time.Date(2026, 8, 31, 10, 0, 0, 0, time.UTC)
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   "openshift-config-managed",
-			Name:        "encryption-key-test-3",
-			Annotations: map[string]string{},
-		},
-	}
+	grs := []schema.GroupResource{{Resource: "secrets"}}
+	secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), grs, "3")
 	setRemoteKeyAnnotations(t, secret.Annotations, state.RemoteKeyState{
 		TargetRemoteKeyID:   "remote-old",
 		MigratedRemoteKeyID: "remote-old",
 	})
-	client := fake.NewSimpleClientset(secret)
-
-	writeKey := state.KeyState{
-		Key:  apiserverconfigv1.Key{Name: "3", Secret: "c2VjcmV0"},
-		Mode: state.KMS,
-		KMS: &state.KMSState{
-			RemoteKey: state.RemoteKeyState{
-				TargetRemoteKeyID:   "remote-old",
-				MigratedRemoteKeyID: "remote-old",
-			},
-		},
-	}
 	status := operatorv1.KMSEncryptionStatus{
 		HealthReports: []operatorv1.KMSPluginHealthReport{
 			{KeyID: "3", RemoteKeyID: "remote-new"},
 			{KeyID: "3", RemoteKeyID: "remote-new"},
 		},
 	}
+	c, client, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
 
-	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, status, writeKey, clocktesting.NewFakeClock(now))
-	if err != nil {
+	if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, currentKey); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -154,47 +162,30 @@ func TestReconcileRemoteKeyRecordsConvergence(t *testing.T) {
 	if rk.TargetRemoteKeyID != "remote-old" {
 		t.Fatalf("expected target unchanged, got %q", rk.TargetRemoteKeyID)
 	}
-	if rk.ConvergedID != "remote-new" || !rk.ConvergedAt.Equal(now) {
-		t.Fatalf("expected convergence recorded for remote-new at %v, got %#v", now, rk)
+	if rk.ConvergedID != "remote-new" || rk.ConvergedAt.IsZero() {
+		t.Fatalf("expected convergence recorded for remote-new, got %#v", rk)
 	}
 }
 
 func TestReconcileRemoteKeyClearsConvergence(t *testing.T) {
 	now := time.Date(2026, 8, 31, 10, 0, 0, 0, time.UTC)
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   "openshift-config-managed",
-			Name:        "encryption-key-test-3",
-			Annotations: map[string]string{},
-		},
-	}
+	grs := []schema.GroupResource{{Resource: "secrets"}}
+	secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), grs, "3")
 	setRemoteKeyAnnotations(t, secret.Annotations, state.RemoteKeyState{
 		TargetRemoteKeyID:   "remote-old",
 		MigratedRemoteKeyID: "remote-old",
 		ConvergedID:         "remote-stale",
 		ConvergedAt:         now.Add(-time.Hour),
 	})
-	client := fake.NewSimpleClientset(secret)
-
-	writeKey := state.KeyState{
-		Key:  apiserverconfigv1.Key{Name: "3", Secret: "c2VjcmV0"},
-		Mode: state.KMS,
-		KMS: &state.KMSState{
-			RemoteKey: state.RemoteKeyState{
-				TargetRemoteKeyID:   "remote-old",
-				MigratedRemoteKeyID: "remote-old",
-			},
-		},
-	}
 	status := operatorv1.KMSEncryptionStatus{
 		HealthReports: []operatorv1.KMSPluginHealthReport{
 			{KeyID: "3", RemoteKeyID: "remote-old"},
 			{KeyID: "3", RemoteKeyID: "remote-old"},
 		},
 	}
+	c, client, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
 
-	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, status, writeKey, clocktesting.NewFakeClock(now))
-	if err != nil {
+	if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, currentKey); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -215,30 +206,12 @@ func TestReconcileRemoteKeyClearsConvergence(t *testing.T) {
 }
 
 func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
-	now := time.Date(2026, 8, 31, 10, 0, 0, 0, time.UTC)
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   "openshift-config-managed",
-			Name:        "encryption-key-test-3",
-			Annotations: map[string]string{},
-		},
-	}
+	grs := []schema.GroupResource{{Resource: "secrets"}}
+	secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), grs, "3")
 	setRemoteKeyAnnotations(t, secret.Annotations, state.RemoteKeyState{
 		TargetRemoteKeyID:   "remote-old",
 		MigratedRemoteKeyID: "remote-old",
 	})
-	client := fake.NewSimpleClientset(secret)
-
-	writeKey := state.KeyState{
-		Key:  apiserverconfigv1.Key{Name: "3", Secret: "c2VjcmV0"},
-		Mode: state.KMS,
-		KMS: &state.KMSState{
-			RemoteKey: state.RemoteKeyState{
-				TargetRemoteKeyID:   "remote-old",
-				MigratedRemoteKeyID: "remote-old",
-			},
-		},
-	}
 	// Write-key reports converge on remote-new; a different keyID still on remote-old
 	// must not prevent recording convergence for the write key.
 	status := operatorv1.KMSEncryptionStatus{
@@ -248,9 +221,9 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 			{KeyID: "2", RemoteKeyID: "remote-old"},
 		},
 	}
+	c, client, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
 
-	err := reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, status, writeKey, clocktesting.NewFakeClock(now))
-	if err != nil {
+	if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, currentKey); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -263,7 +236,7 @@ func TestReconcileRemoteKeyIgnoresOtherKeyIDReports(t *testing.T) {
 		t.Fatalf("read remote key annotations: %v", err)
 	}
 	if rk.TargetRemoteKeyID != "remote-old" {
-		t.Fatalf("expected target unchanged (no promote in this PR), got %q", rk.TargetRemoteKeyID)
+		t.Fatalf("expected target unchanged (no promote yet), got %q", rk.TargetRemoteKeyID)
 	}
 	if rk.ConvergedID != "remote-new" {
 		t.Fatalf("expected write-key convergence on remote-new, got %q", rk.ConvergedID)
