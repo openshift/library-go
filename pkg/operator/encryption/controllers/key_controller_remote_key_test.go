@@ -322,6 +322,83 @@ func TestReconcileRemoteKeyBootstrap(t *testing.T) {
 	}
 }
 
+func TestReconcileRemoteKeyPromotesTargetAfterConvergence(t *testing.T) {
+	now := time.Now().UTC()
+
+	for _, tc := range []struct {
+		name          string
+		remoteKey     state.RemoteKeyState
+		wantTarget    string
+		wantConverged string
+	}{
+		{
+			name: "records clock when under 5m",
+			remoteKey: state.RemoteKeyState{
+				TargetRemoteKeyID:   "remote-old",
+				MigratedRemoteKeyID: "remote-old",
+			},
+			wantTarget:    "remote-old",
+			wantConverged: "remote-new",
+		},
+		{
+			name: "promotes target after 5m",
+			remoteKey: state.RemoteKeyState{
+				TargetRemoteKeyID:   "remote-old",
+				MigratedRemoteKeyID: "remote-old",
+				ConvergedID:         "remote-new",
+				ConvergedAt:         now.Add(-remoteKeyConvergenceDuration),
+			},
+			wantTarget:    "remote-new",
+			wantConverged: "",
+		},
+		{
+			name: "does not promote while needsMigration",
+			remoteKey: state.RemoteKeyState{
+				TargetRemoteKeyID:   "remote-a",
+				MigratedRemoteKeyID: "remote-old",
+				ConvergedID:         "remote-new",
+				ConvergedAt:         now.Add(-remoteKeyConvergenceDuration),
+			},
+			wantTarget:    "remote-a",
+			wantConverged: "remote-new",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			secret := newExistingKMSKeySecret(t, "test", newKMSVaultAPIServer(), []schema.GroupResource{{Resource: "secrets"}}, "3")
+			setRemoteKeyAnnotations(t, secret.Annotations, tc.remoteKey)
+			status := operatorv1.KMSEncryptionStatus{
+				HealthReports: []operatorv1.KMSPluginHealthReport{
+					{KeyID: "3", RemoteKeyID: "remote-new"},
+					{KeyID: "3", RemoteKeyID: "remote-new"},
+				},
+			}
+			c, client, snap, currentKey := setupRemoteKeyReconcile(t, secret, status, nil)
+
+			if err := c.reconcileRemoteKeyRotation(context.Background(), client.CoreV1(), secret.Name, snap, currentKey); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			updated, err := client.CoreV1().Secrets("openshift-config-managed").Get(context.Background(), secret.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("get secret: %v", err)
+			}
+			rk, err := secrets.ReadRemoteKeyStateFromSecret(updated)
+			if err != nil {
+				t.Fatalf("read remote key annotations: %v", err)
+			}
+			if rk.TargetRemoteKeyID != tc.wantTarget {
+				t.Fatalf("target=%q, want %q", rk.TargetRemoteKeyID, tc.wantTarget)
+			}
+			if rk.ConvergedID != tc.wantConverged {
+				t.Fatalf("converged-id=%q, want %q", rk.ConvergedID, tc.wantConverged)
+			}
+			if tc.wantConverged == "" && !rk.ConvergedAt.IsZero() {
+				t.Fatalf("expected convergence cleared, got %#v", rk)
+			}
+		})
+	}
+}
+
 func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 	// The stored key carries the baseline vault config, AppRole credentials, and CA bundle.
 	storedPlugin := kms.KMSPluginConfig{

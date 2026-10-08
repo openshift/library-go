@@ -46,6 +46,9 @@ const (
 	kmsEndpointFormat                 = "unix:///var/run/kmsplugin/kms-%d.sock"
 	defaultKMSTimeout                 = 10 * time.Second
 	openshiftConfigNS                 = "openshift-config"
+	// remoteKeyConvergenceDuration is the KEP-3299 wait before promoting target-remote-key-id
+	// after health reports a stable new RemoteKeyId for the write key.
+	remoteKeyConvergenceDuration = 5 * time.Minute
 )
 
 // keyController creates new keys if necessary. It
@@ -939,8 +942,8 @@ func unstructuredUnsupportedConfigFromWithPrefix(rawConfig []byte, prefix []stri
 }
 
 // reconcileRemoteKeyRotation maintains remote-key annotations on the write-key secret:
-// first-enablement bootstrap of migrated-remote-key-id, and the KEP-3299 5m
-// convergence clock. Target promotion lands in a follow-up commit.
+// first-enablement bootstrap of migrated-remote-key-id, the KEP-3299 5m convergence
+// clock, and target-remote-key-id promotion once that clock elapses.
 func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string,
 	snap *KeyPlanningSnapshot, currentKey state.KeyState) error {
 
@@ -970,8 +973,9 @@ func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretCl
 	}
 
 	// no sense reconciling remote-key annotations any further until health has converged
+	// we still clear the convergence here for good measure, it may happen that the health reports are flapping
 	if convergedRemoteKeyID == "" {
-		return nil
+		return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, clearRemoteKeyConvergence)
 	}
 
 	// if there was no migration yet, we have to bootstrap the first one
@@ -988,8 +992,34 @@ func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretCl
 
 	now := time.Now()
 	return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, func(rk *state.RemoteKeyState) (bool, error) {
-		return recordRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
+		return advanceRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
 	})
+}
+
+func advanceRemoteKeyConvergence(rk *state.RemoteKeyState, convergedRemoteKeyID string, now time.Time) (bool, error) {
+	changed, err := recordRemoteKeyConvergence(rk, convergedRemoteKeyID, now)
+	if err != nil {
+		return false, err
+	}
+	// Migration gate: never promote target while needsMigration is true.
+	if rk.NeedsRemoteKeyMigration() {
+		return changed, nil
+	}
+
+	// Convergence gate: never promote a different remote key (during convergence time)
+	if rk.ConvergedID != convergedRemoteKeyID || rk.ConvergedAt.IsZero() {
+		return changed, nil
+	}
+
+	// Convergence gate: never promote before the convergence duration elapsed
+	if now.Sub(rk.ConvergedAt) < remoteKeyConvergenceDuration {
+		return changed, nil
+	}
+
+	// declare our new target key to migrate towards and wipe the convergence
+	rk.TargetRemoteKeyID = convergedRemoteKeyID
+	_, _ = clearRemoteKeyConvergence(rk)
+	return true, nil
 }
 
 // recordRemoteKeyConvergence stamps ConvergedID/ConvergedAt for a newly observed
