@@ -152,6 +152,28 @@ func WaitForKMSRemoteKeyRotationComplete() WaitForRotationCompleteFunc {
 	}
 }
 
+// ApplyEncryption updates APIServer.cluster.spec.encryption without waiting for a
+// new encryption key. Used by preflight-negative scenarios that expect no key.
+func ApplyEncryption(ctx context.Context, t testing.TB, encryption configv1.APIServerEncryption) {
+	t.Helper()
+	clientSet := GetClients(t)
+	err := onErrorWithTimeout(waitPollTimeout, orError(errors.IsConflict, transientAPIError), func() error {
+		apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if equality.Semantic.DeepEqual(apiServer.Spec.Encryption, encryption) {
+			t.Logf("APIServer already configured with encryption type %q", encryption.Type)
+			return nil
+		}
+		t.Logf("Updating encryption configuration for APIServer from %#v to %#v", apiServer.Spec.Encryption, encryption)
+		apiServer.Spec.Encryption = encryption
+		_, err = clientSet.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
+		return err
+	})
+	require.NoError(t, err)
+}
+
 func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider EncryptionProvider, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
 	t.Helper()
 
