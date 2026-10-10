@@ -1,10 +1,10 @@
 package csiconfigobservercontroller
 
 import (
+	"fmt"
 	"strings"
 
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 
 	"github.com/openshift/api/features"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
@@ -163,26 +163,38 @@ type tlsSecurityProfileObserver struct {
 }
 
 // observeTLSSecurityProfile observes the TLS min version and cipher suites, and
-// additionally the group (curve) preferences when TLSGroupPreferences is
-// enabled. When the gate is disabled (or the initial feature gates have not been
-// observed yet) the curvePreferences path is left unobserved, so it is dropped
-// from the merged observed config rather than leaking the groups baked into the
-// predefined profiles.
+// additionally the group (curve) preferences when TLSGroupPreferences is enabled.
+//
+// Whether curvePreferences is observed depends on the TLSGroupPreferences feature
+// gate, so the gate state must be known to make a correct decision. If the gate
+// cannot be confirmed — the initial feature gates have not been observed yet, or
+// the current feature gates cannot be read — this fails hard: the existing config
+// is returned unchanged together with an error, so ConfigObservationDegraded
+// surfaces the problem. This is deliberately stricter than silently leaving
+// curvePreferences unobserved, which would drop a previously-observed value on a
+// transient feature-gate read failure (e.g. missing RBAC on
+// featuregates.config.openshift.io).
+//
+// Only a *confirmed* gate state drives observation: a confirmed-enabled gate
+// observes curvePreferences, while a confirmed-disabled gate legitimately leaves
+// it unobserved (no error).
 func (o *tlsSecurityProfileObserver) observeTLSSecurityProfile(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
-	// groupsPath stays nil unless the gate is observed AND enabled. A nil
-	// groupsPath makes ObserveTLSSecurityProfileWithGroupPaths skip the curve
-	// observation entirely (identical to not observing groups at all).
+	if !o.featureGateAccess.AreInitialFeatureGatesObserved() {
+		return configobserver.Pruned(existingConfig, MinTLSVersionPath(), CipherSuitesPath(), CurvePreferencesPath()),
+			[]error{fmt.Errorf("cannot observe TLS curvePreferences: initial feature gates not observed yet")}
+	}
+	featureGates, err := o.featureGateAccess.CurrentFeatureGates()
+	if err != nil {
+		return configobserver.Pruned(existingConfig, MinTLSVersionPath(), CipherSuitesPath(), CurvePreferencesPath()),
+			[]error{fmt.Errorf("cannot observe TLS curvePreferences: %w", err)}
+	}
+
+	// groupsPath stays nil when the (confirmed) gate is disabled. A nil groupsPath
+	// makes ObserveTLSSecurityProfileWithGroupPaths skip the curve observation
+	// entirely (identical to not observing groups at all).
 	var groupsPath []string
-	switch {
-	case !o.featureGateAccess.AreInitialFeatureGatesObserved():
-		klog.V(4).Infof("initial feature gates not observed yet; not observing TLS curvePreferences")
-	default:
-		featureGates, err := o.featureGateAccess.CurrentFeatureGates()
-		if err != nil {
-			klog.V(2).Infof("could not read current feature gates (%v); not observing TLS curvePreferences", err)
-		} else if featureGates.Enabled(features.FeatureGateTLSGroupPreferences) {
-			groupsPath = CurvePreferencesPath()
-		}
+	if featureGates.Enabled(features.FeatureGateTLSGroupPreferences) {
+		groupsPath = CurvePreferencesPath()
 	}
 	return libgoapiserver.ObserveTLSSecurityProfileWithGroupPaths(genericListers, recorder, existingConfig, MinTLSVersionPath(), CipherSuitesPath(), groupsPath)
 }

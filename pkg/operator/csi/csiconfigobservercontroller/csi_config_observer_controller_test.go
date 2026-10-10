@@ -235,6 +235,7 @@ func TestObserveTLSSecurityProfileWithFeatureGates(t *testing.T) {
 		name                   string
 		featureGateAccess      featuregates.FeatureGateAccess
 		expectCurvePreferences bool
+		expectSyncError        bool
 	}{
 		{
 			name: "gate enabled: curvePreferences observed",
@@ -249,9 +250,10 @@ func TestObserveTLSSecurityProfileWithFeatureGates(t *testing.T) {
 			expectCurvePreferences: false,
 		},
 		{
-			name:                   "initial gates not observed: curvePreferences not observed",
+			name:                   "initial gates not observed: fail hard",
 			featureGateAccess:      featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, notObserved, nil),
 			expectCurvePreferences: false,
+			expectSyncError:        true,
 		},
 	}
 
@@ -273,7 +275,11 @@ func TestObserveTLSSecurityProfileWithFeatureGates(t *testing.T) {
 				tt.featureGateAccess,
 			)
 
-			if err := controller.Controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now())))); err != nil {
+			err := controller.Controller.Sync(context.TODO(), factory.NewSyncContext(controllerName, events.NewInMemoryRecorder(operandName, clocktesting.NewFakePassiveClock(time.Now()))))
+			if tt.expectSyncError && err == nil {
+				t.Fatalf("sync() expected an error, got none")
+			}
+			if !tt.expectSyncError && err != nil {
 				t.Fatalf("sync() returned unexpected error: %v", err)
 			}
 
