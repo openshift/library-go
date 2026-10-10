@@ -14,16 +14,30 @@ import (
 
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
+	"k8s.io/utils/clock"
+
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/health"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+const (
+	kmsHealthReportsProgressingCondition = "KmsHealthReportsProgressing"
+	kmsHealthReportsDegradedCondition    = "KmsHealthReportsDegraded"
+	kmsHealthReportsDegradedTimeout      = time.Hour
+
+	healthReportsNotConvergedReason = "HealthReportsNotConverged"
+)
+
 // conditionController maintains the Encrypted condition. It sets it to true iff there is a
 // fully migrated read-key in the current config, and no later key is of identity type.
+//
+// It also owns KMS health aggregation, pruning stale HealthReports and emit KmsHealthReportsProgressing / KmsHealthReportsDegraded.
 type conditionController struct {
 	controllerInstanceName string
 	operatorClient         operatorv1helpers.OperatorClient
@@ -34,6 +48,8 @@ type conditionController struct {
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 	secretClient             corev1client.SecretsGetter
+	encryptionStatusProvider kms.EncryptionStatusProvider
+	clock                    clock.PassiveClock
 }
 
 func NewConditionController(
@@ -46,6 +62,7 @@ func NewConditionController(
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
+	encryptionStatusProvider kms.EncryptionStatusProvider,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &conditionController{
@@ -57,6 +74,8 @@ func NewConditionController(
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		secretClient:             secretClient,
+		encryptionStatusProvider: encryptionStatusProvider,
+		clock:                    clock.RealClock{},
 	}
 
 	return factory.New().WithInformers(
@@ -76,11 +95,26 @@ func NewConditionController(
 func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (err error) {
 	// Status for this condition is left out to make sure it's correctly set in every branch
 	cond := applyoperatorv1.OperatorCondition().WithType("Encrypted")
+	kmsHealthProgressing := applyoperatorv1.OperatorCondition().
+		WithType(kmsHealthReportsProgressingCondition).
+		WithStatus(operatorv1.ConditionFalse)
+	kmsHealthDegraded := applyoperatorv1.OperatorCondition().
+		WithType(kmsHealthReportsDegradedCondition).
+		WithStatus(operatorv1.ConditionFalse)
 	defer func() {
-		if cond == nil {
+		conds := make([]*applyoperatorv1.OperatorConditionApplyConfiguration, 0, 3)
+		if cond != nil {
+			conds = append(conds, cond)
+		}
+		// Do not publish health False (or any health update) on reconcile errors: that
+		// would clear an existing Progressing/Degraded and reset the one-hour LTT clock.
+		if err == nil && kmsHealthProgressing != nil && kmsHealthDegraded != nil {
+			conds = append(conds, kmsHealthProgressing, kmsHealthDegraded)
+		}
+		if len(conds) == 0 {
 			return
 		}
-		status := applyoperatorv1.OperatorStatus().WithConditions(cond)
+		status := applyoperatorv1.OperatorStatus().WithConditions(conds...)
 		if applyError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status); applyError != nil {
 			err = applyError
 		}
@@ -89,6 +123,8 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
 		if err != nil {
 			cond = nil
+			kmsHealthProgressing = nil
+			kmsHealthDegraded = nil
 		} else {
 			cond = cond.WithStatus(operatorv1.ConditionFalse)
 		}
@@ -100,8 +136,18 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 	if err != nil || len(transitioningReason) > 0 {
 		// do not update the encryption condition (cond). Note: progressing is set elsewhere.
 		cond = nil
+		kmsHealthProgressing = nil
+		kmsHealthDegraded = nil
 		return err
 	}
+
+	kmsHealthProgressing, kmsHealthDegraded, err = c.kmsHealthConditions(ctx, currentConfig)
+	if err != nil {
+		kmsHealthProgressing = nil
+		kmsHealthDegraded = nil
+		return err
+	}
+
 	currentState, _ := encryptiondata.ToEncryptionState(currentConfig, foundSecrets)
 
 	cond = cond.
@@ -188,6 +234,76 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 		}
 	}
 	return nil
+}
+
+func (c *conditionController) kmsHealthConditions(ctx context.Context, config *encryptiondata.Config) (progressing, degraded *applyoperatorv1.OperatorConditionApplyConfiguration, err error) {
+	progressing = applyoperatorv1.OperatorCondition().
+		WithType(kmsHealthReportsProgressingCondition).
+		WithStatus(operatorv1.ConditionFalse)
+	degraded = applyoperatorv1.OperatorCondition().
+		WithType(kmsHealthReportsDegradedCondition).
+		WithStatus(operatorv1.ConditionFalse)
+
+	// this is our implicit feature gating, no need to check any health statuses when there is no KMS plugin configured
+	if c.encryptionStatusProvider == nil || config == nil || len(config.KMSPlugins) == 0 {
+		return progressing, degraded, nil
+	}
+
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if encryptionStatus == nil {
+		return progressing, degraded, nil
+	}
+
+	now := c.clock.Now()
+	pruned := health.PruneStaleReports(encryptionStatus.HealthReports, now, health.DefaultReportPruneTTL)
+	if len(pruned) != len(encryptionStatus.HealthReports) {
+		// Prune inside the callback so conflict retries re-read status and do not
+		// overwrite HealthReports concurrently published by health reporters via SSA.
+		if err := c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+			pruned = health.PruneStaleReports(s.HealthReports, now, health.DefaultReportPruneTTL)
+			s.HealthReports = pruned
+		}); err != nil {
+			return nil, nil, fmt.Errorf("failed to prune stale KMS health reports: %w", err)
+		}
+	}
+
+	if health.AllKeyIDsConverged(pruned) {
+		return progressing, degraded, nil
+	}
+
+	reportPerNode := make([]string, 0, len(pruned))
+	for _, report := range pruned {
+		reportPerNode = append(reportPerNode, fmt.Sprintf("%s/%s=%q", report.NodeName, report.KeyID, report.RemoteKeyID))
+	}
+
+	message := fmt.Sprintf("KMS health reports have not yet converged: %s", strings.Join(reportPerNode, ", "))
+
+	progressing = progressing.
+		WithStatus(operatorv1.ConditionTrue).
+		WithReason(healthReportsNotConvergedReason).
+		WithMessage(message)
+
+	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
+	if err != nil {
+		return nil, nil, err
+	}
+	// ApplyOperatorStatus preserves LastTransitionTime while Status is unchanged, so
+	// Progressing.LastTransitionTime is the first time we observed non-convergence.
+	// Degrade only after that stamp is at least kmsHealthReportsDegradedTimeout old
+	// (hysteresis for rollouts / slow SKUs). On first observation existing is nil or
+	// not True yet — wait for a later sync once LTT has been recorded.
+	existing := operatorv1helpers.FindOperatorCondition(operatorStatus.Conditions, kmsHealthReportsProgressingCondition)
+	if existing != nil && existing.Status == operatorv1.ConditionTrue && !now.Before(existing.LastTransitionTime.Add(kmsHealthReportsDegradedTimeout)) {
+		degraded = degraded.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason(healthReportsNotConvergedReason).
+			WithMessage(message)
+	}
+
+	return progressing, degraded, nil
 }
 
 func allMigrated(toBeEncrypted, migrated []schema.GroupResource) bool {
