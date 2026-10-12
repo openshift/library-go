@@ -5,9 +5,11 @@ import (
 	"fmt"
 	mathrand "math/rand/v2"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -551,12 +553,13 @@ type InPlaceUpdateScenario struct {
 //  1. Create the resource
 //  2. Encrypt with the initial provider and verify migration
 //  3. Assert the resource is encrypted
-//  4. Record each operator's current key baseline
+//  4. Record each operator's current key baseline and KMS preflight snapshot
 //  5. Apply the update to the plugin CRD once (not the APIServer config)
-//  6. Verify no new key is created for any operator
-//  7. Assert the resource remains encrypted after the update
-//  8. AssertInPlaceUpdateFunc — caller verifies the change took effect
-//  9. Revert to identity so the cluster is left in a clean state for the next test
+//  6. Assert a fresh successful KMS preflight ran for every operator (before rollout)
+//  7. Verify no new key is created for any operator
+//  8. Assert the resource remains encrypted after the update
+//  9. AssertInPlaceUpdateFunc — caller verifies the change took effect (e.g. plugin image rolled out)
+// 10. Revert to identity so the cluster is left in a clean state for the next test
 //
 // Pass one scenario for a single operator, or multiple scenarios to run KAS/Auth/OAS together in
 // parallel. Only one scenario should set EncryptionProvider/UpdatedEncryptionProvider (the shared
@@ -588,11 +591,23 @@ func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenarios ...InPlaceUp
 	provider := providers[0]
 	updatedProvider := updatedProviders[0]
 
+	type preflightCapture struct {
+		previous operatorv1.KMSPreflightCheck
+		pod      *atomic.Pointer[corev1.Pod]
+		stop     func()
+		opNS     string
+		operand  string
+	}
+
 	var createSteps, encryptSteps, assertEncryptedSteps, baselineSteps, waitSteps, assertAfterSteps, assertInPlaceSteps []testStep
+	var snapshotPreflightSteps, assertPreflightSteps []testStep
+	var captures []*preflightCapture
 	for _, scenario := range scenarios {
 		// baseline is captured before the shared update and read by the wait step. Each iteration owns
 		// its own baseline variable, so the parallel baseline and wait phases never race.
 		var baseline EncryptionKeyMeta
+		capture := &preflightCapture{opNS: scenario.OperatorNamespace}
+		captures = append(captures, capture)
 		createSteps = append(createSteps, testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
@@ -609,6 +624,30 @@ func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenarios ...InPlaceUp
 			keyMeta, err := GetLastKeyMeta(e, GetClients(e).Kube, scenario.Namespace, scenario.LabelSelector)
 			require.NoError(e, err)
 			baseline = keyMeta
+		}})
+		snapshotPreflightSteps = append(snapshotPreflightSteps, testStep{name: fmt.Sprintf("SnapshotPreflight%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			clients := GetClients(e)
+			operand := operandNamespaceForOperator(scenario.OperatorNamespace)
+			require.NotEmpty(e, operand, "no operand namespace known for operator namespace %q", scenario.OperatorNamespace)
+			previous, err := ReadKMSPreflightForOperator(ctx, e, clients, scenario.OperatorNamespace)
+			require.NoError(e, err)
+			pod, stop := StartCapturingLatestPreflightPod(ctx, e, clients, operand)
+			capture.previous = previous
+			capture.pod = pod
+			capture.stop = stop
+			capture.operand = operand
+		}})
+		assertPreflightSteps = append(assertPreflightSteps, testStep{name: fmt.Sprintf("AssertPreflightBeforeRollout%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			if capture.stop != nil {
+				capture.stop()
+			}
+			var captured *corev1.Pod
+			if capture.pod != nil {
+				captured = capture.pod.Load()
+			}
+			AssertKMSPreflight(ctx, e, GetClients(e), capture.opNS, capture.operand, capture.previous, captured)
 		}})
 		waitSteps = append(waitSteps, testStep{name: fmt.Sprintf("WaitNoNewKey%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
@@ -639,6 +678,11 @@ func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenarios ...InPlaceUp
 	// the other scenarios do. The config is cluster-wide, so reverting it via one scenario reverts it
 	// for every operator.
 	revertToIdentity := testStep{name: "RevertToIdentity", testFunc: func(t testing.TB) {
+		for _, c := range captures {
+			if c.stop != nil {
+				c.stop()
+			}
+		}
 		TestEncryptionTypeIdentity(ctx, t, scenarios[0].BasicScenario)
 	}}
 
@@ -647,7 +691,9 @@ func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenarios ...InPlaceUp
 		inParallel(encryptSteps...),
 		inParallel(assertEncryptedSteps...),
 		inParallel(baselineSteps...),
+		inParallel(snapshotPreflightSteps...),
 		applyInPlaceUpdate,
+		inParallel(assertPreflightSteps...),
 		inParallel(waitSteps...),
 		inParallel(assertAfterSteps...),
 		inParallel(assertInPlaceSteps...),

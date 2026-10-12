@@ -77,7 +77,12 @@ const (
 	defaultVaultCredentialsSecret = "vault-credentials"
 	defaultVaultAppRoleSecretName = "vault-approle-secret"
 	defaultVaultConfigMapName     = "vault-ca-bundle"
-	defaultVaultAddress           = "https://vault.vault-kms.svc:8200"
+	// Alternate openshift-config references for in-place carry-over e2e (same credentials/CA bytes).
+	inPlaceVaultAppRoleSecretName = "vault-approle-secret-inplace"
+	inPlaceVaultConfigMapName     = "vault-ca-bundle-inplace"
+	// Alternate TLS SNI for in-place carry-over (same Vault service/cert as default serverName).
+	inPlaceVaultTLSServerName = "vault.vault-kms.svc.cluster.local"
+	defaultVaultAddress       = "https://vault.vault-kms.svc:8200"
 	defaultVaultEnterpriseNS      = "admin"
 	defaultVaultKeyPath           = "transit/keys/kms-key"
 	defaultAppRoleTargetNamespace = "openshift-config"
@@ -121,6 +126,98 @@ func defaultVaultEncryptionProvider(ctx context.Context, t testing.TB, image str
 			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
 		},
 	}
+}
+
+// UpdatedVaultEncryptionProviderTLSReference switches the VaultKMSConfig TLS CA bundle reference to
+// an alternate ConfigMap with the same CA bytes (non-migration carry-over field).
+func UpdatedVaultEncryptionProviderTLSReference(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	return vaultInPlaceCarryOverProvider(ctx, t, func(spec map[string]interface{}) {
+		tls, _ := spec["tls"].(map[string]interface{})
+		if tls == nil {
+			tls = map[string]interface{}{}
+		}
+		tls["caBundle"] = map[string]interface{}{"name": inPlaceVaultConfigMapName}
+		spec["tls"] = tls
+	}, func(ctx context.Context, t testing.TB) {
+		ensureVaultCAConfigMapCopy(ctx, t, defaultVaultConfigMapName, inPlaceVaultConfigMapName)
+	})
+}
+
+// UpdatedVaultEncryptionProviderTLSServerName switches VaultKMSConfig spec.tls.serverName to the
+// cluster-local FQDN (non-migration carry-over field; same CA bundle and Vault endpoint).
+func UpdatedVaultEncryptionProviderTLSServerName(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	return vaultInPlaceCarryOverProvider(ctx, t, func(spec map[string]interface{}) {
+		tls, _ := spec["tls"].(map[string]interface{})
+		if tls == nil {
+			tls = map[string]interface{}{}
+		}
+		tls["serverName"] = inPlaceVaultTLSServerName
+		spec["tls"] = tls
+	}, nil)
+}
+
+// UpdatedVaultEncryptionProviderAppRoleReference switches the VaultKMSConfig AppRole secret reference
+// to an alternate Secret with the same role-id/secret-id (non-migration carry-over field).
+func UpdatedVaultEncryptionProviderAppRoleReference(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	return vaultInPlaceCarryOverProvider(ctx, t, func(spec map[string]interface{}) {
+		auth, _ := spec["authentication"].(map[string]interface{})
+		if auth == nil {
+			auth = map[string]interface{}{}
+		}
+		auth["type"] = "AppRole"
+		auth["appRole"] = map[string]interface{}{
+			"secret": map[string]interface{}{
+				"name": inPlaceVaultAppRoleSecretName,
+			},
+		}
+		spec["authentication"] = auth
+	}, func(ctx context.Context, t testing.TB) {
+		ensureVaultAppRoleSecret(defaultVaultNamespace, inPlaceVaultAppRoleSecretName)(ctx, t)
+	})
+}
+
+func vaultInPlaceCarryOverProvider(
+	ctx context.Context,
+	t testing.TB,
+	mutateSpec func(map[string]interface{}),
+	extraSetup func(context.Context, testing.TB),
+) library.EncryptionProvider {
+	cfg := DefaultVaultKMSPluginConfig
+	vault := defaultVaultConfig.DeepCopy()
+	image := resolveVaultKMSPluginImage(t)
+	require.NoError(t, unstructured.SetNestedField(vault.Object, image, "status", "kmsPluginImage"))
+	require.NoError(t, unstructured.SetNestedField(vault.Object, getVaultServiceAddress(ctx, t, defaultVaultNamespace, defaultVaultServiceName), "spec", "vaultAddress"))
+	spec, _, err := unstructured.NestedMap(vault.Object, "spec")
+	require.NoError(t, err)
+	mutateSpec(spec)
+	require.NoError(t, unstructured.SetNestedField(vault.Object, spec, "spec"))
+	return library.EncryptionProvider{
+		APIServerEncryption: cfg,
+		Setup: func(ctx context.Context, t testing.TB) {
+			ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName)(ctx, t)
+			if extraSetup != nil {
+				extraSetup(ctx, t)
+			}
+			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
+		},
+	}
+}
+
+func ensureVaultCAConfigMapCopy(ctx context.Context, t testing.TB, srcName, destName string) {
+	t.Helper()
+	cs := library.GetClients(t)
+	src, err := cs.Kube.CoreV1().ConfigMaps(defaultAppRoleTargetNamespace).Get(ctx, srcName, metav1.GetOptions{})
+	require.NoError(t, err, "failed to read CA ConfigMap %s/%s", defaultAppRoleTargetNamespace, srcName)
+	dest := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      destName,
+			Namespace: defaultAppRoleTargetNamespace,
+		},
+		Data: src.Data,
+	}
+	recorder := events.NewInMemoryRecorder("vault-ca-configmap-setup", clock.RealClock{})
+	_, _, err = resourceapply.ApplyConfigMap(ctx, cs.Kube.CoreV1(), recorder, dest)
+	require.NoError(t, err, "failed to apply CA ConfigMap %s/%s", defaultAppRoleTargetNamespace, destName)
 }
 
 // InvalidVaultEncryptionProvider builds a Vault KMS provider with optional overrides

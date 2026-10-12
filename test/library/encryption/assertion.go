@@ -302,6 +302,78 @@ func AssertKMSKeyPluginImage(t testing.TB, clientSet ClientSet, namespace, keyNa
 	require.NoError(t, err, "KMS plugin image was not carried into key %s/%s in place; last observed %q, want %q", namespace, keyName, lastImage, expectedImage)
 }
 
+// AssertKMSKeyVaultTLSBundleRef verifies the write-key Secret embeds the expected Vault TLS CA
+// ConfigMap reference after an in-place carry-over update.
+func AssertKMSKeyVaultTLSBundleRef(t testing.TB, clientSet ClientSet, namespace, keyName, expectedConfigMapName string) {
+	t.Helper()
+	const pluginConfigDataKey = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+	var lastName string
+	err := wait.PollUntilContextTimeout(context.TODO(), 15*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, keyName, metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		pluginConfig, err := encoding.DecodeKMSPluginConfig(secret.Data[pluginConfigDataKey])
+		if err != nil {
+			return false, err
+		}
+		lastName = pluginConfig.Vault.TLS.CABundle.Name
+		return lastName == expectedConfigMapName, nil
+	})
+	require.NoError(t, err, "TLS CA bundle reference was not carried into key %s/%s in place; last observed %q, want %q", namespace, keyName, lastName, expectedConfigMapName)
+}
+
+// AssertKMSKeyVaultTLSServerName verifies the write-key Secret embeds the expected Vault TLS SNI
+// after an in-place carry-over update.
+func AssertKMSKeyVaultTLSServerName(t testing.TB, clientSet ClientSet, namespace, keyName, expectedServerName string) {
+	t.Helper()
+	const pluginConfigDataKey = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+	var lastName string
+	err := wait.PollUntilContextTimeout(context.TODO(), 15*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, keyName, metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		pluginConfig, err := encoding.DecodeKMSPluginConfig(secret.Data[pluginConfigDataKey])
+		if err != nil {
+			return false, err
+		}
+		lastName = pluginConfig.Vault.TLS.ServerName
+		return lastName == expectedServerName, nil
+	})
+	require.NoError(t, err, "TLS serverName was not carried into key %s/%s in place; last observed %q, want %q", namespace, keyName, lastName, expectedServerName)
+}
+
+// AssertKMSKeyVaultAppRoleSecretRef verifies the write-key Secret embeds the expected AppRole
+// Secret reference after an in-place carry-over update.
+func AssertKMSKeyVaultAppRoleSecretRef(t testing.TB, clientSet ClientSet, namespace, keyName, expectedSecretName string) {
+	t.Helper()
+	const pluginConfigDataKey = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+	var lastName string
+	err := wait.PollUntilContextTimeout(context.TODO(), 15*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, keyName, metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		pluginConfig, err := encoding.DecodeKMSPluginConfig(secret.Data[pluginConfigDataKey])
+		if err != nil {
+			return false, err
+		}
+		lastName = pluginConfig.Vault.Authentication.AppRole.Secret.Name
+		return lastName == expectedSecretName, nil
+	})
+	require.NoError(t, err, "AppRole secret reference was not carried into key %s/%s in place; last observed %q, want %q", namespace, keyName, lastName, expectedSecretName)
+}
+
 // AssertKMSPluginImageRolledOut verifies the operator actually rolled out the updated KMS plugin
 // image: it waits until an operand apiserver pod (selector apiserver=true in operandNamespace) runs
 // the write key's KMS plugin sidecar (vault-kms-plugin-<keyID>) with expectedImage, started and
