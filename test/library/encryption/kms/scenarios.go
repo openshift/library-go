@@ -58,10 +58,12 @@ func EncryptionTurnOnAndOffScenarios(ctx context.Context, t testing.TB) []librar
 // is shuffled with a random AES provider (AESGCM or AESCBC) so callers get a complete
 // ready-to-run scenario.
 func EncryptionProvidersMigrationScenarios(ctx context.Context, t testing.TB) []library.ProvidersMigrationScenario {
-	providers := library.ShuffleEncryptionProviders([]library.EncryptionProvider{
-		DefaultVaultEncryptionProvider(ctx, t),
-		library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
-	})
+	providers := append(
+		[]library.EncryptionProvider{InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "", "invalid-vault-address")},
+		library.ShuffleEncryptionProviders([]library.EncryptionProvider{
+			DefaultVaultEncryptionProvider(ctx, t),
+			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
+		})...)
 	return []library.ProvidersMigrationScenario{
 		kasProvidersMigrationScenario(providers),
 		authProvidersMigrationScenario(ctx),
@@ -76,10 +78,12 @@ func EncryptionProvidersMigrationScenarios(ctx context.Context, t testing.TB) []
 // EncryptionProviders. Each operator verifies its well-known resource is encrypted and that the
 // active KMS write key prefix matches the last-migrated key in the encryption config.
 func EncryptionKMSToKMSMigrationScenarios(ctx context.Context, t testing.TB) []library.ProvidersMigrationScenario {
-	providers := library.ShuffleEncryptionProviders([]library.EncryptionProvider{
-		DefaultVaultEncryptionProvider(ctx, t),
-		SecondaryVaultEncryptionProvider(ctx, t),
-	})
+	providers := append(
+		[]library.EncryptionProvider{InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/openshifttest/vault-kube-kms@sha256:0000000000000000000000000000000000000000000000000000000000000000", "invalid-image")},
+		library.ShuffleEncryptionProviders([]library.EncryptionProvider{
+			DefaultVaultEncryptionProvider(ctx, t),
+			SecondaryVaultEncryptionProvider(ctx, t),
+		})...)
 	return []library.ProvidersMigrationScenario{
 		kasKMSToKMSMigrationScenario(providers),
 		authKMSToKMSMigrationScenario(ctx),

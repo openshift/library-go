@@ -26,6 +26,14 @@ type BasicScenario struct {
 	AssertFunc                      func(t testing.TB, clientSet ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string)
 }
 
+// WellKnownIncorrectKMSPluginNames maps PluginConfig.Name values that are known
+// to be incorrect KMS providers to their assert function. The migration loop uses
+// this to detect bad providers and call TestKMSPreflightNegative.
+var WellKnownIncorrectKMSPluginNames = map[string]func(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, previous operatorv1.KMSPreflightCheck){
+	"invalid-vault-address": AssertKMSPreflightDegradedForOperator,
+	"invalid-image":         AssertKMSPreflightDegradedForOperator,
+}
+
 // EncryptionProvider pairs an encryption config with an optional setup function
 // that ensures prerequisites (secrets, credentials, infrastructure) are in place.
 type EncryptionProvider struct {
@@ -61,7 +69,7 @@ type KMSPreflightNegativeScenario struct {
 //
 // Each inner slice is one batch that shares a single cluster-wide InvalidProvider (set on
 // exactly one scenario). Different batches run sequentially.
-func TestKMSPreflightNegative(ctx context.Context, t testing.TB, scenarioBatches [][]KMSPreflightNegativeScenario) {
+func TestKMSPreflightNegative(ctx context.Context, t testing.TB, scenarioBatches [][]KMSPreflightNegativeScenario, restoreIdentity ...bool) {
 	t.Helper()
 	require.NotEmpty(t, scenarioBatches)
 	for i, scenarios := range scenarioBatches {
@@ -74,16 +82,15 @@ func TestKMSPreflightNegative(ctx context.Context, t testing.TB, scenarioBatches
 	e := NewE(t, PrintEventsOnFailure(scenarioBatches[0][0].OperatorNamespace))
 	clients := GetClients(e)
 
-	// Suite isolation: invalid KMS must start from encryption-off so empty key baselines
-	// and WaitForNoNewEncryptionKey are meaningful.
-	apiServer, err := clients.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
-	require.NoError(e, err)
-	require.Truef(e, apiServer.Spec.Encryption.Type == "" || apiServer.Spec.Encryption.Type == configv1.EncryptionTypeIdentity,
-		"expected encryption off at start, got type=%q", apiServer.Spec.Encryption.Type)
-
-	t.Cleanup(func() {
-		TestEncryptionTypeIdentity(context.Background(), e, scenarioBatches[0][0].BasicScenario)
-	})
+	if len(restoreIdentity) == 0 || restoreIdentity[0] {
+		apiServer, err := clients.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+		require.NoError(e, err)
+		require.Truef(e, apiServer.Spec.Encryption.Type == "" || apiServer.Spec.Encryption.Type == configv1.EncryptionTypeIdentity,
+			"expected encryption off at start, got type=%q", apiServer.Spec.Encryption.Type)
+		t.Cleanup(func() {
+			TestEncryptionTypeIdentity(context.Background(), e, scenarioBatches[0][0].BasicScenario)
+		})
+	}
 
 	var testCases []testStep
 	for _, scenarios := range scenarioBatches {
@@ -434,11 +441,32 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 	scenarios := []testStep{inParallel(createSteps...)}
 
 	// step 2: migrate through each provider in sequence
-	for i, provider := range providers {
+	encIdx := 0
+	for _, provider := range providers {
+		provider := provider
+		if assertFunc, ok := WellKnownIncorrectKMSPluginNames[provider.KMS.PluginConfig.Name]; ok {
+			batch := make([]KMSPreflightNegativeScenario, 0, len(migrationScenarios))
+			for i, s := range migrationScenarios {
+				sc := KMSPreflightNegativeScenario{
+					BasicScenario:    s.BasicScenario,
+					Name:             provider.KMS.PluginConfig.Name,
+					AssertFailedFunc: assertFunc,
+				}
+				if i == 0 {
+					sc.InvalidProvider = provider
+				}
+				batch = append(batch, sc)
+			}
+			scenarios = append(scenarios, testStep{name: "SetIncorrectKMSAndWaitDegraded", testFunc: func(t testing.TB) {
+				TestKMSPreflightNegative(ctx, t, [][]KMSPreflightNegativeScenario{batch}, false)
+			}})
+			continue
+		}
 		prefix := "EncryptWith"
-		if i > 0 {
+		if encIdx > 0 {
 			prefix = "MigrateTo"
 		}
+		encIdx++
 
 		var migrateSteps []testStep
 		for _, scenario := range migrationScenarios {

@@ -125,12 +125,13 @@ func defaultVaultEncryptionProvider(ctx context.Context, t testing.TB, image str
 
 // InvalidVaultEncryptionProvider builds a Vault KMS provider with optional overrides
 // for negative preflight tests. Empty vaultAddress / pluginImage fall back to the
-// valid defaults so each call can invalidate exactly one field:
-//
-//	InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "")           // → AssertKMSPreflightCheckerFailedForOperator
-//	InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/...@sha256:000...") // → AssertKMSPreflightDegradedForOperator
-func InvalidVaultEncryptionProvider(ctx context.Context, t testing.TB, vaultAddress, pluginImage string) library.EncryptionProvider {
+// valid defaults so each call can invalidate exactly one field.
+// Optional name overrides KMSPluginConfigReference.Name.
+func InvalidVaultEncryptionProvider(ctx context.Context, t testing.TB, vaultAddress, pluginImage string, name ...string) library.EncryptionProvider {
 	cfg := DefaultVaultKMSPluginConfig
+	if len(name) > 0 && name[0] != "" {
+		cfg.KMS.PluginConfig.Name = name[0]
+	}
 	vault := defaultVaultConfig.DeepCopy()
 
 	if pluginImage == "" {
