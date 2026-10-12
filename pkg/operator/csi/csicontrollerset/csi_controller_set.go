@@ -13,6 +13,7 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorinformer "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/csi/credentialsrequestcontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csiconfigobservercontroller"
 	"github.com/openshift/library-go/pkg/operator/csi/csidrivercontrollerservicecontroller"
@@ -168,6 +169,25 @@ func (c *CSIControllerSet) WithCSIConfigObserverController(
 		c.operatorClient,
 		configinformers,
 		c.eventRecorder,
+	)
+	return c
+}
+
+// WithCSIConfigObserverControllerWithFeatureGates is like
+// WithCSIConfigObserverController but additionally observes TLS group (curve)
+// preferences from TLSSecurityProfile, gated on the TLSGroupPreferences feature
+// gate.
+func (c *CSIControllerSet) WithCSIConfigObserverControllerWithFeatureGates(
+	name string,
+	configinformers configinformers.SharedInformerFactory,
+	featureGateAccess featuregates.FeatureGateAccess,
+) *CSIControllerSet {
+	c.csiConfigObserverController = csiconfigobservercontroller.NewCSIConfigObserverControllerWithFeatureGates(
+		name,
+		c.operatorClient,
+		configinformers,
+		c.eventRecorder,
+		featureGateAccess,
 	)
 	return c
 }
