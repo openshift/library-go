@@ -588,7 +588,7 @@ func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenarios ...InPlaceUp
 	provider := providers[0]
 	updatedProvider := updatedProviders[0]
 
-	var createSteps, encryptSteps, assertEncryptedSteps, baselineSteps, waitSteps, assertAfterSteps, assertInPlaceSteps []testStep
+	var createSteps, encryptSteps, assertEncryptedSteps, baselineSteps, waitSteps, assertAfterSteps, assertInPlaceSteps, revertSteps []testStep
 	for _, scenario := range scenarios {
 		// baseline is captured before the shared update and read by the wait step. Each iteration owns
 		// its own baseline variable, so the parallel baseline and wait phases never race.
@@ -625,6 +625,9 @@ func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenarios ...InPlaceUp
 			require.NoError(e, err)
 			scenario.AssertInPlaceUpdateFunc(e, clientSet, keyMeta)
 		}})
+		revertSteps = append(revertSteps, testStep{name: fmt.Sprintf("RevertToIdentity%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
+		}})
 	}
 
 	// Apply the shared plugin-CRD update once, after every baseline is recorded, so no baseline can
@@ -635,12 +638,8 @@ func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenarios ...InPlaceUp
 		}
 	}}
 
-	// Return the cluster-wide APIServer config to identity so the next test starts fresh, the same way
-	// the other scenarios do. The config is cluster-wide, so reverting it via one scenario reverts it
-	// for every operator.
-	revertToIdentity := testStep{name: "RevertToIdentity", testFunc: func(t testing.TB) {
-		TestEncryptionTypeIdentity(ctx, t, scenarios[0].BasicScenario)
-	}}
+	// The configuration is cluster-wide, but migration completes independently for
+	// each operator. Wait for every scenario before the next test starts.
 
 	steps := []testStep{
 		inParallel(createSteps...),
@@ -651,7 +650,7 @@ func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenarios ...InPlaceUp
 		inParallel(waitSteps...),
 		inParallel(assertAfterSteps...),
 		inParallel(assertInPlaceSteps...),
-		revertToIdentity,
+		inParallel(revertSteps...),
 	}
 
 	for _, step := range steps {
