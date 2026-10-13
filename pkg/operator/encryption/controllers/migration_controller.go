@@ -284,7 +284,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		// update secret annotations
 		oldWriteKey, err := secrets.FromKeyState(c.instanceName, grActualKeys.WriteKey)
 		if err != nil {
-			errs = append(errs, err)
+			errs = append(errs, err, result)
 			continue
 		}
 
