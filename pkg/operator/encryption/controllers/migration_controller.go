@@ -226,16 +226,22 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 			continue
 		}
 
-		// idem-potent migration start
-		finished, result, when, err := c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
+		migrationWriteKey, err := secrets.MigrationWriteKeyName(grActualKeys.WriteKey.Key.Name, grActualKeys.WriteKey.RemoteKey())
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// EnsureMigration returns (finished, resultErr, when, callErr): resultErr is a
+		// recorded migration failure on a finished SVM; callErr is an API/transport failure.
+		finished, result, when, err := c.migrator.EnsureMigration(gr, migrationWriteKey)
 		if err == nil && finished && result != nil && time.Since(when) > migrationRetryDuration {
 			// last migration error is far enough ago. Prune and retry.
 			if err := c.migrator.PruneMigration(gr); err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			finished, result, when, err = c.migrator.EnsureMigration(gr, grActualKeys.WriteKey.Key.Name)
-
+			finished, result, when, err = c.migrator.EnsureMigration(gr, migrationWriteKey)
 		}
 		if err != nil {
 			errs = append(errs, err)
