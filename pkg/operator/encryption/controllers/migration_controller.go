@@ -215,18 +215,36 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 	// we never want to migrate during an intermediate state because that could lead to one API server
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
+	//
+	// KMS remote-key rotation (needsRemoteKeyMigration) cannot reuse migrated-resources:
+	// that annotation already lists every GR after first enablement on the same
+	// encryption-key secret, so MigratedFor would short-circuit and never re-run
+	// SVMs. Progress is tracked only via StorageVersionMigration write-key =
+	// {keyName}-{targetRemoteKeyID}. When every GR has a succeeded suffixed SVM
+	// we stamp migrated-remote-key-id from that write-key suffix (not from a
+	// fresh target read, and not from migrated-resources). A later sync/restart
+	// re-discovers finished SVMs and stamps without process-local state.
 	var errs []error
+	var remoteKeyExpected, remoteKeyFinished int
+	var remoteKeySecret *corev1.Secret
+	var remoteKeyID string
 	for _, gr := range grs {
 		grActualKeys := currentState[gr]
 		if !grActualKeys.HasWriteKey() {
 			continue // no write key to migrate to
 		}
 
-		if alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey); alreadyMigrated {
+		rk := grActualKeys.WriteKey.RemoteKey()
+		remoteKeyMigration := needsRemoteKeyMigration(rk)
+		alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey)
+		if alreadyMigrated && !remoteKeyMigration {
 			continue
 		}
+		if remoteKeyMigration {
+			remoteKeyExpected++
+		}
 
-		migrationWriteKey, err := secrets.MigrationWriteKeyName(grActualKeys.WriteKey.Key.Name, grActualKeys.WriteKey.RemoteKey())
+		migrationWriteKey, err := secrets.MigrationWriteKeyName(grActualKeys.WriteKey.Key.Name, rk)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -257,12 +275,22 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 			continue
 		}
 
-		// update secret annotations
 		oldWriteKey, err := secrets.FromKeyState(c.instanceName, grActualKeys.WriteKey)
 		if err != nil {
-			errs = append(errs, result)
+			errs = append(errs, err)
 			continue
 		}
+
+		if remoteKeyMigration {
+			remoteKeyFinished++
+			remoteKeySecret = oldWriteKey
+			// Prefer the ID encoded in the completed SVM write-key over a fresh target read.
+			if id, ok := secrets.RemoteKeyIDFromMigrationWriteKey(grActualKeys.WriteKey.Key.Name, migrationWriteKey); ok {
+				remoteKeyID = id
+			}
+			continue
+		}
+
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			s, err := c.secretClient.Secrets(oldWriteKey.Namespace).Get(ctx, oldWriteKey.Name, metav1.GetOptions{})
 			if err != nil {
@@ -289,7 +317,30 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		}
 	}
 
+	if remoteKeyExpected > 0 && remoteKeyFinished == remoteKeyExpected && remoteKeyID != "" {
+		err := secrets.PatchRemoteKeyState(ctx, c.secretClient.Secrets(remoteKeySecret.Namespace), remoteKeySecret.Name, func(rk *state.RemoteKeyState) (bool, error) {
+			if !needsRemoteKeyMigration(*rk) || rk.MigratedRemoteKeyID == remoteKeyID {
+				return false, nil
+			}
+			rk.MigratedRemoteKeyID = remoteKeyID
+			return true, nil
+		})
+		if err != nil {
+			resourcehelper.ReportUpdateEvent(syncContext.Recorder(), remoteKeySecret, err)
+			errs = append(errs, err)
+		}
+	}
+
 	return migratingResources, errors.NewAggregate(errs)
+}
+
+// needsRemoteKeyMigration is the migration controller's view of when a remote-key
+// re-encryption must run: both IDs set and differing. An unset migrated ID is
+// first enablement (plain MigratedFor / migrated-resources path), not rotation.
+func needsRemoteKeyMigration(rk state.RemoteKeyState) bool {
+	return rk.TargetRemoteKeyID != "" &&
+		rk.MigratedRemoteKeyID != "" &&
+		rk.TargetRemoteKeyID != rk.MigratedRemoteKeyID
 }
 
 func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error) {
