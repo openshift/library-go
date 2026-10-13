@@ -235,19 +235,25 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		}
 
 		rk := grActualKeys.WriteKey.RemoteKey()
-		remoteKeyMigration := needsRemoteKeyMigration(rk)
-		alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey)
-		if alreadyMigrated && !remoteKeyMigration {
-			continue
-		}
+		remoteKeyMigration := grActualKeys.WriteKey.Mode == state.KMS &&
+			needsRemoteKeyMigration(rk)
+
+		migrationWriteKey := grActualKeys.WriteKey.Key.Name
 		if remoteKeyMigration {
 			remoteKeyExpected++
-		}
 
-		migrationWriteKey, err := secrets.MigrationWriteKeyName(grActualKeys.WriteKey.Key.Name, rk)
-		if err != nil {
-			errs = append(errs, err)
-			continue
+			var err error
+			migrationWriteKey, err = secrets.MigrationWriteKeyName(grActualKeys.WriteKey.Key.Name, rk)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+		} else {
+			// No remote-key rotation: skip GRs already recorded in migrated-resources.
+			alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, grActualKeys.WriteKey)
+			if alreadyMigrated {
+				continue
+			}
 		}
 
 		// EnsureMigration returns (finished, resultErr, when, callErr): resultErr is a
@@ -275,6 +281,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 			continue
 		}
 
+		// update secret annotations
 		oldWriteKey, err := secrets.FromKeyState(c.instanceName, grActualKeys.WriteKey)
 		if err != nil {
 			errs = append(errs, err)
@@ -285,9 +292,13 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 			remoteKeyFinished++
 			remoteKeySecret = oldWriteKey
 			// Prefer the ID encoded in the completed SVM write-key over a fresh target read.
-			if id, ok := secrets.RemoteKeyIDFromMigrationWriteKey(grActualKeys.WriteKey.Key.Name, migrationWriteKey); ok {
-				remoteKeyID = id
+			id, err := secrets.RemoteKeyIDFromMigrationWriteKey(grActualKeys.WriteKey.Key.Name, migrationWriteKey)
+			if err != nil {
+				errs = append(errs, err)
+				continue
 			}
+			remoteKeyID = id
+			// skip migrated-resources annotation updates: remote-key rotation progress is tracked separately outside the GR loop
 			continue
 		}
 
@@ -317,7 +328,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable(ctx context.C
 		}
 	}
 
-	if remoteKeyExpected > 0 && remoteKeyFinished == remoteKeyExpected && remoteKeyID != "" {
+	if remoteKeyExpected > 0 && remoteKeyFinished == remoteKeyExpected && remoteKeyID != "" && remoteKeySecret != nil {
 		err := secrets.PatchRemoteKeyState(ctx, c.secretClient.Secrets(remoteKeySecret.Namespace), remoteKeySecret.Name, func(rk *state.RemoteKeyState) (bool, error) {
 			if !needsRemoteKeyMigration(*rk) || rk.MigratedRemoteKeyID == remoteKeyID {
 				return false, nil

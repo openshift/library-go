@@ -173,17 +173,18 @@ func TestMigrationWriteKeyName(t *testing.T) {
 }
 
 func TestRemoteKeyIDFromMigrationWriteKey(t *testing.T) {
-	got, ok := RemoteKeyIDFromMigrationWriteKey("3", "3-remote-new")
-	if !ok || got != "remote-new" {
-		t.Fatalf("got %q ok=%v", got, ok)
+	got, err := RemoteKeyIDFromMigrationWriteKey("3", "3-remote-new")
+	if err != nil {
+		t.Fatal(err)
 	}
-	_, ok = RemoteKeyIDFromMigrationWriteKey("3", "3")
-	if ok {
-		t.Fatal("expected false for plain key name")
+	if got != "remote-new" {
+		t.Fatalf("got %q", got)
 	}
-	_, ok = RemoteKeyIDFromMigrationWriteKey("", "3-remote-new")
-	if ok {
-		t.Fatal("expected false for empty key name")
+	if _, err := RemoteKeyIDFromMigrationWriteKey("3", "3"); err == nil {
+		t.Fatal("expected error for plain key name")
+	}
+	if _, err := RemoteKeyIDFromMigrationWriteKey("", "3-remote-new"); err == nil {
+		t.Fatal("expected error for empty key name")
 	}
 }
 
