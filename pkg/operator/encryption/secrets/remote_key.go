@@ -70,10 +70,11 @@ func applyRemoteKeyAnnotations(annotations map[string]string, rk state.RemoteKey
 	return nil
 }
 
-// MigrationWriteKeyName returns the StorageVersionMigration write-key annotation value.
-// When target-remote-key-id is set, the write-key is always suffixed with that ID
-// (first enablement and remote-key rotation). Plain keyName is used only when
-// target-remote-key-id is unset.
+// MigrationWriteKeyName returns the StorageVersionMigration write-key annotation value
+// used for remote-key rotation. When target-remote-key-id is set, the write-key is
+// suffixed with that ID. Plain keyName is returned when target-remote-key-id is unset.
+// Callers should invoke this only for needsRemoteKeyMigration; first enablement uses
+// the plain key name and migrated-resources.
 func MigrationWriteKeyName(keyName string, rk state.RemoteKeyState) (string, error) {
 	if keyName == "" {
 		return "", fmt.Errorf("encryption key name must not be empty")
@@ -85,12 +86,15 @@ func MigrationWriteKeyName(keyName string, rk state.RemoteKeyState) (string, err
 }
 
 // RemoteKeyIDFromMigrationWriteKey extracts the remote key ID suffix from a migration write-key value.
-func RemoteKeyIDFromMigrationWriteKey(keyName, migrationWriteKey string) (string, bool) {
+func RemoteKeyIDFromMigrationWriteKey(keyName, migrationWriteKey string) (string, error) {
 	if keyName == "" {
-		return "", false
+		return "", fmt.Errorf("encryption key name must not be empty")
 	}
 	remoteKeyID, found := strings.CutPrefix(migrationWriteKey, keyName+"-")
-	return remoteKeyID, found && remoteKeyID != ""
+	if !found || remoteKeyID == "" {
+		return "", fmt.Errorf("migration write key %q does not include a remote key ID for key %q", migrationWriteKey, keyName)
+	}
+	return remoteKeyID, nil
 }
 
 // PatchRemoteKeyState updates remote key annotations on a key secret using

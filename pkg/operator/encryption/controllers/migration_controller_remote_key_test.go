@@ -43,7 +43,7 @@ func TestMigrationControllerRemoteKeyFirstEnablement(t *testing.T) {
 		{Group: "", Resource: "secrets"},
 		{Group: "", Resource: "configmaps"},
 	}
-	firstEnablementWriteKey := "1-" + remoteKeyNew
+	firstEnablementWriteKey := "1"
 
 	keySecret := encryptiontesting.CreateEncryptionKeySecretWithKMSPluginConfig("kms", targetGRs, 1)
 	setRemoteKeyAnnotations(t, keySecret.Annotations, state.RemoteKeyState{TargetRemoteKeyID: remoteKeyNew})
