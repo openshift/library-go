@@ -496,7 +496,8 @@ type RotationScenario struct {
 }
 
 // TestEncryptionRotation encrypts data, forces a provider-specific key rotation, waits for
-// re-migration to complete, and verifies the resource was re-encrypted with different content.
+// re-migration to complete, verifies the resource was re-encrypted with different content,
+// and reverts to identity so the cluster is left in a clean state for the next test.
 func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario RotationScenario) {
 	// test data
 	ns := scenario.Namespace
@@ -529,6 +530,9 @@ func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario Rotation
 	if rawEncryptedResourceWithKey1 == rawEncryptedResourceWithKey2 {
 		t.Errorf("expected the resource to have different content after a key rotation,\ncontentBeforeRotation %s\ncontentAfterRotation %s", rawEncryptedResourceWithKey1, rawEncryptedResourceWithKey2)
 	}
+
+	// step 6: revert to identity so the cluster is left in a clean state for the next test
+	TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
 }
