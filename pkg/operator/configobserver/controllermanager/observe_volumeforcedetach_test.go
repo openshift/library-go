@@ -1,7 +1,7 @@
 package controllermanager
 
 import (
-	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -23,6 +23,7 @@ func TestObserveVolumeForceDetach(t *testing.T) {
 		existingConfig    map[string]interface{}
 		expectedFlag      []string
 		expectEmptyConfig bool
+		expectEvent       bool
 	}{
 		{
 			name:              "object missing",
@@ -56,6 +57,7 @@ func TestObserveVolumeForceDetach(t *testing.T) {
 			},
 			existingConfig: map[string]interface{}{},
 			expectedFlag:   []string{"true"},
+			expectEvent:    true,
 		},
 		{
 			name: "on unmount timeout maps to false",
@@ -67,6 +69,7 @@ func TestObserveVolumeForceDetach(t *testing.T) {
 			},
 			existingConfig: map[string]interface{}{},
 			expectedFlag:   []string{"false"},
+			expectEvent:    true,
 		},
 		{
 			name: "replaces previous flag value",
@@ -82,6 +85,22 @@ func TestObserveVolumeForceDetach(t *testing.T) {
 				},
 			},
 			expectedFlag: []string{"false"},
+			expectEvent:  true,
+		},
+		{
+			name: "invalid value keeps existing config and records no event",
+			controllerManager: &configv1alpha1.ControllerManager{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+				Spec: &configv1alpha1.ControllerManagerSpec{
+					VolumeForceDetach: configv1alpha1.VolumeForceDetachPolicy("InvalidValue"),
+				},
+			},
+			existingConfig: map[string]interface{}{
+				"extendedArguments": map[string]interface{}{
+					"disable-force-detach-on-timeout": []interface{}{"true"},
+				},
+			},
+			expectedFlag: []string{"true"},
 		},
 	}
 
@@ -100,7 +119,19 @@ func TestObserveVolumeForceDetach(t *testing.T) {
 			recorder := events.NewInMemoryRecorder(t.Name(), clocktesting.NewFakePassiveClock(time.Now()))
 			gotConfig, errs := ObserveVolumeForceDetach(listers, recorder, tt.existingConfig)
 			if len(errs) > 0 {
-				t.Errorf("expected no errors, got %v", errs)
+				t.Fatalf("expected no errors, got %v", errs)
+			}
+
+			recordedEvents := recorder.Events()
+			if tt.expectEvent {
+				if len(recordedEvents) != 1 {
+					t.Fatalf("expected 1 event, got %d: %v", len(recordedEvents), recordedEvents)
+				}
+				if recordedEvents[0].Reason != "ObserveVolumeForceDetach" {
+					t.Fatalf("unexpected event reason %q", recordedEvents[0].Reason)
+				}
+			} else if len(recordedEvents) != 0 {
+				t.Fatalf("expected no events, got %v", recordedEvents)
 			}
 
 			if tt.expectEmptyConfig {
@@ -114,8 +145,8 @@ func TestObserveVolumeForceDetach(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(gotFlag, tt.expectedFlag) {
-				t.Fatalf("got = %v, want %v", gotFlag, tt.expectedFlag)
+			if !slices.Equal(gotFlag, tt.expectedFlag) {
+				t.Fatalf("got %v, want %v", gotFlag, tt.expectedFlag)
 			}
 		})
 	}

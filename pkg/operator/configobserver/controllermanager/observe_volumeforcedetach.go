@@ -80,7 +80,7 @@ func innerObserveVolumeForceDetach(genericListers configobserver.Listers, record
 	}
 
 	if !reflect.DeepEqual(observedFlag, currentFlag) {
-		recorder.Eventf("ObserveVolumeForceDetach", "disable-force-detach-on-timeout changed to %q", observedFlag)
+		recorder.Eventf("ObserveVolumeForceDetach", "disable-force-detach-on-timeout changed from %q to %q", currentFlag, observedFlag)
 	}
 
 	return observedConfig, errs
