@@ -93,11 +93,10 @@ func TestApplyRemoteKeyAnnotations(t *testing.T) {
 		encryptionSecretRemoteKeyConvergedAt: nowStr,
 	}
 	err := applyRemoteKeyAnnotations(annotations, state.RemoteKeyState{
-		TargetRemoteKeyID:   "", // should remove
+		TargetRemoteKeyID:   "",
 		MigratedRemoteKeyID: "keep",
 		ConvergedAt:         now,
-		// updated with a new key
-		ConvergedID: "new-key",
+		ConvergedID:         "new-key",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -113,5 +112,90 @@ func TestApplyRemoteKeyAnnotations(t *testing.T) {
 	}
 	if annotations[encryptionSecretRemoteKeyConvergedAt] != nowStr {
 		t.Fatalf("expected annotation %s to stay", encryptionSecretRemoteKeyConvergedAt)
+	}
+}
+
+func TestMigrationWriteKeyName(t *testing.T) {
+	scenarios := []struct {
+		name    string
+		keyName string
+		rk      state.RemoteKeyState
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "no target",
+			keyName: "3",
+			rk:      state.RemoteKeyState{},
+			want:    "3",
+		},
+		{
+			// Helper only cares that target is set; controller tests decide when suffixing runs.
+			name:    "with target",
+			keyName: "3",
+			rk:      state.RemoteKeyState{TargetRemoteKeyID: "remote-new", MigratedRemoteKeyID: "remote-old"},
+			want:    "3-remote-new",
+		},
+		{
+			name:    "empty key name",
+			rk:      state.RemoteKeyState{TargetRemoteKeyID: "remote-old"},
+			wantErr: true,
+		},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			got, err := MigrationWriteKeyName(scenario.keyName, scenario.rk)
+			if scenario.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != scenario.want {
+				t.Fatalf("got %q want %q", got, scenario.want)
+			}
+		})
+	}
+}
+
+func TestRemoteKeyIDFromMigrationWriteKey(t *testing.T) {
+	got, err := RemoteKeyIDFromMigrationWriteKey("3", "3-remote-new")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "remote-new" {
+		t.Fatalf("got %q", got)
+	}
+	if _, err := RemoteKeyIDFromMigrationWriteKey("3", "3"); err == nil {
+		t.Fatal("expected error for plain key name")
+	}
+	if _, err := RemoteKeyIDFromMigrationWriteKey("", "3-remote-new"); err == nil {
+		t.Fatal("expected error for empty key name")
+	}
+}
+
+func TestApplyRemoteKeyAnnotationsClearsEmptyValues(t *testing.T) {
+	nowStr := time.Now().Format(time.RFC3339)
+	annotations := map[string]string{
+		encryptionSecretTargetRemoteKeyID:    "old-target",
+		encryptionSecretMigratedRemoteKeyID:  "old-migrated",
+		encryptionSecretRemoteKeyConvergedID: "old-converged",
+		encryptionSecretRemoteKeyConvergedAt: nowStr,
+	}
+	if err := applyRemoteKeyAnnotations(annotations, state.RemoteKeyState{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, key := range []string{
+		encryptionSecretTargetRemoteKeyID,
+		encryptionSecretMigratedRemoteKeyID,
+		encryptionSecretRemoteKeyConvergedID,
+		encryptionSecretRemoteKeyConvergedAt,
+	} {
+		if _, ok := annotations[key]; ok {
+			t.Fatalf("expected annotation %s to be removed", key)
+		}
 	}
 }
