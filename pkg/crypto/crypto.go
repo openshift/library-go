@@ -295,7 +295,7 @@ func ValidCipherSuites() []string {
 }
 
 // DefaultTLSProfileType is the intermediate profile type.
-const DefaultTLSProfileType = configv1.TLSProfileIntermediateType
+const DefaultTLSProfileType = configv1.TLSProfileModernType
 
 // DefaultCiphers returns the default cipher suites for TLS connections.
 //
