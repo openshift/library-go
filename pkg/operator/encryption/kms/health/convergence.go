@@ -25,6 +25,26 @@ func ConvergedRemoteKeyID(reports []operatorv1.KMSPluginHealthReport) string {
 	return remoteKeyID
 }
 
+// AllKeyIDsConverged reports whether every KeyID group has a unanimous non-empty
+// RemoteKeyID. Empty input is treated as converged (nothing to assess). During
+// KMS-to-KMS migration multiple KeyIDs report at once and may legitimately carry
+// different RemoteKeyIDs; only disagreement within a KeyID group is non-converged.
+func AllKeyIDsConverged(reports []operatorv1.KMSPluginHealthReport) bool {
+	if len(reports) == 0 {
+		return true
+	}
+	byKeyID := map[string][]operatorv1.KMSPluginHealthReport{}
+	for _, report := range reports {
+		byKeyID[report.KeyID] = append(byKeyID[report.KeyID], report)
+	}
+	for _, group := range byKeyID {
+		if ConvergedRemoteKeyID(group) == "" {
+			return false
+		}
+	}
+	return true
+}
+
 // ReportsForKeyID returns health reports for the given encryption key ID (kms-{keyID}.sock).
 // During KMS-to-KMS provider migration multiple plugins may report per node; callers use
 // the current write key's keyID so backup/read-only keys are excluded from rotation logic.

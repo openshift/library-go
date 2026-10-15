@@ -75,3 +75,55 @@ func TestReportsForKeyID(t *testing.T) {
 		}
 	}
 }
+
+func TestAllKeyIDsConverged(t *testing.T) {
+	scenarios := []struct {
+		name    string
+		reports []operatorv1.KMSPluginHealthReport
+		want    bool
+	}{
+		{name: "empty", want: true},
+		{
+			name: "single key unanimous",
+			reports: []operatorv1.KMSPluginHealthReport{
+				{KeyID: "1", RemoteKeyID: "remote-a"},
+				{KeyID: "1", RemoteKeyID: "remote-a"},
+			},
+			want: true,
+		},
+		{
+			name: "single key split",
+			reports: []operatorv1.KMSPluginHealthReport{
+				{KeyID: "1", RemoteKeyID: "remote-a"},
+				{KeyID: "1", RemoteKeyID: "remote-b"},
+			},
+		},
+		{
+			name: "kms-to-kms migration different remotes per keyid",
+			reports: []operatorv1.KMSPluginHealthReport{
+				{KeyID: "1", RemoteKeyID: "remote-old"},
+				{KeyID: "1", RemoteKeyID: "remote-old"},
+				{KeyID: "2", RemoteKeyID: "remote-new"},
+				{KeyID: "2", RemoteKeyID: "remote-new"},
+			},
+			want: true,
+		},
+		{
+			name: "one keyid group split during migration",
+			reports: []operatorv1.KMSPluginHealthReport{
+				{KeyID: "1", RemoteKeyID: "remote-old"},
+				{KeyID: "1", RemoteKeyID: "remote-old"},
+				{KeyID: "2", RemoteKeyID: "remote-new"},
+				{KeyID: "2", RemoteKeyID: "remote-other"},
+			},
+		},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			if got := AllKeyIDsConverged(scenario.reports); got != scenario.want {
+				t.Fatalf("got %v want %v", got, scenario.want)
+			}
+		})
+	}
+}
+
