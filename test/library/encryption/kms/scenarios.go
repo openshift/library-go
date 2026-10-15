@@ -126,6 +126,79 @@ func EncryptionInPlaceUpdateScenarios(ctx context.Context, t testing.TB) []libra
 	}
 }
 
+// EncryptionRotationScenarios returns ready-to-use KAS/Auth/OAS remote-key rotation scenarios.
+// Only KAS supplies the shared provider and Vault rotation callback. Each operator
+// waits for its own migration and verifies its resource was re-encrypted.
+func EncryptionRotationScenarios(ctx context.Context, t testing.TB) []library.RotationScenario {
+	return []library.RotationScenario{
+		kasRotationScenario(ctx, t),
+		authRotationScenario(ctx),
+		oasRotationScenario(ctx),
+	}
+}
+
+func kasRotationScenario(ctx context.Context, t testing.TB) library.RotationScenario {
+	return library.RotationScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(kubeAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", kubeAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               kubeAPIServerOperatorNamespace,
+			TargetGRs:                       library.WellKnownKASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
+		},
+		ResourceName:                "SecretOfLife",
+		CreateResourceFunc:          library.CreateAndStoreWellKnownSecretOfLife,
+		GetRawResourceFunc:          library.GetRawWellKnownSecretOfLife,
+		EncryptionProvider:          DefaultVaultEncryptionProvider(ctx, t),
+		ForceRotationFunc:           ForceVaultKeyRotation(),
+		WaitForRotationCompleteFunc: library.WaitForKMSRemoteKeyRotationComplete(),
+	}
+}
+
+func authRotationScenario(ctx context.Context) library.RotationScenario {
+	return library.RotationScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(oauthAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", oauthAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               authenticationOperatorNamespace,
+			TargetGRs:                       library.WellKnownAuthTargetGRs,
+			AssertFunc:                      library.AssertWellKnownTokens,
+		},
+		ResourceName: "TokenOfLife",
+		CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) runtime.Object {
+			return library.CreateAndStoreWellKnownTokenOfLife(ctx, t, clientSet)
+		},
+		GetRawResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) string {
+			return library.GetRawWellKnownTokenOfLife(t, clientSet)
+		},
+		WaitForRotationCompleteFunc: library.WaitForKMSRemoteKeyRotationComplete(),
+	}
+}
+
+func oasRotationScenario(ctx context.Context) library.RotationScenario {
+	return library.RotationScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(openshiftAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", openshiftAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               openshiftAPIServerOperatorNamespace,
+			TargetGRs:                       library.WellKnownOASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownRoutes,
+		},
+		ResourceName: "RouteOfLife",
+		CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, ns string) runtime.Object {
+			return library.CreateAndStoreWellKnownRouteOfLife(ctx, t, clientSet, ns)
+		},
+		GetRawResourceFunc:          library.GetRawWellKnownRouteOfLife,
+		WaitForRotationCompleteFunc: library.WaitForKMSRemoteKeyRotationComplete(),
+	}
+}
+
 // assertKMSInPlaceUpdate asserts the operator applied the in-place image update: the write key Secret
 // carries updateImage, and the operand (operandNamespace) rolled out a new revision whose KMS plugin
 // sidecar runs that image.

@@ -567,6 +567,7 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 
 type RotationScenario struct {
 	BasicScenario
+	ResourceName                string
 	CreateResourceFunc          func(t testing.TB, clientSet ClientSet, namespace string) runtime.Object
 	GetRawResourceFunc          func(t testing.TB, clientSet ClientSet, namespace string) string
 	EncryptionProvider          EncryptionProvider
@@ -577,43 +578,96 @@ type RotationScenario struct {
 // TestEncryptionRotation encrypts data, forces a provider-specific key rotation, waits for
 // re-migration to complete, verifies the resource was re-encrypted with different content,
 // and reverts to identity so the cluster is left in a clean state for the next test.
-func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario RotationScenario) {
-	// test data
-	ns := scenario.Namespace
-	labelSelector := scenario.LabelSelector
-
-	// step 1: create the desired resource
-	e := NewE(t)
-	clientSet := GetClients(e)
-	scenario.CreateResourceFunc(e, clientSet, ns)
-
-	// step 2: run provided encryption scenario
-	TestEncryptionType(ctx, t, scenario.BasicScenario, scenario.EncryptionProvider)
-
-	// step 3: take samples
-	rawEncryptedResourceWithKey1 := scenario.GetRawResourceFunc(e, clientSet, ns)
-
-	// step 4: force key rotation and wait for migration to complete
-	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, ns, labelSelector)
-	require.NoError(e, err)
-	t.Logf("Forcing key rotation for %q encryption", scenario.EncryptionProvider.Type)
-	scenario.ForceRotationFunc(e, ctx)
-
-	t.Logf("Waiting for rotation migration to complete")
-	scenario.WaitForRotationCompleteFunc(e, clientSet, lastMigratedKeyMeta, scenario.BasicScenario)
-
-	scenario.AssertFunc(e, clientSet, scenario.EncryptionProvider.Type, ns, labelSelector)
-
-	// step 5: verify if the provided resource was encrypted with a different key (step 2 vs step 4)
-	rawEncryptedResourceWithKey2 := scenario.GetRawResourceFunc(e, clientSet, ns)
-	if rawEncryptedResourceWithKey1 == rawEncryptedResourceWithKey2 {
-		t.Errorf("expected the resource to have different content after a key rotation,\ncontentBeforeRotation %s\ncontentAfterRotation %s", rawEncryptedResourceWithKey1, rawEncryptedResourceWithKey2)
+// Pass multiple scenarios to verify operators in parallel. Exactly one scenario
+// supplies EncryptionProvider and exactly one supplies ForceRotationFunc for the
+// shared rotation; every scenario supplies its own completion wait and assertions.
+func TestEncryptionRotation(ctx context.Context, t testing.TB, scenarios ...RotationScenario) {
+	t.Helper()
+	steps := rotationTestSteps(ctx, t, scenarios...)
+	for _, step := range steps {
+		t.Logf("=== STEP: %s ===", step.name)
+		step.testFunc(t)
+		if t.Failed() {
+			t.Errorf("stopping the test as %q step failed", step.name)
+			return
+		}
 	}
 
-	// step 6: revert to identity so the cluster is left in a clean state for the next test
-	TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
-
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
+}
+
+func rotationTestSteps(ctx context.Context, t testing.TB, scenarios ...RotationScenario) []testStep {
+	t.Helper()
+	if len(scenarios) == 0 {
+		t.Fatalf("TestEncryptionRotation requires at least one scenario")
+	}
+
+	var providers []EncryptionProvider
+	var rotations []ForceRotationFunc
+	for _, scenario := range scenarios {
+		if scenario.EncryptionProvider.Type != "" {
+			providers = append(providers, scenario.EncryptionProvider)
+		}
+		if scenario.ForceRotationFunc != nil {
+			rotations = append(rotations, scenario.ForceRotationFunc)
+		}
+	}
+	if len(providers) != 1 || len(rotations) != 1 {
+		t.Fatalf("TestEncryptionRotation requires exactly one EncryptionProvider and one ForceRotationFunc, got %d and %d", len(providers), len(rotations))
+	}
+	provider := providers[0]
+	forceRotation := rotations[0]
+
+	var createSteps, encryptSteps, baselineSteps, waitSteps, assertSteps, revertSteps []testStep
+	for _, scenario := range scenarios {
+		// Each scenario owns its baseline and ciphertext sample. All baselines are
+		// recorded before the shared rotation can change any operator's key.
+		var baseline EncryptionKeyMeta
+		var rawEncryptedResourceWithKey1 string
+		createSteps = append(createSteps, testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
+		}})
+		encryptSteps = append(encryptSteps, testStep{name: fmt.Sprintf("EncryptWith%s%s", strings.ToUpper(string(provider.Type)), scenario.ResourceName), testFunc: func(t testing.TB) {
+			TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
+		}})
+		baselineSteps = append(baselineSteps, testStep{name: fmt.Sprintf("RecordKeyBaseline%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			clientSet := GetClients(e)
+			rawEncryptedResourceWithKey1 = scenario.GetRawResourceFunc(e, clientSet, scenario.Namespace)
+			keyMeta, err := GetLastKeyMeta(e, clientSet.Kube, scenario.Namespace, scenario.LabelSelector)
+			require.NoError(e, err)
+			baseline = keyMeta
+		}})
+		waitSteps = append(waitSteps, testStep{name: fmt.Sprintf("WaitForRotation%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			scenario.WaitForRotationCompleteFunc(e, GetClients(e), baseline, scenario.BasicScenario)
+		}})
+		assertSteps = append(assertSteps, testStep{name: fmt.Sprintf("Assert%sReencrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+			e := NewE(t)
+			clientSet := GetClients(e)
+			scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
+			rawEncryptedResourceWithKey2 := scenario.GetRawResourceFunc(e, clientSet, scenario.Namespace)
+			if rawEncryptedResourceWithKey1 == rawEncryptedResourceWithKey2 {
+				t.Errorf("expected the resource to have different content after a key rotation,\ncontentBeforeRotation %s\ncontentAfterRotation %s", rawEncryptedResourceWithKey1, rawEncryptedResourceWithKey2)
+			}
+		}})
+		revertSteps = append(revertSteps, testStep{name: fmt.Sprintf("RevertToIdentity%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
+		}})
+	}
+
+	return []testStep{
+		inParallel(createSteps...),
+		inParallel(encryptSteps...),
+		inParallel(baselineSteps...),
+		{name: "ForceKeyRotation", testFunc: func(t testing.TB) {
+			forceRotation(NewE(t), ctx)
+		}},
+		inParallel(waitSteps...),
+		inParallel(assertSteps...),
+		inParallel(revertSteps...),
+	}
 }
 
 // InPlaceUpdateScenario tests that updating a config field that does not affect
