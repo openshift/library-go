@@ -2,6 +2,9 @@ package health
 
 import (
 	"testing"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 )
@@ -127,3 +130,23 @@ func TestAllKeyIDsConverged(t *testing.T) {
 	}
 }
 
+func TestPruneStaleReports(t *testing.T) {
+	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	ttl := 10 * time.Minute
+	fresh := operatorv1.KMSPluginHealthReport{
+		NodeName:        "node-a",
+		KeyID:           "1",
+		RemoteKeyID:     "remote-a",
+		LastCheckedTime: metav1.NewTime(now.Add(-5 * time.Minute)),
+	}
+	stale := operatorv1.KMSPluginHealthReport{
+		NodeName:        "node-b",
+		KeyID:           "1",
+		RemoteKeyID:     "remote-a",
+		LastCheckedTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+	}
+	kept := PruneStaleReports([]operatorv1.KMSPluginHealthReport{fresh, stale}, now, ttl)
+	if len(kept) != 1 || kept[0].NodeName != "node-a" {
+		t.Fatalf("got %#v, want only fresh node-a", kept)
+	}
+}

@@ -37,7 +37,7 @@ const (
 // conditionController maintains the Encrypted condition. It sets it to true iff there is a
 // fully migrated read-key in the current config, and no later key is of identity type.
 //
-// It also owns KMS health aggregation and emits KmsHealthReportsProgressing / KmsHealthReportsDegraded.
+// It also owns KMS health aggregation: prunes stale HealthReports and emits KmsHealthReportsProgressing / KmsHealthReportsDegraded.
 type conditionController struct {
 	controllerInstanceName string
 	operatorClient         operatorv1helpers.OperatorClient
@@ -258,14 +258,24 @@ func (c *conditionController) kmsHealthConditions(ctx context.Context, config *e
 	}
 
 	now := c.clock.Now()
-	reports := encryptionStatus.HealthReports
+	pruned := health.PruneStaleReports(encryptionStatus.HealthReports, now, health.DefaultReportPruneTTL)
+	if len(pruned) != len(encryptionStatus.HealthReports) {
+		// Prune inside the callback so conflict retries re-read status and do not
+		// overwrite HealthReports concurrently published by health reporters via SSA.
+		if err := c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+			pruned = health.PruneStaleReports(s.HealthReports, now, health.DefaultReportPruneTTL)
+			s.HealthReports = pruned
+		}); err != nil {
+			return nil, nil, fmt.Errorf("failed to prune stale KMS health reports: %w", err)
+		}
+	}
 
-	if health.AllKeyIDsConverged(reports) {
+	if health.AllKeyIDsConverged(pruned) {
 		return progressing, degraded, nil
 	}
 
-	reportPerNode := make([]string, 0, len(reports))
-	for _, report := range reports {
+	reportPerNode := make([]string, 0, len(pruned))
+	for _, report := range pruned {
 		reportPerNode = append(reportPerNode, fmt.Sprintf("%s/%s=%q", report.NodeName, report.KeyID, report.RemoteKeyID))
 	}
 

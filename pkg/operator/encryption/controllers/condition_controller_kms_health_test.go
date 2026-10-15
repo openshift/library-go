@@ -14,6 +14,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/health"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -273,6 +274,65 @@ func TestConditionControllerKMSHealthSkipsWithoutKMSPlugins(t *testing.T) {
 			assertCondition(t, fakeOperatorClient, kmsHealthReportsDegradedCondition, operatorv1.ConditionFalse, "")
 		})
 	}
+}
+
+
+func TestConditionControllerKMSHealthPrunesStaleReports(t *testing.T) {
+	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	fakeClock := clocktesting.NewFakePassiveClock(now)
+
+	provider := &fakeKMSHealthStatusProvider{
+		status: &operatorv1.KMSEncryptionStatus{
+			HealthReports: []operatorv1.KMSPluginHealthReport{
+				{
+					NodeName:        "node-a",
+					KeyID:           "1",
+					RemoteKeyID:     "remote-a",
+					LastCheckedTime: metav1.NewTime(now.Add(-time.Minute)),
+				},
+				{
+					NodeName:        "node-b",
+					KeyID:           "1",
+					RemoteKeyID:     "remote-a",
+					LastCheckedTime: metav1.NewTime(now.Add(-time.Minute)),
+				},
+				{
+					NodeName:        "node-old",
+					KeyID:           "1",
+					RemoteKeyID:     "remote-a",
+					LastCheckedTime: metav1.NewTime(now.Add(-health.DefaultReportPruneTTL)),
+				},
+			},
+		},
+	}
+
+	fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+		&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
+		&operatorv1.OperatorStatus{},
+		nil,
+	)
+
+	c := &conditionController{
+		controllerInstanceName:   "test-EncryptionCondition",
+		operatorClient:           fakeOperatorClient,
+		provider:                 newTestProvider(nil),
+		preconditionsFulfilledFn: alwaysFulfilledPreconditions,
+		encryptionStatusProvider: provider,
+		clock:                    fakeClock,
+	}
+
+	applyKMSHealth(t, c, kmsConfigWithPlugins())
+
+	if got := len(provider.status.HealthReports); got != 2 {
+		t.Fatalf("expected stale report pruned, got %d reports", got)
+	}
+	for _, report := range provider.status.HealthReports {
+		if report.NodeName == "node-old" {
+			t.Fatalf("stale report still present: %#v", report)
+		}
+	}
+	assertCondition(t, fakeOperatorClient, kmsHealthReportsProgressingCondition, operatorv1.ConditionFalse, "")
+	assertCondition(t, fakeOperatorClient, kmsHealthReportsDegradedCondition, operatorv1.ConditionFalse, "")
 }
 
 func assertCondition(t *testing.T, client v1helpers.OperatorClient, conditionType string, status operatorv1.ConditionStatus, reason string) {
