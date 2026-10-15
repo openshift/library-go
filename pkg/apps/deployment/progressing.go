@@ -12,6 +12,11 @@ import (
 
 // DeploymentProgressingCondition computes an operator Progressing condition from
 // the deployment's own status conditions and replica counts.
+//
+// Returns Progressing=False with reason ProgressDeadlineExceeded if the deployment
+// has timed out, Progressing=True with reason PodsUpdating if the deployment has
+// not yet reached the NewReplicaSetAvailable state, and Progressing=False with
+// reason AsExpected otherwise.
 func DeploymentProgressingCondition(deployment *appsv1.Deployment) operatorv1.OperatorCondition {
 	desiredReplicas := ptr.Deref(deployment.Spec.Replicas, 1)
 	timedOutMessage, timedOut := HasDeploymentTimedOutProgressing(deployment.Status)

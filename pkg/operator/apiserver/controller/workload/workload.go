@@ -299,6 +299,14 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, workload *appsv1.
 			WithReason("AsExpected")
 	}
 
+	// DeploymentProgressingCondition does not account for terminating pods, which
+	// don't appear in any of the other status fields but still can exist in a state
+	// where they are accepting connections and would contribute to unexpected behavior
+	// when we report Progressing=False. The case of too many pods might occur for
+	// example if `TerminationGracePeriodSeconds` is set.
+	//
+	// The workload should ensure this does not happen by using for example EnsureAtMostOnePodPerNode
+	// so that the old pods terminate before the new ones are started.
 	progressingCond := deployment.DeploymentProgressingCondition(workload)
 	deploymentProgressingCondition = deploymentProgressingCondition.
 		WithStatus(progressingCond.Status).
