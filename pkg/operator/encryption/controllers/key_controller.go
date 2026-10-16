@@ -970,7 +970,7 @@ func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretCl
 
 	// During KMS-to-KMS migration multiple plugin key IDs can report at once; scope
 	// convergence to the current write key's keyID so backup/read-only plugins are ignored.
-	// TODO(thomas): we need to ensure the amount of reports match the number of operand pods
+	// Stale reports from dead/replaced nodes are pruned by conditionController.
 	convergedRemoteKeyID := health.ConvergedRemoteKeyID(health.ReportsForKeyID(encryptionStatus.HealthReports, currentKey.Key.Name))
 	managedSecrets := secretClient.Secrets("openshift-config-managed")
 
