@@ -39,7 +39,7 @@ func TestNewRoundTripperTrustSources(t *testing.T) {
 	originalPool := pool.Clone()
 
 	caFile := filepath.Join(t.TempDir(), "ca.pem")
-	require.NoError(t, os.WriteFile(caFile, fileCA.pem, 0600))
+	require.NoError(t, os.WriteFile(caFile, fileCA.pem, 0o600))
 	provider := newTestCAProvider("provider", providerCA.pem)
 
 	roundTripper, err := NewRoundTripper(
@@ -308,9 +308,9 @@ func (ca *testCA) NewSignedCertificate(client bool) (tls.Certificate, []byte, []
 	var config *libcrypto.TLSCertificateConfig
 	var err error
 	if client {
-		config, err = ca.signer.MakeClientCertificateForDuration(&user.DefaultInfo{Name: "test-client"}, time.Hour)
+		config, err = ca.signer.NewClientCertificate(&user.DefaultInfo{Name: "test-client"}, libcrypto.RSAKeyPairGenerator{Bits: 2048}, libcrypto.WithLifetime(time.Hour))
 	} else {
-		config, err = ca.signer.MakeServerCertForDuration(sets.New("127.0.0.1", "localhost"), time.Hour)
+		config, err = ca.signer.NewServerCertificate(sets.New("127.0.0.1", "localhost"), libcrypto.RSAKeyPairGenerator{Bits: 2048}, libcrypto.WithLifetime(time.Hour))
 	}
 	require.NoError(ca.t, err)
 
