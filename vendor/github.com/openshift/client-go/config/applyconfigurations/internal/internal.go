@@ -6,7 +6,7 @@ import (
 	fmt "fmt"
 	sync "sync"
 
-	typed "sigs.k8s.io/structured-merge-diff/v6/typed"
+	typed "sigs.k8s.io/structured-merge-diff/v7/typed"
 )
 
 func Parser() *typed.Parser {
@@ -2144,6 +2144,9 @@ var schemaYAML = typed.YAMLObject(`types:
         namedType: com.github.openshift.api.config.v1.ConfigMapFileReference
       default: {}
     - name: controlPlaneTopology
+      type:
+        scalar: string
+    - name: infrastructureTopology
       type:
         scalar: string
     - name: platformSpec
@@ -4618,6 +4621,28 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: request
       type:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+- name: com.github.openshift.api.config.v1alpha1.ControllerManager
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.ControllerManagerSpec
+- name: com.github.openshift.api.config.v1alpha1.ControllerManagerSpec
+  map:
+    fields:
+    - name: volumeForceDetach
+      type:
+        scalar: string
 - name: com.github.openshift.api.config.v1alpha1.CustomPKIPolicy
   map:
     fields:

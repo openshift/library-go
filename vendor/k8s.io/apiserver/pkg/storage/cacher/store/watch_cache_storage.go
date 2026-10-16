@@ -18,8 +18,9 @@ package store
 
 import (
 	"fmt"
+	"iter"
 	"sort"
-	"sync/atomic"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,12 +34,13 @@ import (
 func NewWatchCacheStorage(keyFunc func(runtime.Object) (string, error), indexers *cache.Indexers) *WatchCacheStorage {
 	storage := &WatchCacheStorage{
 		keyFunc:             keyFunc,
-		store:               NewIndexer(indexers),
+		store:               newBtreeStore(btreeDegree),
+		indexer:             newIndexer(ElementIndexers(indexers)),
+		snapshots:           newSnapshotter(),
 		listResourceVersion: 0,
 	}
 	if utilfeature.DefaultFeatureGate.Enabled(features.ListFromCacheSnapshot) {
-		storage.snapshottingEnabled.Store(true)
-		storage.snapshots = NewSnapshotter()
+		storage.snapshottingEnabled = true
 	}
 	return storage
 }
@@ -46,33 +48,27 @@ func NewWatchCacheStorage(keyFunc func(runtime.Object) (string, error), indexers
 type WatchCacheStorage struct {
 	keyFunc func(runtime.Object) (string, error)
 
-	// store will effectively support LIST operation from the "end of cache
-	// history" i.e. from the moment just after the newest cached watched event.
-	// It is necessary to effectively allow clients to start watching at now.
-	// NOTE: We assume that <store> is thread-safe.
-	store Indexer
-
-	// ResourceVersion of the last list result (populated via Replace() method).
+	// ResourceVersion of the last list result (populated via ReplaceLocked() method).
 	listResourceVersion uint64
 
-	// Stores previous snapshots of orderedLister to allow serving requests from previous revisions.
-	snapshots           Snapshotter
-	snapshottingEnabled atomic.Bool
-}
-
-// StoreLocked returns the live store as a Snapshot.
-// Unlike GetExactSnapshotLocked this is not an immutable point-in-time copy.
-// The caller must hold the lock for the duration of use.
-func (w *WatchCacheStorage) StoreLocked() Snapshot {
-	return w.store
+	// Access to store, indexer, and snapshots is synchronized using lock.
+	lock                sync.RWMutex
+	store               btreeStore
+	indexer             indexer
+	snapshottingEnabled bool
+	snapshots           snapshotter
 }
 
 func (w *WatchCacheStorage) SnapshottingEnabled() bool {
-	return w.snapshots != nil && w.snapshottingEnabled.Load()
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+	return w.snapshottingEnabled
 }
 
 func (w *WatchCacheStorage) CanServeExactRV(rv uint64) bool {
-	if w.snapshots == nil {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+	if !w.snapshottingEnabled {
 		return false
 	}
 	_, canServe := w.snapshots.GetLessOrEqual(rv)
@@ -84,7 +80,9 @@ func (w *WatchCacheStorage) UpdateListResourceVersion(rv uint64) {
 }
 
 func (w *WatchCacheStorage) Compact(rev uint64) {
-	if w.snapshots == nil {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	if !w.snapshottingEnabled {
 		return
 	}
 	w.snapshots.RemoveLess(rev)
@@ -92,15 +90,19 @@ func (w *WatchCacheStorage) Compact(rev uint64) {
 
 func (w *WatchCacheStorage) MarkConsistent(consistent bool) {
 	if utilfeature.DefaultFeatureGate.Enabled(features.ListFromCacheSnapshot) {
-		w.snapshottingEnabled.Store(consistent)
-		if !consistent && w.snapshots != nil {
+		w.lock.Lock()
+		defer w.lock.Unlock()
+		w.snapshottingEnabled = consistent
+		if !consistent {
 			w.snapshots.Reset()
 		}
 	}
 }
 
 func (w *WatchCacheStorage) LatestSnapshotLocked() (Snapshot, bool) {
-	if w.SnapshottingEnabled() {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+	if w.snapshottingEnabled {
 		return w.snapshots.Latest()
 	}
 	return nil, false
@@ -113,11 +115,7 @@ func (w *WatchCacheStorage) GetLatestSnapshotOrBuildLocked(key, continueKey stri
 		return snap, nil
 	}
 	// TODO: Consider using Indexer Clone() after benchmarking.
-	return orderedSnapshotResponseFromIndexer(w.store, key, continueKey)
-}
-
-func orderedSnapshotResponseFromIndexer(indexer Indexer, key, continueKey string) (Snapshot, error) {
-	items, err := indexer.OrderedListPrefix(key, continueKey)
+	items, err := w.OrderedListPrefix(key, continueKey)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +142,30 @@ func (o orderedListSnapshot) OrderedListPrefix(prefix, continueKey string) ([]in
 	return o.Items, nil
 }
 
+func (o orderedListSnapshot) RangePrefix(prefix, continueKey string) Range {
+	return prefixRange{o, prefix, continueKey}
+}
+
+func (o orderedListSnapshot) rangePrefix(prefix, continueKey string) iter.Seq2[*Element, error] {
+	return func(yield func(*Element, error) bool) {
+		for _, item := range o.Items {
+			elem, ok := item.(*Element)
+			if !ok {
+				yield(nil, fmt.Errorf("non *Element returned from storage: %v", item))
+				return
+			}
+			if !yield(elem, nil) {
+				return
+			}
+		}
+	}
+}
+
+func (o orderedListSnapshot) countPrefix(prefix, continueKey string) int {
+	return len(o.Items)
+}
+
+// listSnapshot serves an unordered index bucket.
 type listSnapshot struct {
 	Items []interface{}
 }
@@ -167,7 +189,7 @@ func (l listSnapshot) OrderedListPrefix(prefix string, continueKey string) ([]in
 		if !ok {
 			return nil, fmt.Errorf("non *Element returned from storage: %v", item)
 		}
-		if len(continueKey) > 0 && continueKey >= elem.Key {
+		if len(continueKey) > 0 && continueKey > elem.Key {
 			continue
 		}
 		if !key.HasPathPrefix(elem.Key, prefix) {
@@ -177,6 +199,29 @@ func (l listSnapshot) OrderedListPrefix(prefix string, continueKey string) ([]in
 	}
 	sort.Sort(sortableStoreElements(result))
 	return result, nil
+}
+
+func (l listSnapshot) RangePrefix(prefix, continueKey string) Range {
+	items, err := l.OrderedListPrefix(prefix, continueKey)
+	if err != nil {
+		return failedRange{err}
+	}
+	elems := make(elements, 0, len(items))
+	for _, item := range items {
+		// OrderedListPrefix has already checked every item is an *Element.
+		elems = append(elems, item.(*Element))
+	}
+	return elems
+}
+
+type failedRange struct{ err error }
+
+func (r failedRange) All() iter.Seq2[*Element, error] {
+	return func(yield func(*Element, error) bool) { yield(nil, r.err) }
+}
+
+func (r failedRange) Count() int {
+	return 0
 }
 
 type sortableStoreElements []interface{}
@@ -205,69 +250,139 @@ func (w *WatchCacheStorage) Get(obj interface{}) (interface{}, bool, error) {
 		return nil, false, fmt.Errorf("couldn't compute key: %w", err)
 	}
 
-	return w.store.Get(&Element{Key: key, Object: object})
+	return w.get(&Element{Key: key, Object: object})
+}
+
+func (w *WatchCacheStorage) get(obj interface{}) (item interface{}, exists bool, err error) {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+	return w.store.Get(obj)
 }
 
 // GetByKey returns pointer to <storeElement>.
-func (w *WatchCacheStorage) GetByKey(key string) (interface{}, bool, error) {
+func (w *WatchCacheStorage) GetByKey(key string) (item interface{}, exists bool, err error) {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
 	return w.store.GetByKey(key)
 }
 
+func (w *WatchCacheStorage) OrderedListPrefix(prefix, continueKey string) ([]interface{}, error) {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+	return w.store.OrderedListPrefix(prefix, continueKey)
+}
+
 func (w *WatchCacheStorage) ListKeys() []string {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
 	return w.store.ListKeys()
 }
 
 // List returns list of pointers to <Element> objects.
 func (w *WatchCacheStorage) List() []interface{} {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
 	return w.store.List()
 }
 
+func (w *WatchCacheStorage) ByIndex(indexName, indexValue string) ([]interface{}, error) {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+	return w.indexer.ByIndex(indexName, indexValue)
+}
+
+func (w *WatchCacheStorage) Add(elem *Element) (*Element, error) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	return w.addOrUpdateLocked(elem)
+}
+
+func (w *WatchCacheStorage) Update(elem *Element) (*Element, error) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	return w.addOrUpdateLocked(elem)
+}
+
+func (w *WatchCacheStorage) addOrUpdateLocked(newElem *Element) (*Element, error) {
+	if newElem == nil {
+		return nil, fmt.Errorf("elem cannot be nil")
+	}
+	oldElem := w.store.addOrUpdateElem(newElem)
+	return oldElem, w.indexer.updateElem(newElem.Key, oldElem, newElem)
+}
+
+func (w *WatchCacheStorage) Delete(elem *Element) (*Element, error) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	return w.deleteLocked(elem)
+}
+
+func (w *WatchCacheStorage) deleteLocked(elem *Element) (*Element, error) {
+	if elem == nil {
+		return nil, fmt.Errorf("elem cannot be nil")
+	}
+	oldElem, existed := w.store.deleteElem(elem)
+	if !existed {
+		return nil, nil
+	}
+	return oldElem, w.indexer.updateElem(elem.Key, oldElem, nil)
+}
+
 // UpdateStoreLocked executes a mutation (Add, Update, Delete) on the underlying store.
-func (w *WatchCacheStorage) UpdateStoreLocked(eventType watch.EventType, elem *Element, resourceVersion uint64) (err error) {
+// It returns the element that was previously stored under the same key, if any.
+func (w *WatchCacheStorage) UpdateStoreLocked(eventType watch.EventType, elem *Element, resourceVersion uint64) (prev *Element, err error) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
 	switch eventType {
-	case watch.Added:
-		err = w.store.Add(elem)
-	case watch.Modified:
-		err = w.store.Update(elem)
+	case watch.Added, watch.Modified:
+		prev, err = w.addOrUpdateLocked(elem)
 	case watch.Deleted:
-		err = w.store.Delete(elem)
+		prev, err = w.deleteLocked(elem)
 	default:
 		err = fmt.Errorf("unexpected event type: %v", eventType)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if w.snapshots != nil && w.snapshottingEnabled.Load() {
-		w.snapshots.Add(resourceVersion, w.store)
+	if w.snapshottingEnabled {
+		w.snapshots.Add(resourceVersion, w.store.Clone())
 	}
-	return nil
+	return prev, nil
 }
 
 // CompactSnapshotsLocked prunes snapshots older than the oldest history version.
 func (w *WatchCacheStorage) CompactSnapshotsLocked(oldestRV uint64) {
-	if w.snapshots != nil && w.snapshottingEnabled.Load() {
-		w.snapshots.RemoveLess(oldestRV)
-	}
+	w.Compact(oldestRV)
 }
 
-// ReplaceLocked replaces the elements in the underlying store and resets snapshots.
-func (w *WatchCacheStorage) ReplaceLocked(toReplace []interface{}, resourceVersion string, version uint64) error {
-	if err := w.store.Replace(toReplace, resourceVersion); err != nil {
+// Replace replaces the elements in the underlying store and resets snapshots.
+func (w *WatchCacheStorage) Replace(toReplace []interface{}, resourceVersion string, version uint64) error {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	if err := w.replaceLocked(toReplace, resourceVersion); err != nil {
 		return err
 	}
-	if w.snapshots != nil {
-		w.snapshots.Reset()
-		if w.snapshottingEnabled.Load() {
-			w.snapshots.Add(version, w.store)
-		}
+	w.snapshots.Reset()
+	if w.snapshottingEnabled {
+		w.snapshots.Add(version, w.store.Clone())
 	}
 	w.listResourceVersion = version
 	return nil
 }
 
+func (w *WatchCacheStorage) replaceLocked(objs []interface{}, resourceVersion string) error {
+	err := w.store.Replace(objs, resourceVersion)
+	if err != nil {
+		return err
+	}
+	return w.indexer.Replace(objs, resourceVersion)
+}
+
 // GetExactSnapshotLocked retrieves a snapshot less than or equal to the given resource version.
 func (w *WatchCacheStorage) GetExactSnapshotLocked(resourceVersion uint64) (Snapshot, error) {
-	if w.snapshots == nil {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+	if !w.snapshottingEnabled {
 		return nil, errors.NewResourceExpired(fmt.Sprintf("too old resource version: %d", resourceVersion))
 	}
 	snap, ok := w.snapshots.GetLessOrEqual(resourceVersion)
@@ -279,7 +394,7 @@ func (w *WatchCacheStorage) GetExactSnapshotLocked(resourceVersion uint64) (Snap
 
 // GetByIndexSnapshot retrieves elements by index and wraps them in a Snapshot.
 func (w *WatchCacheStorage) GetByIndexSnapshot(indexName, value string) (Snapshot, error) {
-	result, err := w.store.ByIndex(indexName, value)
+	result, err := w.ByIndex(indexName, value)
 	if err != nil {
 		return nil, err
 	}
