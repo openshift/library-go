@@ -15,6 +15,7 @@ type ConfigV1alpha1Interface interface {
 	BackupsGetter
 	CRIOCredentialProviderConfigsGetter
 	ClusterMonitoringsGetter
+	ControllerManagersGetter
 	InsightsDataGathersGetter
 	PKIsGetter
 }
@@ -34,6 +35,10 @@ func (c *ConfigV1alpha1Client) CRIOCredentialProviderConfigs() CRIOCredentialPro
 
 func (c *ConfigV1alpha1Client) ClusterMonitorings() ClusterMonitoringInterface {
 	return newClusterMonitorings(c)
+}
+
+func (c *ConfigV1alpha1Client) ControllerManagers() ControllerManagerInterface {
+	return newControllerManagers(c)
 }
 
 func (c *ConfigV1alpha1Client) InsightsDataGathers() InsightsDataGatherInterface {
@@ -88,7 +93,9 @@ func setConfigDefaults(config *rest.Config) {
 	gv := configv1alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
+	if config.NegotiatedSerializer == nil {
+		config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
+	}
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
