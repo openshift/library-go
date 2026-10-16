@@ -417,7 +417,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario: generation mismatch does not trigger progressing",
+			name: "scenario: generation mismatch (non-scale change) triggers progressing immediately",
 			workload: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "apiserver",
@@ -428,7 +428,7 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					Replicas: ptr.To[int32](3),
 				},
 				Status: appsv1.DeploymentStatus{
-					Replicas:           3,
+					Replicas:           3, // same as desired → not a scale
 					ReadyReplicas:      3,
 					AvailableReplicas:  3,
 					UpdatedReplicas:    3,
@@ -458,9 +458,9 @@ func TestUpdateOperatorStatus(t *testing.T) {
 					},
 					{
 						Type:    fmt.Sprintf("%sDeployment%s", defaultControllerName, operatorv1.OperatorStatusTypeProgressing),
-						Status:  operatorv1.ConditionFalse,
-						Reason:  "AsExpected",
-						Message: "",
+						Status:  operatorv1.ConditionTrue,
+						Reason:  "NewGeneration",
+						Message: "deployment/apiserver.openshift-apiserver: waiting for deployment controller to observe spec generation 100",
 					},
 				}
 				return areConditionsEqual(expectedConditions, actualStatus.Conditions)

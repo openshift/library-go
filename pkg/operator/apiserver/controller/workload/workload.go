@@ -313,8 +313,7 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, workload *appsv1.
 		WithReason(progressingCond.Reason).
 		WithMessage(progressingCond.Message)
 
-	_, workloadIsBeingUpdatedTooLong := deployment.HasDeploymentTimedOutProgressing(workload.Status)
-	workloadIsBeingUpdated := !deployment.HasDeploymentProgressed(workload.Status) && !workloadIsBeingUpdatedTooLong
+	workloadIsBeingUpdated := progressingCond.Status == operatorv1.ConditionTrue
 
 	desiredReplicas := ptr.Deref(workload.Spec.Replicas, 1)
 	workloadHasAllPodsAvailable := workload.Status.AvailableReplicas >= desiredReplicas

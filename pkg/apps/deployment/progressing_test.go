@@ -20,6 +20,74 @@ func TestDeploymentProgressingCondition(t *testing.T) {
 		expected operatorv1.OperatorCondition
 	}{
 		{
+			name: "stale status, template change (same replicas) — reports NewGeneration immediately",
+			deploy: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "ns", Generation: 2},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](3)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Replicas:           3, // matches desired — not a scale
+					UpdatedReplicas:    3,
+					AvailableReplicas:  3,
+					Conditions: []appsv1.DeploymentCondition{
+						// KCM still says the old rollout is complete
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+					},
+				},
+			},
+			expected: operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeProgressing,
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "NewGeneration",
+				Message: "deployment/web.ns: waiting for deployment controller to observe spec generation 2",
+			},
+		},
+		{
+			name: "stale status, pure scale (replicas differ) — falls through to KCM condition",
+			deploy: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "ns", Generation: 2},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](5)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Replicas:           3, // old count — scale pending, so scalePending=true
+					UpdatedReplicas:    3,
+					AvailableReplicas:  3,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+					},
+				},
+			},
+			// scalePending=true → stale case skipped; KCM says NewReplicaSetAvailable → HasDeploymentProgressed=true → default AsExpected
+			expected: operatorv1.OperatorCondition{
+				Type:   operatorv1.OperatorStatusTypeProgressing,
+				Status: operatorv1.ConditionFalse,
+				Reason: "AsExpected",
+			},
+		},
+		{
+			name: "stale status after ProgressDeadlineExceeded — new rollout takes precedence over timed-out condition",
+			deploy: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "ns", Generation: 3},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](2)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 2,
+					Replicas:           2,
+					UpdatedReplicas:    0,
+					AvailableReplicas:  0,
+					Conditions: []appsv1.DeploymentCondition{
+						// left over from the previous revision
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse, Reason: "ProgressDeadlineExceeded", Message: "timed out"},
+					},
+				},
+			},
+			expected: operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeProgressing,
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "NewGeneration",
+				Message: "deployment/web.ns: waiting for deployment controller to observe spec generation 3",
+			},
+		},
+		{
 			name: "active rollout, not all pods updated",
 			deploy: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "ns"},
@@ -37,25 +105,6 @@ func TestDeploymentProgressingCondition(t *testing.T) {
 				Status:  operatorv1.ConditionTrue,
 				Reason:  "PodsUpdating",
 				Message: "deployment/web.ns: 1/3 pods have been updated to the latest revision and 2/3 pods are available",
-			},
-		},
-		{
-			name: "rollout complete",
-			deploy: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "ns"},
-				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](3)},
-				Status: appsv1.DeploymentStatus{
-					UpdatedReplicas:   3,
-					AvailableReplicas: 3,
-					Conditions: []appsv1.DeploymentCondition{
-						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
-					},
-				},
-			},
-			expected: operatorv1.OperatorCondition{
-				Type:   operatorv1.OperatorStatusTypeProgressing,
-				Status: operatorv1.ConditionFalse,
-				Reason: "AsExpected",
 			},
 		},
 		{
@@ -93,7 +142,7 @@ func TestDeploymentProgressingCondition(t *testing.T) {
 			},
 		},
 		{
-			name: "nil replicas defaults to 1",
+			name: "rollout complete, nil replicas defaults to 1",
 			deploy: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "ns"},
 				Spec:       appsv1.DeploymentSpec{},
