@@ -3,12 +3,14 @@ package certrotation
 import (
 	"context"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/openshift/api/annotations"
+	"github.com/openshift/api/config/v1alpha1"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/pki"
@@ -18,16 +20,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/utils/clock"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 // TestCertRotationController_SyncWorker tests the SyncWorker method
 func TestCertRotationController_SyncWorker(t *testing.T) {
 	// Create signer certificate
-	signer, err := crypto.MakeSelfSignedCAConfig("test-ca", time.Hour*24)
+	signer, err := crypto.NewSigningCertificate("test-ca", crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithLifetime(time.Hour*24))
 	if err != nil {
 		panic(fmt.Sprintf("failed to create test CA: %v", err))
 	}
@@ -37,7 +41,7 @@ func TestCertRotationController_SyncWorker(t *testing.T) {
 		SerialGenerator: &crypto.RandomSerialGenerator{},
 	}
 	// Create target certificate signed by the CA
-	targetCert, err := ca.MakeServerCert(sets.New("test.example.com", "localhost"), time.Hour*12)
+	targetCert, err := ca.NewServerCertificate(sets.New("test.example.com", "localhost"), crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithLifetime(time.Hour*12))
 	if err != nil {
 		panic(fmt.Sprintf("failed to create server cert: %v", err))
 	}
@@ -333,9 +337,9 @@ func (t *testStatusReporter) Report(ctx context.Context, controllerName string, 
 // mockTargetCertCreator is a mock implementation of TargetCertCreator for testing
 type mockTargetCertCreator struct{}
 
-func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.Duration, _ crypto.KeyPairGenerator) (*crypto.TLSCertificateConfig, error) {
+func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.Duration, _ crypto.KeyPairGenerator, _ clock.PassiveClock) (*crypto.TLSCertificateConfig, error) {
 	// Use the provided signer to create a real certificate with matching key
-	certConfig, err := signer.MakeServerCert(sets.New("test-cert", "localhost"), validity)
+	certConfig, err := signer.NewServerCertificate(sets.New("test-cert", "localhost"), crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithLifetime(validity))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server certificate: %v", err)
 	}
@@ -347,7 +351,7 @@ func (m *mockTargetCertCreator) CertificateType() pki.CertificateType {
 	return pki.CertificateTypeServing
 }
 
-func (m *mockTargetCertCreator) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool) string {
+func (m *mockTargetCertCreator) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool, _ clock.PassiveClock, _ crypto.KeyPairGenerator) string {
 	if creationRequired {
 		return "creation required"
 	}
@@ -482,5 +486,656 @@ func createValidTargetCertSecret(namespace, name string, serverCert *crypto.TLSC
 			"tls.crt": certBytes,
 			"tls.key": keyBytes,
 		},
+	}
+}
+
+type mockPKIProfileProvider struct {
+	profile *v1alpha1.PKIProfile
+}
+
+func (m *mockPKIProfileProvider) PKIProfile() (*v1alpha1.PKIProfile, error) {
+	return m.profile, nil
+}
+
+func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *testing.T) {
+	type testcase struct {
+		name string
+
+		initialSignerPKIProfile *v1alpha1.PKIProfile
+		updatedSignerPKIProfile *v1alpha1.PKIProfile
+
+		targetPKIProfile *v1alpha1.PKIProfile
+
+		certCreator TargetCertCreator
+
+		timeSinceInitialSync time.Duration
+
+		verifyOptionFn func(*x509.VerifyOptions)
+
+		expectedSecondaryCertChainLength int
+		expectInitialCABundleToValidate  bool
+	}
+
+	rsa2048PKIProfile := &v1alpha1.PKIProfile{
+		Defaults: v1alpha1.DefaultCertificateConfig{
+			Key: v1alpha1.KeyConfig{
+				Algorithm: v1alpha1.KeyAlgorithmRSA,
+				RSA: v1alpha1.RSAKeyConfig{
+					KeySize: 2048,
+				},
+			},
+		},
+	}
+
+	ecdsaP256PKIProfile := &v1alpha1.PKIProfile{
+		Defaults: v1alpha1.DefaultCertificateConfig{
+			Key: v1alpha1.KeyConfig{
+				Algorithm: v1alpha1.KeyAlgorithmECDSA,
+				ECDSA: v1alpha1.ECDSAKeyConfig{
+					Curve: v1alpha1.ECDSACurveP256,
+				},
+			},
+		},
+	}
+
+	testcases := []testcase{
+		{
+			name:                    "signer PKI key algorithm change, non-PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			timeSinceInitialSync: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 3,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm change, non-PKI client certificate as target certificate, results in valid cross-signed client cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			timeSinceInitialSync: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedSecondaryCertChainLength: 2,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm change, non-PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			timeSinceInitialSync: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 3,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm change, PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			targetPKIProfile:        rsa2048PKIProfile,
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			timeSinceInitialSync: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 3,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm change, PKI client certificate as target certificate, results in valid cross-signed client cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			targetPKIProfile:        rsa2048PKIProfile,
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			timeSinceInitialSync: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedSecondaryCertChainLength: 2,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm change, PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			targetPKIProfile:        rsa2048PKIProfile,
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			timeSinceInitialSync: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 3,
+			expectInitialCABundleToValidate:  true,
+		},
+		// refresh time met
+		{
+			name:                    "signer PKI key algorithm unchanged, refresh time passed, non-PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			timeSinceInitialSync: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 3,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, refresh time passed, non-PKI client certificate as target certificate, results in valid cross-signed client cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			timeSinceInitialSync: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedSecondaryCertChainLength: 2,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, refresh time passed, non-PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			timeSinceInitialSync: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 3,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, refresh time passed, PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			targetPKIProfile:        rsa2048PKIProfile,
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			timeSinceInitialSync: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 3,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, refresh time passed, PKI client certificate as target certificate, results in valid cross-signed client cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			targetPKIProfile:        rsa2048PKIProfile,
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			timeSinceInitialSync: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedSecondaryCertChainLength: 2,
+			expectInitialCABundleToValidate:  true,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, refresh time passed, PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			targetPKIProfile:        rsa2048PKIProfile,
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			timeSinceInitialSync: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 3,
+			expectInitialCABundleToValidate:  true,
+		},
+		// expiration
+		{
+			name:                    "signer PKI key algorithm unchanged, expired, non-PKI serving certificate as target certificate, results in no cross-signed intermediate",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			timeSinceInitialSync: 25 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 2,
+			expectInitialCABundleToValidate:  false,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, expired, non-PKI client certificate as target certificate, results in no cross-signed intermediate",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			timeSinceInitialSync: 25 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedSecondaryCertChainLength: 1,
+			expectInitialCABundleToValidate:  false,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, expired, non-PKI peer certificate as target certificate, results in no cross-signed intermediate",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			timeSinceInitialSync: 25 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 2,
+			expectInitialCABundleToValidate:  false,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, expired, PKI serving certificate as target certificate, results in no cross-signed intermediate",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			targetPKIProfile:        rsa2048PKIProfile,
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			timeSinceInitialSync: 25 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 2,
+			expectInitialCABundleToValidate:  false,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, expired, PKI client certificate as target certificate, results in no cross-signed intermediate",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			targetPKIProfile:        rsa2048PKIProfile,
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			timeSinceInitialSync: 25 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedSecondaryCertChainLength: 1,
+			expectInitialCABundleToValidate:  false,
+		},
+		{
+			name:                    "signer PKI key algorithm unchanged, expired, PKI peer certificate as target certificate, results in no cross-signed intermediate",
+			initialSignerPKIProfile: rsa2048PKIProfile,
+			targetPKIProfile:        rsa2048PKIProfile,
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			timeSinceInitialSync: 25 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedSecondaryCertChainLength: 2,
+			expectInitialCABundleToValidate:  false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create fake client
+			fakeClient := fake.NewSimpleClientset()
+
+			// Create informer factory
+			informerFactory := informers.NewSharedInformerFactory(fakeClient, 0)
+
+			secretInformer := informerFactory.Core().V1().Secrets()
+			configMapInformer := informerFactory.Core().V1().ConfigMaps()
+
+			now := time.Now()
+			clockTime := clocktesting.NewFakePassiveClock(now)
+
+			var signerPKIProvider pki.PKIProfileProvider
+			mockProvider := &mockPKIProfileProvider{}
+			if tc.initialSignerPKIProfile != nil {
+				signerPKIProvider = mockProvider
+				mockProvider.profile = tc.initialSignerPKIProfile
+			}
+
+			var targetPKIProvider pki.PKIProfileProvider
+			if tc.targetPKIProfile != nil {
+				targetPKIProvider = pki.NewStaticPKIProfileProvider(tc.targetPKIProfile)
+			}
+
+			// Create the controller
+			controller := &CertRotationController{
+				Name:  "test-controller",
+				clock: clockTime,
+				RotatedSigningCASecret: RotatedSigningCASecret{
+					Namespace:          "test-namespace",
+					Name:               "test-signer-cert",
+					Validity:           24 * time.Hour,
+					Refresh:            12 * time.Hour,
+					Informer:           secretInformer,
+					Lister:             secretInformer.Lister(),
+					Client:             fakeClient.CoreV1(),
+					EventRecorder:      events.NewInMemoryRecorder("test", clock.RealClock{}),
+					PKIProfileProvider: signerPKIProvider,
+				},
+				CABundleConfigMap: CABundleConfigMap{
+					Namespace:     "test-namespace",
+					Name:          "test-ca-bundle",
+					Informer:      configMapInformer,
+					Lister:        configMapInformer.Lister(),
+					Client:        fakeClient.CoreV1(),
+					EventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+					AdditionalAnnotations: AdditionalAnnotations{
+						JiraComponent: "test",
+					},
+				},
+				RotatedSelfSignedCertKeySecret: RotatedSelfSignedCertKeySecret{
+					Namespace:          "test-namespace",
+					Name:               "test-target-cert",
+					Validity:           24 * time.Hour,
+					Refresh:            12 * time.Hour,
+					CertCreator:        tc.certCreator,
+					Informer:           secretInformer,
+					Lister:             secretInformer.Lister(),
+					Client:             fakeClient.CoreV1(),
+					EventRecorder:      events.NewInMemoryRecorder("test", clock.RealClock{}),
+					PKIProfileProvider: targetPKIProvider,
+				},
+				StatusReporter: &testStatusReporter{},
+			}
+
+			// Run SyncWorker
+			ctx := t.Context()
+			err := controller.SyncWorker(ctx)
+			if err != nil {
+				t.Fatalf("initial controller sync failed: %v", err)
+			}
+
+			// Ensure all the initial create actions occurred,
+			// simulate the informer cache updates by manually updating the indexers,
+			// and capture the initial CA bundle that was created for the initial signer configuration
+			// to be used in later verification of the resulting target certificate chain post-change.
+
+			actions := fakeClient.Actions()
+			if len(actions) != 3 {
+				t.Fatalf("expected initial controller sync to perform 3 actions but got %d", len(actions))
+			}
+
+			signerAction := actions[0]
+			if signerAction.GetVerb() != "create" || signerAction.GetResource().Resource != "secrets" {
+				t.Errorf("unexpected ca bundle action: %v", signerAction)
+			}
+			signerActionSecret := signerAction.(clienttesting.CreateAction).GetObject().(*corev1.Secret)
+			secretInformer.Informer().GetIndexer().Add(signerActionSecret)
+
+			caBundleAction := actions[1]
+			if caBundleAction.GetVerb() != "create" || caBundleAction.GetResource().Resource != "configmaps" {
+				t.Errorf("unexpected ca bundle action: %v", caBundleAction)
+			}
+			caBundleActionConfigMap := caBundleAction.(clienttesting.CreateAction).GetObject().(*corev1.ConfigMap)
+			configMapInformer.Informer().GetIndexer().Add(caBundleActionConfigMap)
+			initialCABundle, ok := caBundleActionConfigMap.Data["ca-bundle.crt"]
+			if !ok {
+				t.Fatalf("no initial CA bundle data")
+			}
+
+			certAction := actions[2]
+			if certAction.GetVerb() != "create" || certAction.GetResource().Resource != "secrets" {
+				t.Errorf("unexpected ca bundle action: %v", certAction)
+			}
+			certActionSecret := certAction.(clienttesting.CreateAction).GetObject().(*corev1.Secret)
+			secretInformer.Informer().GetIndexer().Add(certActionSecret)
+
+			// Do some updates to simulate some time passing and any configuration changes that should occur.
+			clockTime.SetTime(now.Add(tc.timeSinceInitialSync))
+			if tc.updatedSignerPKIProfile != nil {
+				mockProvider.profile = tc.updatedSignerPKIProfile
+			}
+
+			err = controller.SyncWorker(ctx)
+			if err != nil {
+				t.Fatalf("secondary controller sync failed: %v", err)
+			}
+
+			// Ensure all the update actions have occurred.
+			// Because cross-signing only matters when the signer has rotated, we should
+			// see that exactly 3 additional updates have occurred:
+			//     1. The signer CA secret has been updated.
+			//     2. The CA bundle has been updated (because the signer CA is different)
+			//     3. The target certificate has been updated (because the desired issuer (signer) configuration has changed)
+			// Additionally, capture the updated CA bundle for use in later verification.
+
+			actions = fakeClient.Actions()
+			if len(actions) != 6 {
+				t.Fatalf("expected secondary controller sync to perform 3 additional actions to total 6 actions but got %d", len(actions))
+			}
+
+			secondaryCABundleAction := actions[4]
+			if secondaryCABundleAction.GetVerb() != "update" || secondaryCABundleAction.GetResource().Resource != "configmaps" {
+				t.Errorf("unexpected secondary ca bundle action: %v", secondaryCABundleAction)
+			}
+			secondaryCABundleActionConfigMap := secondaryCABundleAction.(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
+			secondaryCABundle, ok := secondaryCABundleActionConfigMap.Data["ca-bundle.crt"]
+			if !ok {
+				t.Fatalf("no secondary CA bundle data")
+			}
+
+			secondaryClientCertAction := actions[5]
+			if secondaryClientCertAction.GetVerb() != "update" || secondaryClientCertAction.GetResource().Resource != "secrets" {
+				t.Errorf("unexpected secondary client cert action: %v", secondaryClientCertAction)
+			}
+			secondaryClientCertActionSecret := secondaryClientCertAction.(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+			secondaryClientCertChain, ok := secondaryClientCertActionSecret.Data["tls.crt"]
+			if !ok {
+				t.Fatalf("no secondary client cert chain")
+			}
+
+			secondaryCertChainCerts := []*x509.Certificate{}
+			for len(secondaryClientCertChain) > 0 {
+				var block *pem.Block
+				block, secondaryClientCertChain = pem.Decode(secondaryClientCertChain)
+				if block == nil {
+					break
+				}
+
+				if block.Type != "CERTIFICATE" {
+					continue
+				}
+
+				// Parse the raw DER bytes inside the PEM block into an x509 Certificate
+				cert, err := x509.ParseCertificate(block.Bytes)
+				if err != nil {
+					t.Fatalf("parsing secondary cert chain: %v", err)
+				}
+
+				secondaryCertChainCerts = append(secondaryCertChainCerts, cert)
+			}
+
+			if len(secondaryCertChainCerts) != tc.expectedSecondaryCertChainLength {
+				t.Fatalf("expected the secondary cert chain to contain exactly %d certificates but got %d", tc.expectedSecondaryCertChainLength, len(secondaryCertChainCerts))
+			}
+
+			leaf := secondaryCertChainCerts[0]
+			intermediates := []*x509.Certificate{}
+			if len(secondaryCertChainCerts) > 1 {
+				intermediates = secondaryCertChainCerts[1:]
+			}
+
+			initialRoots := x509.NewCertPool()
+			ok = initialRoots.AppendCertsFromPEM([]byte(initialCABundle))
+			if !ok {
+				t.Fatal("parsing initial CA bundle certificates resulted in no appended certs")
+			}
+
+			updatedRoots := x509.NewCertPool()
+			ok = updatedRoots.AppendCertsFromPEM([]byte(secondaryCABundle))
+			if !ok {
+				t.Fatal("parsing secondary CA bundle certificates resulted in no appended certs")
+			}
+
+			intermediatesPool := x509.NewCertPool()
+			for _, cert := range intermediates {
+				intermediatesPool.AddCert(cert)
+			}
+
+			initialVerifyOptions := &x509.VerifyOptions{
+				Roots:         initialRoots,
+				Intermediates: intermediatesPool,
+				CurrentTime:   clockTime.Now().Add(time.Minute),
+			}
+
+			secondaryVerifyOptions := &x509.VerifyOptions{
+				Roots:         updatedRoots,
+				Intermediates: intermediatesPool,
+				CurrentTime:   clockTime.Now().Add(time.Minute),
+			}
+
+			if tc.verifyOptionFn != nil {
+				tc.verifyOptionFn(initialVerifyOptions)
+				tc.verifyOptionFn(secondaryVerifyOptions)
+			}
+
+			_, err = leaf.Verify(*initialVerifyOptions)
+			if err != nil && tc.expectInitialCABundleToValidate {
+				t.Fatalf("failed to verify the new leaf certificate using the initial CA bundle: %v", err)
+			} else if err == nil && !tc.expectInitialCABundleToValidate {
+				t.Fatal("successfully verified the new leaf certificate using the initial CA bundle, but expected it to fail")
+			}
+
+			_, err = leaf.Verify(*secondaryVerifyOptions)
+			if err != nil {
+				t.Fatalf("failed to verify the new leaf certificate using the secondary CA bundle: %v", err)
+			}
+		})
 	}
 }
