@@ -96,20 +96,26 @@ const (
 // It resolves the Vault Service ClusterIP at call time to avoid DNS resolution issues,
 // and bundles the AppRole secret setup.
 func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
-	return defaultVaultEncryptionProvider(ctx, t, resolveVaultKMSPluginImage(t))
+	return defaultVaultEncryptionProvider(ctx, t, resolveVaultKMSPluginImage(t), "")
 }
 
 // UpdatedVaultEncryptionProvider returns a provider for the same default Vault instance but with the
 // update plugin image. It drives an in-place field update: the KMS reference ("vault") is unchanged,
 // so the provider identity is unchanged and only the plugin image differs. Its Setup updates the
 // existing VaultKMSConfig CR's status.kmsPluginImage; the APIServer config is not touched.
-func UpdatedVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
-	return defaultVaultEncryptionProvider(ctx, t, resolveVaultKMSPluginImageUpdate(t))
+// An optional appRoleSecretName overrides the default secret name to simulate an auth secret rotation.
+func UpdatedVaultEncryptionProvider(ctx context.Context, t testing.TB, appRoleSecretName string) library.EncryptionProvider {
+	return defaultVaultEncryptionProvider(ctx, t, resolveVaultKMSPluginImageUpdate(t), appRoleSecretName)
 }
 
-func defaultVaultEncryptionProvider(ctx context.Context, t testing.TB, image string) library.EncryptionProvider {
+func defaultVaultEncryptionProvider(ctx context.Context, t testing.TB, image string, appRoleSecretName string) library.EncryptionProvider {
 	cfg := DefaultVaultKMSPluginConfig
 	vault := defaultVaultConfig.DeepCopy()
+	secretName := defaultVaultAppRoleSecretName
+	if appRoleSecretName != "" {
+		secretName = appRoleSecretName
+		require.NoError(t, unstructured.SetNestedField(vault.Object, secretName, "spec", "authentication", "appRole", "secret", "name"))
+	}
 	require.NoError(t, unstructured.SetNestedField(vault.Object, image, "status", "kmsPluginImage"))
 	// Use the Service ClusterIP instead of DNS name because kube-apiserver pods
 	// cannot resolve cluster-local Service names (they use host network DNS).
@@ -117,7 +123,7 @@ func defaultVaultEncryptionProvider(ctx context.Context, t testing.TB, image str
 	return library.EncryptionProvider{
 		APIServerEncryption: cfg,
 		Setup: func(ctx context.Context, t testing.TB) {
-			ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName)(ctx, t)
+			ensureVaultAppRoleSecret(defaultVaultNamespace, secretName)(ctx, t)
 			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
 		},
 	}
@@ -127,9 +133,10 @@ func defaultVaultEncryptionProvider(ctx context.Context, t testing.TB, image str
 // for negative preflight tests. Empty vaultAddress / pluginImage fall back to the
 // valid defaults so each call can invalidate exactly one field:
 //
-//	InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "")           // → AssertKMSPreflightCheckerFailedForOperator
-//	InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/...@sha256:000...") // → AssertKMSPreflightDegradedForOperator
-func InvalidVaultEncryptionProvider(ctx context.Context, t testing.TB, vaultAddress, pluginImage string) library.EncryptionProvider {
+//	InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "", false) // → AssertKMSPreflightCheckerFailedForOperator
+//	InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/...@sha256:000...", false) // → AssertKMSPreflightDegradedForOperator
+//	InvalidVaultEncryptionProvider(ctx, t, "", "", true) // → AssertKMSPreflightCheckerFailedForOperator
+func InvalidVaultEncryptionProvider(ctx context.Context, t testing.TB, vaultAddress, pluginImage string, invalidSecret bool) library.EncryptionProvider {
 	cfg := DefaultVaultKMSPluginConfig
 	vault := defaultVaultConfig.DeepCopy()
 
@@ -143,10 +150,27 @@ func InvalidVaultEncryptionProvider(ctx context.Context, t testing.TB, vaultAddr
 	}
 	require.NoError(t, unstructured.SetNestedField(vault.Object, vaultAddress, "spec", "vaultAddress"))
 
+	if invalidSecret {
+		require.NoError(t, unstructured.SetNestedField(vault.Object, "invalid-secret", "spec", "authentication", "appRole", "secret", "name"))
+	}
+
 	return library.EncryptionProvider{
 		APIServerEncryption: cfg,
 		Setup: func(ctx context.Context, t testing.TB) {
-			ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName)(ctx, t)
+			if invalidSecret {
+				cs := library.GetClients(t)
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "invalid-secret", Namespace: defaultAppRoleTargetNamespace},
+					Type:       corev1.SecretTypeOpaque,
+					Data:       map[string][]byte{"role-id": []byte("invalid-role-id"), "secret-id": []byte("invalid-secret-id")},
+				}
+				_, err := cs.Kube.CoreV1().Secrets(defaultAppRoleTargetNamespace).Create(ctx, secret, metav1.CreateOptions{})
+				if !apierrors.IsAlreadyExists(err) {
+					require.NoError(t, err, "failed to create invalid AppRole secret")
+				}
+			} else {
+				ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName)(ctx, t)
+			}
 			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
 		},
 	}

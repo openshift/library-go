@@ -225,9 +225,12 @@ func kasInPlaceUpdateScenario(ctx context.Context, t testing.TB, updateImage str
 		ResourceFunc:                library.WellKnownSecretOfLife,
 		ResourceName:                "SecretOfLife",
 		// Cluster-wide APIServer config + shared VaultKMSConfig CR — only KAS sets these.
-		EncryptionProvider:        DefaultVaultEncryptionProvider(ctx, t),
-		UpdatedEncryptionProvider: UpdatedVaultEncryptionProvider(ctx, t),
-		AssertInPlaceUpdateFunc:   assertKMSInPlaceUpdate(ctx, kubeAPIServerComponent, updateImage),
+		EncryptionProvider: DefaultVaultEncryptionProvider(ctx, t),
+		UpdatedEncryptionProviders: []library.EncryptionProvider{
+			UpdatedVaultEncryptionProvider(ctx, t, ""),
+			UpdatedVaultEncryptionProvider(ctx, t, "vault-approle-rotated"),
+		},
+		AssertInPlaceUpdateFunc: assertKMSInPlaceUpdate(ctx, kubeAPIServerComponent, updateImage),
 	}
 }
 
@@ -279,8 +282,9 @@ func oasInPlaceUpdateScenario(ctx context.Context, updateImage string) library.I
 func KMSPreflightLifecycleScenarios(ctx context.Context, t testing.TB) []library.KMSPreflightLifecycleScenario {
 	t.Helper()
 	updateImage := resolveVaultKMSPluginImageUpdate(t)
-	invalidAddress := InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "")
-	invalidImage := InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/openshifttest/vault-kube-kms@sha256:0000000000000000000000000000000000000000000000000000000000000000")
+	invalidAddress := InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "", false)
+	invalidImage := InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/openshifttest/vault-kube-kms@sha256:0000000000000000000000000000000000000000000000000000000000000000", false)
+	invalidAuth := InvalidVaultEncryptionProvider(ctx, t, "", "", true)
 	inPlaceScenarios := []library.InPlaceUpdateScenario{
 		kasInPlaceUpdateScenario(ctx, t, updateImage),
 		authInPlaceUpdateScenario(ctx, updateImage),
@@ -293,11 +297,13 @@ func KMSPreflightLifecycleScenarios(ctx context.Context, t testing.TB) []library
 			InvalidConfigs: []library.KMSPreflightNegativeScenario{
 				{Name: "invalid-vault-address", AssertFailedFunc: library.AssertKMSPreflightCheckerFailedForOperator},
 				{Name: "invalid-image", AssertFailedFunc: library.AssertKMSPreflightDegradedForOperator},
+				{Name: "invalid-auth", AssertFailedFunc: library.AssertKMSPreflightCheckerFailedForOperator},
 			},
 		})
 	}
 	scenarios[0].InvalidConfigs[0].InvalidProvider = invalidAddress
 	scenarios[0].InvalidConfigs[1].InvalidProvider = invalidImage
+	scenarios[0].InvalidConfigs[2].InvalidProvider = invalidAuth
 	return scenarios
 }
 
