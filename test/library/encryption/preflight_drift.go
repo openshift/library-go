@@ -3,12 +3,14 @@ package encryption
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 )
@@ -74,8 +76,8 @@ func AssertNoPreflightConfigDrift(ctx context.Context, t testing.TB, clientSet C
 	preflightPod, err := clientSet.Kube.CoreV1().Pods(namespace).Get(ctx, preflight.PodName, metav1.GetOptions{})
 	require.NoError(t, err, "preflight pod %s/%s", namespace, preflight.PodName)
 
-	targetPod := findAnyOperandPod(ctx, t, clientSet, namespace, labelSelector)
-	require.NotNil(t, targetPod, "no Running pod in %s matching %q", namespace, labelSelector)
+	targetPod, err := waitForOperandPod(ctx, clientSet, namespace, labelSelector)
+	require.NoError(t, err, "waiting for Running pod in %s matching %q", namespace, labelSelector)
 
 	assertNoPodSpecDrift(t, targetPod, preflightPod, DefaultPreflightPodSpecDriftIgnore...)
 }
@@ -89,8 +91,8 @@ func AssertNoPreflightConfigDriftFromCapture(ctx context.Context, t testing.TB, 
 	require.NotNil(t, preflightPod, "no preflight pod captured")
 	require.Equal(t, expectedConfigHash, preflightPod.Annotations[preflightConfigHashAnnotation], "captured preflight pod config-hash annotation")
 
-	targetPod := findAnyOperandPod(ctx, t, clientSet, namespace, labelSelector)
-	require.NotNil(t, targetPod, "no Running pod in %s matching %q", namespace, labelSelector)
+	targetPod, err := waitForOperandPod(ctx, clientSet, namespace, labelSelector)
+	require.NoError(t, err, "waiting for Running pod in %s matching %q", namespace, labelSelector)
 
 	assertNoPodSpecDrift(t, targetPod, preflightPod, DefaultPreflightPodSpecDriftIgnore...)
 }
@@ -107,16 +109,27 @@ func assertNoPodSpecDrift(t testing.TB, operand, preflightPod *corev1.Pod, ignor
 		preflightPod.Namespace, preflightPod.Name, operand.Namespace, operand.Name, diff)
 }
 
-// findAnyOperandPod returns any Running pod matching labelSelector.
+// waitForOperandPod waits for a Running pod matching labelSelector. Encryption
+// migration can finish while another revision is rolling out, briefly leaving
+// no Running mirror pod on a single-node cluster.
 // Which replica is fine: control-plane operand PodSpecs should match across replicas for fields we compare.
-func findAnyOperandPod(ctx context.Context, t testing.TB, clientSet ClientSet, namespace, labelSelector string) *corev1.Pod {
-	t.Helper()
-	pods, err := clientSet.Kube.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
-	require.NoError(t, err)
-	for i := range pods.Items {
-		if pods.Items[i].Status.Phase == corev1.PodRunning {
-			return &pods.Items[i]
+func waitForOperandPod(ctx context.Context, clientSet ClientSet, namespace, labelSelector string) (*corev1.Pod, error) {
+	var targetPod *corev1.Pod
+	err := wait.PollUntilContextTimeout(ctx, waitPollInterval, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+		pods, err := clientSet.Kube.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
 		}
-	}
-	return nil
+		for i := range pods.Items {
+			if pods.Items[i].Status.Phase == corev1.PodRunning && pods.Items[i].DeletionTimestamp == nil {
+				targetPod = &pods.Items[i]
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+	return targetPod, err
 }

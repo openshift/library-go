@@ -1,14 +1,88 @@
 package encryption
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 )
+
+func TestWaitForOperandPod(t *testing.T) {
+	previousInterval := waitPollInterval
+	waitPollInterval = time.Millisecond
+	t.Cleanup(func() { waitPollInterval = previousInterval })
+
+	running := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "operand", Labels: map[string]string{"apiserver": "true"}},
+		Status:     corev1.PodStatus{Phase: corev1.PodRunning},
+	}
+	pending := *running.DeepCopy()
+	pending.Status.Phase = corev1.PodPending
+	succeeded := *running.DeepCopy()
+	succeeded.Status.Phase = corev1.PodSucceeded
+	terminating := *running.DeepCopy()
+	now := metav1.Now()
+	terminating.DeletionTimestamp = &now
+	forbidden := apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, "", errors.New("denied"))
+
+	for _, tc := range []struct {
+		name    string
+		pods    []corev1.Pod
+		err     error
+		cancel  bool
+		wantErr error
+	}{
+		{name: "mirror pod temporarily absent"},
+		{name: "mirror pod pending", pods: []corev1.Pod{pending}},
+		{name: "previous revision completed", pods: []corev1.Pod{succeeded}},
+		{name: "previous revision terminating", pods: []corev1.Pod{terminating}},
+		{name: "API temporarily unavailable", err: apierrors.NewServiceUnavailable("rolling out")},
+		{name: "permanent API error", err: forbidden, wantErr: forbidden},
+		{name: "caller cancels wait", cancel: true, wantErr: context.Canceled},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			client := fake.NewSimpleClientset()
+			calls := 0
+			client.PrependReactor("list", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+				if action.GetNamespace() != "operand-namespace" || action.(clienttesting.ListAction).GetListRestrictions().Labels.String() != "apiserver=true" {
+					t.Fatalf("unexpected pod list action: %#v", action)
+				}
+				calls++
+				if calls == 1 {
+					if tc.cancel {
+						cancel()
+					}
+					return true, &corev1.PodList{Items: tc.pods}, tc.err
+				}
+				return true, &corev1.PodList{Items: []corev1.Pod{running}}, nil
+			})
+			pod, err := waitForOperandPod(ctx, ClientSet{Kube: client}, "operand-namespace", "apiserver=true")
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) || pod != nil || calls != 1 {
+					t.Fatalf("got pod=%v, err=%v, calls=%d; want error %v after one call", pod, err, calls, tc.wantErr)
+				}
+				return
+			}
+			if err != nil || pod == nil || pod.Name != running.Name || calls != 2 {
+				t.Fatalf("got pod=%v, err=%v, calls=%d; want Running operand after two calls", pod, err, calls)
+			}
+		})
+	}
+}
 
 func TestDefaultPreflightPodSpecDriftIgnore(t *testing.T) {
 	base := &corev1.PodSpec{
