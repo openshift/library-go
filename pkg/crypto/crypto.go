@@ -1123,8 +1123,6 @@ func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time
 	return &x509.Certificate{
 		Subject: subject,
 
-		SignatureAlgorithm: x509.SHA256WithRSA,
-
 		NotBefore: currentTime().Add(-1 * time.Second),
 		NotAfter:  currentTime().Add(caLifetime),
 
@@ -1160,8 +1158,6 @@ func newServerCertificateTemplate(subject pkix.Name, hosts []string, lifetime ti
 func newServerCertificateTemplateForDuration(subject pkix.Name, hosts []string, lifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte) *x509.Certificate {
 	template := &x509.Certificate{
 		Subject: subject,
-
-		SignatureAlgorithm: x509.SHA256WithRSA,
 
 		NotBefore:    currentTime().Add(-1 * time.Second),
 		NotAfter:     currentTime().Add(lifetime),
@@ -1248,8 +1244,6 @@ func NewClientCertificateTemplateForDuration(subject pkix.Name, lifetime time.Du
 	return &x509.Certificate{
 		Subject: subject,
 
-		SignatureAlgorithm: x509.SHA256WithRSA,
-
 		NotBefore:    currentTime().Add(-1 * time.Second),
 		NotAfter:     currentTime().Add(lifetime),
 		SerialNumber: big.NewInt(1),
@@ -1333,4 +1327,18 @@ func writeKeyFile(f io.Writer, key crypto.PrivateKey) error {
 	}
 
 	return nil
+}
+
+// KeyAlgorithmForPrivateKey returns a string representation of the key algorithm.
+// It panics if an unknown key type is provided.
+// Currently supports RSA and ECDSA keys.
+func KeyAlgorithmForPrivateKey(privKey crypto.PrivateKey) string {
+	switch key := privKey.(type) {
+	case *rsa.PrivateKey:
+		return fmt.Sprintf("RSA-%d", key.N.BitLen())
+	case *ecdsa.PrivateKey:
+		return fmt.Sprintf("ECDSA-P%d", key.Curve.Params().BitSize)
+	default:
+		panic(fmt.Sprintf("unknown private key type %T", privKey))
+	}
 }
