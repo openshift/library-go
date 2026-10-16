@@ -316,6 +316,9 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, workload *appsv1.
 	workloadIsBeingUpdated := progressingCond.Status == operatorv1.ConditionTrue
 
 	desiredReplicas := ptr.Deref(workload.Spec.Replicas, 1)
+	// During a rollout the default maxSurge (25%) will allow the available
+	// replicas to temporarily exceed the desired replica count. If this were
+	// to occur, the operator should not report degraded.
 	workloadHasAllPodsAvailable := workload.Status.AvailableReplicas >= desiredReplicas
 
 	if !workloadHasAllPodsAvailable && !workloadIsBeingUpdated {
