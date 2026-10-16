@@ -7,16 +7,42 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/fake"
 	clocktesting "k8s.io/utils/clock/testing"
+	"k8s.io/utils/ptr"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/health"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
+
+// statusValidatingOperatorClient mirrors the production ApplyOperatorStatus guard in
+// genericoperatorclient: missing condition Type/Status panics instead of silently applying.
+type statusValidatingOperatorClient struct {
+	v1helpers.OperatorClient
+}
+
+func (c *statusValidatingOperatorClient) ApplyOperatorStatus(ctx context.Context, fieldManager string, applyConfiguration *applyoperatorv1.OperatorStatusApplyConfiguration) error {
+	if applyConfiguration != nil {
+		for i, curr := range applyConfiguration.Conditions {
+			if len(ptr.Deref(curr.Type, "")) == 0 {
+				panic(fmt.Sprintf(".status.conditions[%d].type is missing", i))
+			}
+			if len(ptr.Deref(curr.Status, "")) == 0 {
+				panic(fmt.Sprintf(".status.conditions[%q].status is missing", *curr.Type))
+			}
+		}
+	}
+	return c.OperatorClient.ApplyOperatorStatus(ctx, fieldManager, applyConfiguration)
+}
 
 type fakeKMSHealthStatusProvider struct {
 	status *operatorv1.KMSEncryptionStatus
@@ -276,7 +302,6 @@ func TestConditionControllerKMSHealthSkipsWithoutKMSPlugins(t *testing.T) {
 	}
 }
 
-
 func TestConditionControllerKMSHealthPrunesStaleReports(t *testing.T) {
 	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
 	fakeClock := clocktesting.NewFakePassiveClock(now)
@@ -333,6 +358,55 @@ func TestConditionControllerKMSHealthPrunesStaleReports(t *testing.T) {
 	}
 	assertCondition(t, fakeOperatorClient, kmsHealthReportsProgressingCondition, operatorv1.ConditionFalse, "")
 	assertCondition(t, fakeOperatorClient, kmsHealthReportsDegradedCondition, operatorv1.ConditionFalse, "")
+}
+
+func TestConditionControllerSyncKMSHealthErrorDoesNotApplyEncryptedWithoutStatus(t *testing.T) {
+	// Fabio: returning from sync after a KMS health error left Encrypted (cond) non-nil
+	// without Status set; defer then ApplyOperatorStatus panics in production.
+	cfg := encryptiondatatesting.CreateEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets")
+	cfg.KMSPlugins = map[string]kms.KMSPluginConfig{
+		"1": {Type: kms.VaultKMSProvider},
+	}
+	encSecret := createEncryptionCfgSecret(t, "test", "1", cfg)
+
+	fakeOperatorClient := &statusValidatingOperatorClient{
+		OperatorClient: v1helpers.NewFakeOperatorClient(
+			&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
+			&operatorv1.OperatorStatus{
+				Conditions: []operatorv1.OperatorCondition{{
+					Type:   "Encrypted",
+					Status: operatorv1.ConditionTrue,
+					Reason: "EncryptionCompleted",
+				}},
+			},
+			nil,
+		),
+	}
+
+	c := &conditionController{
+		controllerInstanceName:   "test-EncryptionCondition",
+		operatorClient:           fakeOperatorClient,
+		provider:                 newTestProvider([]schema.GroupResource{{Group: "", Resource: "secrets"}}),
+		preconditionsFulfilledFn: alwaysFulfilledPreconditions,
+		deployer:                 &fakeEncryptionDeployer{secret: encSecret, converged: true},
+		secretClient:             fake.NewSimpleClientset().CoreV1(),
+		encryptionSecretSelector: metav1.ListOptions{},
+		encryptionStatusProvider: &fakeKMSHealthStatusProvider{getErr: fmt.Errorf("status unavailable")},
+		clock:                    clocktesting.NewFakePassiveClock(time.Now()),
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("sync panicked applying Encrypted without status on KMS health error: %v", r)
+		}
+	}()
+
+	err := c.sync(context.Background(), factory.NewSyncContext("test", events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))))
+	if err == nil {
+		t.Fatal("expected KMS health status error")
+	}
+
+	assertCondition(t, fakeOperatorClient, "Encrypted", operatorv1.ConditionTrue, "EncryptionCompleted")
 }
 
 func assertCondition(t *testing.T, client v1helpers.OperatorClient, conditionType string, status operatorv1.ConditionStatus, reason string) {

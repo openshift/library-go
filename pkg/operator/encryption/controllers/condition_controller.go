@@ -143,6 +143,9 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 
 	kmsHealthProgressing, kmsHealthDegraded, err = c.kmsHealthConditions(ctx, currentConfig)
 	if err != nil {
+		// Encrypted has no Status yet; skip publishing it so ApplyOperatorStatus
+		// does not panic on a missing condition status (same as the transitioning path).
+		cond = nil
 		kmsHealthProgressing = nil
 		kmsHealthDegraded = nil
 		return err
