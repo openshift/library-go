@@ -44,6 +44,12 @@ type CertificateAuthorityResolver func(name string) (string, error)
 // client.
 type ClientSecretResolver func(name string) (string, error)
 
+// TrustedCAFilePathResolver resolves the path of a PEM-encoded CA bundle
+// mounted in the oauth-apiserver. It returns an empty string when no custom CA
+// is needed. Consumers own the resolution logic and the bundle's mount path;
+// the generator does not read the file.
+type TrustedCAFilePathResolver func() (string, error)
+
 // AuthenticationConfigurationGenerator generates oauth-apiserver External OIDC
 // authentication configuration from a cluster Authentication specification.
 type AuthenticationConfigurationGenerator struct {
@@ -53,9 +59,24 @@ type AuthenticationConfigurationGenerator struct {
 
 	externalClaimsSourcingEnabled bool
 	clientSecretResolver          ClientSecretResolver
+	trustedCAFilePathResolver     TrustedCAFilePathResolver
 }
 
 type GeneratorOption func(*AuthenticationConfigurationGenerator)
+
+// WithTrustedCAFilePath sets the resolver for the trusted CA bundle's file path.
+// The resolver is called on each Generate invocation so CA configuration
+// changes are reflected in the generated configuration. If omitted, connections
+// use the system trust roots only. The option panics when applied if resolver
+// is nil.
+func WithTrustedCAFilePath(resolver TrustedCAFilePathResolver) GeneratorOption {
+	return func(generator *AuthenticationConfigurationGenerator) {
+		if resolver == nil {
+			panic("trusted CA file path resolver cannot be nil")
+		}
+		generator.trustedCAFilePathResolver = resolver
+	}
+}
 
 // WithExternalClaimsSourcing enables generation of external claims sources.
 // resolver resolves client Secrets for sources that use client-credential
@@ -126,6 +147,14 @@ func (acg *AuthenticationConfigurationGenerator) Generate(authSpec *configv1.Aut
 			Kind:       kindAuthenticationConfiguration,
 			APIVersion: authenticationv1alpha1.SchemeGroupVersion.String(),
 		},
+	}
+
+	if acg.trustedCAFilePathResolver != nil {
+		path, err := acg.trustedCAFilePathResolver()
+		if err != nil {
+			return nil, fmt.Errorf("resolving trusted CA file path: %w", err)
+		}
+		authConfig.TrustedCAFilePath = path
 	}
 
 	errs := []error{}
