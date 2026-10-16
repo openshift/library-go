@@ -1,8 +1,10 @@
 package certrotation
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -17,10 +19,12 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/openshift/api/annotations"
 	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
+	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/pki"
 )
@@ -81,6 +85,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 			"auth.openshift.io/certificate-issuer",
 			"certificates.openshift.io/refresh-period",
 			"openshift.io/owning-component",
+			"certificates.openshift.io/key-algorithm",
 		)
 		if keys := sets.KeySet(actual.Annotations); !keys.Equal(expectedAnnotationKeys) {
 			t.Errorf("Annotation keys don't match:\n%s", cmp.Diff(expectedAnnotationKeys, keys))
@@ -101,11 +106,79 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 		}
 	}
 
+	verifySecretHasIntermediateCA := func(t *testing.T, actual, initial *corev1.Secret) {
+		t.Helper()
+
+		initialCA, err := crypto.GetCAFromBytes(initial.Data["tls.crt"], initial.Data["tls.key"])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		actualCA, err := crypto.GetCAFromBytes(actual.Data["tls.crt"], actual.Data["tls.key"])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(actualCA.Config.Certs) != 2 {
+			t.Fatalf("expected exactly 2 certificates but got %d", len(actualCA.Config.Certs))
+		}
+
+		intermediate := actualCA.Config.Certs[1]
+
+		if string(intermediate.Issuer.CommonName) != string(initialCA.Config.Certs[0].Issuer.CommonName) {
+			t.Errorf("expected the intermediate certificate to have an issuer name matching %q but got %q", initialCA.Config.Certs[0].Issuer.CommonName, intermediate.Issuer.CommonName)
+		}
+
+		if string(intermediate.Subject.CommonName) != actualCA.Config.Certs[0].Subject.CommonName {
+			t.Errorf("expected the intermediate certificate to have a subject name matching %q but got %q", actualCA.Config.Certs[0].Subject.CommonName, intermediate.Subject.CommonName)
+		}
+	}
+
+	createInitialSecretWithSignerContents := func(ns, name string) (*corev1.Secret, time.Time) {
+		signerName := fmt.Sprintf("%s_%s@%d", ns, name, time.Now().Unix())
+		ca, err := crypto.NewSigningCertificate(signerName, crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithLifetime(time.Hour))
+		if err != nil {
+			panic("couldn't create self-signed CA cert for testing")
+		}
+
+		certBytes := &bytes.Buffer{}
+		keyBytes := &bytes.Buffer{}
+		err = ca.WriteCertConfig(certBytes, keyBytes)
+		if err != nil {
+			panic("couldn't write self-signed CA cert data for testing")
+		}
+
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:       ns,
+				Name:            name,
+				ResourceVersion: "10",
+				Annotations: map[string]string{
+					CertificateIssuer:              ca.Certs[0].Issuer.CommonName,
+					CertificateNotBeforeAnnotation: ca.Certs[0].NotBefore.Format(time.RFC3339),
+					CertificateNotAfterAnnotation:  ca.Certs[0].NotAfter.Format(time.RFC3339),
+					CertificateKeyAlgorithm:        crypto.KeyAlgorithmForPrivateKey(ca.Key),
+					annotations.OpenShiftComponent: "test",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					Name: "operator",
+				}},
+			},
+			Type: corev1.SecretTypeTLS,
+			Data: map[string][]byte{"tls.crt": certBytes.Bytes(), "tls.key": keyBytes.Bytes()},
+		}, ca.Certs[0].NotBefore
+	}
+
+	initialSecretWithContents, notBeforeTime := createInitialSecretWithSignerContents("ns", "signer")
+	yesterdayRefreshDuration := time.Duration(-1 * (time.Hour * 24))
+
 	tests := []struct {
 		name string
 
 		initialSecret          *corev1.Secret
 		RefreshOnlyWhenExpired bool
+		RefreshDuration        *time.Duration
+		PKIProfileProvider     pki.PKIProfileProvider
 
 		verifyResult func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool)
 
@@ -148,7 +221,8 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 		{
 			name: "update on missing notAfter annotation",
 			initialSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "signer", ResourceVersion: "10",
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns", Name: "signer", ResourceVersion: "10",
 					Annotations: map[string]string{
 						"auth.openshift.io/certificate-not-before": "2108-09-08T20:47:31-07:00",
 						annotations.OpenShiftComponent:             "test",
@@ -172,7 +246,8 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 		{
 			name: "update on missing notBefore annotation",
 			initialSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "signer", ResourceVersion: "10",
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns", Name: "signer", ResourceVersion: "10",
 					Annotations: map[string]string{
 						"auth.openshift.io/certificate-not-after": "2108-09-08T22:47:31-07:00",
 						annotations.OpenShiftComponent:            "test",
@@ -196,7 +271,8 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 		{
 			name: "update no work",
 			initialSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "signer",
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns", Name: "signer",
 					ResourceVersion: "10",
 					Annotations: map[string]string{
 						"auth.openshift.io/certificate-not-after":  "2108-09-08T22:47:31-07:00",
@@ -239,6 +315,92 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 			},
 			expectedError: "certFile missing", // this means we tried to read the cert from the existing secret.  If we created one, we fail in the client check
 		},
+		{
+			name:            "update with old signer contents present results in intermediate CA for serving",
+			initialSecret:   initialSecretWithContents,
+			RefreshDuration: &yesterdayRefreshDuration, // force a refresh
+			expectedEvents: []*corev1.Event{
+				{Reason: "SignerUpdateRequired", Message: fmt.Sprintf(`"signer" in "ns" requires a new signing cert/key pair: past its refresh time %v`, notBeforeTime.Add(yesterdayRefreshDuration))},
+				{Reason: "SecretUpdated", Message: `Updated Secret/signer -n ns because it changed`},
+			},
+			verifyResult: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
+				actions := client.Actions()
+				verifyActionsOnUpdated(t, actions)
+				verifyControllerUpdatedSecret(t, true, controllerUpdatedSecret)
+				verifySecret(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret))
+				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), initialSecretWithContents)
+			},
+		},
+		{
+			name:          "update due to differing key algorithms (RSA initially, ECDSA after)",
+			initialSecret: initialSecretWithContents,
+			PKIProfileProvider: pki.NewStaticPKIProfileProvider(&configv1alpha1.PKIProfile{
+				Defaults: configv1alpha1.DefaultCertificateConfig{
+					Key: configv1alpha1.KeyConfig{
+						Algorithm: configv1alpha1.KeyAlgorithmECDSA,
+						ECDSA: configv1alpha1.ECDSAKeyConfig{
+							Curve: configv1alpha1.ECDSACurveP256,
+						},
+					},
+				},
+			}),
+			expectedEvents: []*corev1.Event{
+				{Reason: "SignerUpdateRequired", Message: `"signer" in "ns" requires a new signing cert/key pair: key algorithm changed from "RSA-2048" to "ECDSA-P256"`},
+				{Reason: "SecretUpdated", Message: `Updated Secret/signer -n ns because it changed`},
+			},
+			verifyResult: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
+				actions := client.Actions()
+				verifyActionsOnUpdated(t, actions)
+				verifyControllerUpdatedSecret(t, true, controllerUpdatedSecret)
+				verifySecret(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret))
+				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), initialSecretWithContents)
+				verifyKeyAlgorithm(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), "ECDSA-P256")
+			},
+		},
+		{
+			name:          "update due to differing key algorithms (same algorithm type, different bit strength)",
+			initialSecret: initialSecretWithContents,
+			PKIProfileProvider: pki.NewStaticPKIProfileProvider(&configv1alpha1.PKIProfile{
+				Defaults: configv1alpha1.DefaultCertificateConfig{
+					Key: configv1alpha1.KeyConfig{
+						Algorithm: configv1alpha1.KeyAlgorithmRSA,
+						RSA: configv1alpha1.RSAKeyConfig{
+							KeySize: 3072,
+						},
+					},
+				},
+			}),
+			expectedEvents: []*corev1.Event{
+				{Reason: "SignerUpdateRequired", Message: `"signer" in "ns" requires a new signing cert/key pair: key algorithm changed from "RSA-2048" to "RSA-3072"`},
+				{Reason: "SecretUpdated", Message: `Updated Secret/signer -n ns because it changed`},
+			},
+			verifyResult: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
+				actions := client.Actions()
+				verifyActionsOnUpdated(t, actions)
+				verifyControllerUpdatedSecret(t, true, controllerUpdatedSecret)
+				verifySecret(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret))
+				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), initialSecretWithContents)
+				verifyKeyAlgorithm(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), "RSA-3072")
+			},
+		},
+		{
+			name:          "no update when valid and PKIProfileProvider returns desired key algorithm that matches existing algorithm",
+			initialSecret: initialSecretWithContents,
+			PKIProfileProvider: pki.NewStaticPKIProfileProvider(&configv1alpha1.PKIProfile{
+				Defaults: configv1alpha1.DefaultCertificateConfig{
+					Key: configv1alpha1.KeyConfig{
+						Algorithm: configv1alpha1.KeyAlgorithmRSA,
+						RSA: configv1alpha1.RSAKeyConfig{
+							KeySize: 2048,
+						},
+					},
+				},
+			}),
+			verifyResult: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
+				verifyActionsEmpty(t, client.Actions())
+				verifyControllerUpdatedSecret(t, false, controllerUpdatedSecret)
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -268,6 +430,11 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 					Name: "operator",
 				},
 				RefreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
+				PKIProfileProvider:     test.PKIProfileProvider,
+			}
+
+			if test.RefreshDuration != nil {
+				c.Refresh = *test.RefreshDuration
 			}
 
 			_, updated, err := c.EnsureSigningCertKeyPair(t.Context())
@@ -286,6 +453,21 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				t.Errorf("Events mismatch (-want +got):\n%s", cmp.Diff(test.expectedEvents, events))
 			}
 		})
+	}
+}
+
+func verifyKeyAlgorithm(t *testing.T, secret *corev1.Secret, expectedKeyAlgorithm string) {
+	if secret.Annotations[CertificateKeyAlgorithm] != expectedKeyAlgorithm {
+		t.Errorf("secret annotation %q value %q does not match expected value of %q", CertificateKeyAlgorithm, secret.Annotations[CertificateKeyAlgorithm], expectedKeyAlgorithm)
+	}
+
+	ca, err := crypto.GetCAFromBytes(secret.Data["tls.crt"], secret.Data["tls.key"])
+	if err != nil {
+		t.Fatalf("getting CA from secret data: %v", err)
+	}
+
+	if crypto.KeyAlgorithmForPrivateKey(ca.Config.Key) != expectedKeyAlgorithm {
+		t.Errorf("private key uses algorithm %q, which does not match expected algorithm %q", crypto.KeyAlgorithmForPrivateKey(ca.Config.Key), expectedKeyAlgorithm)
 	}
 }
 
@@ -318,13 +500,22 @@ func verifyKeyPair(t testing.TB, certPEM, keyPEM []byte) {
 	}
 
 	keyBlock, _ := pem.Decode(keyPEM)
-	key, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
-	if err != nil {
-		t.Fatalf("Failed to parse key: %v", err)
-	}
 
-	if err := key.Validate(); err != nil {
-		t.Errorf("Failed to validate key: %v", err)
+	switch cert.PublicKeyAlgorithm {
+	case x509.RSA:
+		key, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+		if err != nil {
+			t.Fatalf("Failed to parse RSA key: %v", err)
+		}
+
+		if err := key.Validate(); err != nil {
+			t.Errorf("Failed to validate RSA key: %v", err)
+		}
+	case x509.ECDSA:
+		_, err := x509.ParseECPrivateKey(keyBlock.Bytes)
+		if err != nil {
+			t.Fatalf("Failed to parse ECDSA key: %v", err)
+		}
 	}
 }
 
@@ -373,7 +564,7 @@ func TestSetSigningCertKeyPairSecret_WithPKIProfile(t *testing.T) {
 				c.PKIProfileProvider = pki.NewStaticPKIProfileProvider(&profile)
 			}
 
-			ca, err := c.setSigningCertKeyPairSecret(secret)
+			ca, err := c.setSigningCertKeyPairSecret(secret, nil, clock.RealClock{})
 			if err != nil {
 				t.Fatalf("setSigningCertKeyPairSecret() error = %v", err)
 			}

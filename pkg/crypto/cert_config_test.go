@@ -480,3 +480,96 @@ func curveForName(c ECDSACurve) elliptic.Curve {
 func x509pkixName(cn, org string) pkix.Name {
 	return pkix.Name{CommonName: cn, Organization: []string{org}}
 }
+
+func TestNewClientCertificateChain(t *testing.T) {
+	type testcase struct {
+		name   string
+		issuer *CA
+	}
+
+	testcases := []testcase{
+		{
+			name: "self-signed CA",
+			issuer: func() *CA {
+				ca, err := NewSigningCertificate("self-signed-test", RSAKeyPairGenerator{Bits: 2048}, WithLifetime(time.Hour))
+				if err != nil {
+					t.Fatalf("creating signing certificate for testing: %v", err)
+				}
+				return &CA{
+					Config: ca,
+					SerialGenerator: &RandomSerialGenerator{},
+				}
+			}(),
+		},
+		{
+			name: "self-signed CA with cross signed intermediate",
+			issuer: func() *CA {
+				initialCACfg, err := NewSigningCertificate("initial-self-signed-test", RSAKeyPairGenerator{Bits: 2048}, WithLifetime(time.Hour))
+				if err != nil {
+					t.Fatalf("creating initial signing certificate for testing: %v", err)
+				}
+				initialCA := &CA{
+					Config: initialCACfg,
+					SerialGenerator: &RandomSerialGenerator{},
+				}
+
+				secondaryCACfg, err := NewSigningCertificate("secondary-self-signed-test", RSAKeyPairGenerator{Bits: 2048}, WithLifetime(time.Hour))
+				if err != nil {
+					t.Fatalf("creating secondary signing certificate for testing: %v", err)
+				}
+
+				secondaryCrossSignedCACfg, err := NewSigningCertificate("secondary-self-signed-test", NewStaticKeyPairGenerator(secondaryCACfg.Key), WithLifetime(time.Hour), WithSigner(initialCA))
+				if err != nil {
+					t.Fatalf("creating secondary intermediate certificate for testing: %v", err)
+				}
+
+				secondaryCACfg.Certs = append(secondaryCACfg.Certs, secondaryCrossSignedCACfg.Certs...)
+
+				return &CA{
+					Config: secondaryCACfg,
+					SerialGenerator: &RandomSerialGenerator{},
+				}
+			}(),
+		},
+		{
+			name: "sub CA",
+			issuer: func() *CA {
+				initialCACfg, err := NewSigningCertificate("initial-self-signed-test", RSAKeyPairGenerator{Bits: 2048}, WithLifetime(time.Hour))
+				if err != nil {
+					t.Fatalf("creating initial signing certificate for testing: %v", err)
+				}
+				initialCA := &CA{
+					Config: initialCACfg,
+					SerialGenerator: &RandomSerialGenerator{},
+				}
+
+				subCACfg, err := NewSigningCertificate("sub-ca-test", RSAKeyPairGenerator{Bits: 2048}, WithLifetime(time.Hour), WithSigner(initialCA))
+				if err != nil {
+					t.Fatalf("creating sub-CA certificate for testing: %v", err)
+				}
+
+				return &CA{
+					Config: subCACfg,
+					SerialGenerator: &RandomSerialGenerator{},
+				}
+			}(),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			cc, err := tc.issuer.NewClientCertificate(&user.DefaultInfo{
+				Name: "hsimpson",
+			}, RSAKeyPairGenerator{Bits: 2048}, WithLifetime(time.Hour))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			for _, cert := range cc.Certs {
+				if cert.IsCA && cert.CheckSignatureFrom(cert) == nil {
+					t.Errorf("certificate %q is a self-signed CA certificate and should not be returned in the client certificate chain", cert.Subject.CommonName)
+				}
+			}
+		})
+	}
+}
