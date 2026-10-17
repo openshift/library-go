@@ -7,69 +7,68 @@ import (
 	configv1alpha1listers "github.com/openshift/client-go/config/listers/config/v1alpha1"
 )
 
-// PKIProfileProvider provides the PKIProfile that determines certificate key
-// configuration. A nil profile indicates Unmanaged mode where the caller
-// should use its own defaults.
-type PKIProfileProvider interface {
-	PKIProfile() (*configv1alpha1.PKIProfile, error)
+// ConfigProvider provides the cluster-scoped PKI configuration that drives
+// key configuration for internally-generated certificates and signing keys.
+//
+// A provider is only wired up when PKI configuration is enabled (for example
+// behind the ConfigurablePKI feature gate); the caller owns that check and
+// must not call the provider when the feature is disabled. Resource-backed
+// providers expect the PKI resource to exist: a missing resource is an error,
+// never a signal to fall back to defaults.
+type ConfigProvider interface {
+	// Config returns the current PKI configuration (the PKI resource's
+	// spec). The returned spec may alias the provider's storage, for
+	// example the shared informer cache; callers must treat it as
+	// read-only.
+	Config() (configv1alpha1.PKISpec, error)
 }
 
-// StaticPKIProfileProvider is a PKIProfileProvider backed by a fixed PKIProfile.
-type StaticPKIProfileProvider struct {
-	profile *configv1alpha1.PKIProfile
+// NewStaticConfigProvider returns a ConfigProvider backed by the given spec.
+// The spec is deep-copied, so later mutations of the caller's value do not
+// affect the provider.
+func NewStaticConfigProvider(spec configv1alpha1.PKISpec) ConfigProvider {
+	return &staticConfigProvider{spec: *spec.DeepCopy()}
 }
 
-// NewStaticPKIProfileProvider returns a PKIProfileProvider backed by the given
-// profile. A nil profile signals Unmanaged mode.
-func NewStaticPKIProfileProvider(profile *configv1alpha1.PKIProfile) *StaticPKIProfileProvider {
-	return &StaticPKIProfileProvider{profile: profile}
+type staticConfigProvider struct {
+	spec configv1alpha1.PKISpec
 }
 
-// PKIProfile returns the static PKIProfile.
-func (s *StaticPKIProfileProvider) PKIProfile() (*configv1alpha1.PKIProfile, error) {
-	return s.profile, nil
+// Config returns the static PKI configuration.
+func (s *staticConfigProvider) Config() (configv1alpha1.PKISpec, error) {
+	return s.spec, nil
 }
 
-// ListerPKIProfileProvider is a PKIProfileProvider that reads a named
+// NewClusterConfigProvider creates a ConfigProvider that resolves the PKI
+// configuration from the OpenShift cluster configuration PKI resource.
+func NewClusterConfigProvider(lister configv1alpha1listers.PKILister) ConfigProvider {
+	return NewListerConfigProvider(lister, "cluster")
+}
+
+// NewListerConfigProvider returns a ConfigProvider that reads the named
 // cluster-scoped PKI resource via a lister.
-type ListerPKIProfileProvider struct {
-	lister       configv1alpha1listers.PKILister
-	resourceName string
-}
-
-// NewClusterPKIProfileProvider creates a PKIProfileProvider that resolves the
-// PKIProfile from the OpenShift cluster configuration PKI resource.
-func NewClusterPKIProfileProvider(lister configv1alpha1listers.PKILister) *ListerPKIProfileProvider {
-	return NewListerPKIProfileProvider(lister, "cluster")
-}
-
-// NewListerPKIProfileProvider returns a PKIProfileProvider that reads the
-// named cluster-scoped PKI resource via a lister.
-func NewListerPKIProfileProvider(lister configv1alpha1listers.PKILister, resourceName string) *ListerPKIProfileProvider {
-	return &ListerPKIProfileProvider{
+func NewListerConfigProvider(lister configv1alpha1listers.PKILister, resourceName string) ConfigProvider {
+	return &listerConfigProvider{
 		lister:       lister,
 		resourceName: resourceName,
 	}
 }
 
-// PKIProfile reads the PKI resource and returns the profile based on its
-// certificate management mode. Returns nil for Unmanaged mode.
-func (l *ListerPKIProfileProvider) PKIProfile() (*configv1alpha1.PKIProfile, error) {
+type listerConfigProvider struct {
+	lister       configv1alpha1listers.PKILister
+	resourceName string
+}
+
+// Config reads the PKI resource and returns its spec. The returned error
+// wraps the lister error, so apierrors.IsNotFound keeps matching for callers
+// that need to distinguish a missing resource.
+func (l *listerConfigProvider) Config() (configv1alpha1.PKISpec, error) {
 	pki, err := l.lister.Get(l.resourceName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get PKI resource %q: %w", l.resourceName, err)
+		return configv1alpha1.PKISpec{}, fmt.Errorf("failed to get PKI resource %q: %w", l.resourceName, err)
 	}
-
-	switch pki.Spec.CertificateManagement.Mode {
-	case configv1alpha1.PKICertificateManagementModeUnmanaged:
-		return nil, nil
-	case configv1alpha1.PKICertificateManagementModeDefault:
-		profile := DefaultPKIProfile()
-		return &profile, nil
-	case configv1alpha1.PKICertificateManagementModeCustom:
-		profile := pki.Spec.CertificateManagement.Custom.PKIProfile
-		return &profile, nil
-	default:
-		return nil, fmt.Errorf("unknown PKI certificate management mode: %q", pki.Spec.CertificateManagement.Mode)
+	if pki == nil {
+		return configv1alpha1.PKISpec{}, fmt.Errorf("lister returned a nil PKI resource %q", l.resourceName)
 	}
+	return pki.Spec, nil
 }
