@@ -344,7 +344,7 @@ func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.
 }
 
 func (m *mockTargetCertCreator) CertificateType() pki.CertificateType {
-	return pki.CertificateTypeServing
+	return pki.CertificateTypeServer
 }
 
 func (m *mockTargetCertCreator) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool) string {
