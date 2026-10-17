@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	corev1 "k8s.io/api/core/v1"
@@ -11,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	kmsservice "k8s.io/kms/pkg/service"
@@ -91,6 +93,8 @@ func TestUpdatePodCheckConditions_retriesOnConflict(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset(pod)
 	podClient := kubeClient.CoreV1().Pods(pod.Namespace)
 
+	defer withFastPodStatusUpdateBackoff()()
+
 	attempts := 0
 	kubeClient.PrependReactor("update", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
 		updateAction := action.(clienttesting.UpdateAction)
@@ -111,4 +115,53 @@ func TestUpdatePodCheckConditions_retriesOnConflict(t *testing.T) {
 	if attempts < 2 {
 		t.Fatalf("expected at least 2 update attempts, got %d", attempts)
 	}
+}
+
+// TestUpdatePodCheckConditions_retriesWhileAPIServerUnavailable reproduces the
+// single-node failure mode: the apiserver the preflight pod talks to is briefly
+// unavailable (connection refused) while it rolls to a new revision, which is
+// exactly when the checker tries to report its result. The write must keep
+// retrying across that window rather than giving up after a handful of attempts,
+// otherwise the pod exits non-zero and the controller wedges the KMS key forever.
+func TestUpdatePodCheckConditions_retriesWhileAPIServerUnavailable(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kms-preflight-abc123",
+			Namespace: "openshift-oauth-apiserver",
+		},
+	}
+	kubeClient := fake.NewSimpleClientset(pod)
+	podClient := kubeClient.CoreV1().Pods(pod.Namespace)
+
+	defer withFastPodStatusUpdateBackoff()()
+
+	// retry.DefaultRetry only allowed 5 steps; fail more times than that to prove
+	// the widened backoff rides out a longer outage before the apiserver recovers.
+	const unavailableAttempts = 6
+	attempts := 0
+	connRefused := fmt.Errorf(`Get "https://172.30.0.1:443/api/v1/namespaces/openshift-oauth-apiserver/pods/kms-preflight": dial tcp 172.30.0.1:443: connect: connection refused`)
+	kubeClient.PrependReactor("*", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		attempts++
+		if attempts <= unavailableAttempts {
+			return true, nil, connRefused
+		}
+		return false, nil, nil
+	})
+
+	conditions := podCheckConditions(&kmsservice.StatusResponse{Version: "v2", KeyID: "key-1"}, nil)
+	if err := updatePodCheckConditions(context.Background(), podClient, pod.Name, conditions); err != nil {
+		t.Fatalf("updatePodCheckConditions() error = %v", err)
+	}
+	if attempts <= unavailableAttempts {
+		t.Fatalf("expected the write to retry past the outage (>%d attempts), got %d", unavailableAttempts, attempts)
+	}
+}
+
+// withFastPodStatusUpdateBackoff swaps in a near-instant backoff so retry tests
+// do not actually sleep for seconds. It returns a function that restores the
+// original backoff.
+func withFastPodStatusUpdateBackoff() func() {
+	original := podStatusUpdateBackoff
+	podStatusUpdateBackoff = wait.Backoff{Duration: time.Millisecond, Factor: 1.0, Steps: 50}
+	return func() { podStatusUpdateBackoff = original }
 }
