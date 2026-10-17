@@ -49,12 +49,18 @@ type RotatedSigningCASecret struct {
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations AdditionalAnnotations
 
-	// CertificateName is the logical name of this certificate for PKI profile resolution.
+	// CertificateName is the well-known name of this certificate for PKI
+	// configuration resolution. It must be a prefixed qualified name in the
+	// format <dns-subdomain>/<name> (for example
+	// "openshift.io/service-ca.service-serving-signer") so it can match a
+	// namedCertificates override in the PKI resource.
 	CertificateName string
 
-	// PKIProfileProvider, when non-nil, enables ConfigurablePKI certificate
-	// key algorithm resolution. When nil, legacy certificate generation is used.
-	PKIProfileProvider pki.PKIProfileProvider
+	// PKIConfigProvider, when non-nil, enables ConfigurablePKI certificate key
+	// algorithm resolution. The caller owns the feature-gate check: pass nil
+	// when ConfigurablePKI is disabled. When non-nil, the PKI resource must
+	// exist; a missing resource fails the sync.
+	PKIConfigProvider pki.ConfigProvider
 
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
@@ -208,28 +214,13 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 }
 
 func (c RotatedSigningCASecret) resolveKeyPairGenerator() (crypto.KeyPairGenerator, error) {
-	return resolveKeyPairGeneratorWithFallback(c.PKIProfileProvider, pki.CertificateTypeSigner, c.CertificateName)
-}
-
-// resolveKeyPairGeneratorWithFallback resolves the key pair generator from the
-// PKI profile provider. Returns nil for Unmanaged mode (no key override).
-//
-// TODO(sanchezl): Remove the fallback to DefaultPKIProfile() once installer
-// support for the PKI resource is in place. Until then, the PKI resource may
-// not exist in TechPreview clusters. Once removed, callers can use
-// pki.ResolveCertificateConfig directly.
-func resolveKeyPairGeneratorWithFallback(provider pki.PKIProfileProvider, certType pki.CertificateType, name string) (crypto.KeyPairGenerator, error) {
-	cfg, err := pki.ResolveCertificateConfig(provider, certType, name)
+	spec, err := c.PKIConfigProvider.Config()
 	if err != nil {
-		klog.Warningf("Failed to resolve PKI config for %s %q, falling back to default profile: %v", certType, name, err)
-		defaultProfile := pki.DefaultPKIProfile()
-		cfg, err = pki.ResolveCertificateConfig(pki.NewStaticPKIProfileProvider(&defaultProfile), certType, name)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
-	if cfg == nil {
-		return nil, nil
+	cfg, err := pki.ResolveCertificateConfig(spec.Certificates, pki.CertificateTypeCA, c.CertificateName)
+	if err != nil {
+		return nil, err
 	}
 	return cfg.Key, nil
 }
@@ -252,20 +243,14 @@ func (c RotatedSigningCASecret) setSigningCertKeyPairSecret(signingCertKeyPairSe
 
 	var ca *crypto.TLSCertificateConfig
 	var err error
-	if c.PKIProfileProvider != nil {
-		keyGen, err := c.resolveKeyPairGenerator()
-		if err != nil {
+	if c.PKIConfigProvider != nil {
+		var keyGen crypto.KeyPairGenerator
+		if keyGen, err = c.resolveKeyPairGenerator(); err != nil {
 			return nil, err
 		}
-		if keyGen != nil {
-			ca, err = crypto.NewSigningCertificate(signerName, keyGen, crypto.WithLifetime(c.Validity))
-			if err != nil {
-				return nil, err
-			}
-		}
-		// nil keyGen means Unmanaged: fall through to legacy cert generation
-	}
-	if ca == nil {
+		ca, err = crypto.NewSigningCertificate(signerName, keyGen, crypto.WithLifetime(c.Validity))
+	} else {
+		// legacy certificate generation
 		ca, err = crypto.MakeSelfSignedCAConfigForDuration(signerName, c.Validity)
 	}
 	if err != nil {
