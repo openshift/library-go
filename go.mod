@@ -18,7 +18,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/selinux v1.13.0
-	github.com/openshift/api v0.0.0-20261006163836-502232e87aad
+	github.com/openshift/api v0.0.0-20261013084449-5a61bfba6d60
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
 	github.com/openshift/client-go v0.0.0-20261006222332-348fc1ca8bb1
 	github.com/openshift/osincli v0.0.0-20160924135400-fababb0555f2
@@ -149,3 +149,7 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
 )
+
+replace github.com/openshift/api => github.com/sanchezl/api v0.0.0-20261016215221-2eba0626252b
+
+replace github.com/openshift/client-go => github.com/sanchezl/client-go v0.0.0-20261016220113-27acfccd1ab1
