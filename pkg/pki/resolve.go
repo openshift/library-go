@@ -43,9 +43,7 @@ func ResolveCertificateConfig(policy configv1alpha1.PKICertificatePolicy, certTy
 		}
 	}()
 
-	if name != "" && !strings.Contains(name, "/") {
-		klog.V(2).Infof("Certificate name %q is not a prefixed qualified name (expected a format like \"openshift.io/component.purpose\"); it cannot match any namedCertificates override", name)
-	}
+	logUnprefixedNameHint("Certificate", "namedCertificates override", name)
 	if policy.Defaults.Key.Algorithm == "" {
 		return ResolvedCertificateConfig{}, fmt.Errorf("resolving %s certificate %q: certificates.defaults.key.algorithm is required", certType, name)
 	}
@@ -159,4 +157,14 @@ func (g selfCheckingKeyPairGenerator) GenerateKeyPair() (gocrypto.PublicKey, goc
 
 func (g selfCheckingKeyPairGenerator) Matches(pub gocrypto.PublicKey) error {
 	return g.inner.Matches(pub)
+}
+
+// logUnprefixedNameHint logs at V(2) when name is not a prefixed qualified
+// name and therefore cannot match any named entry. target names what the
+// name would have matched, for example "namedCertificates override".
+func logUnprefixedNameHint(noun, target, name string) {
+	if name == "" || strings.Contains(name, "/") {
+		return
+	}
+	klog.V(2).Infof("%s name %q is not a prefixed qualified name (expected a format like \"openshift.io/component.purpose\"); it cannot match any %s", noun, name, target)
 }
