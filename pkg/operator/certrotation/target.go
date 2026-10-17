@@ -65,12 +65,18 @@ type RotatedSelfSignedCertKeySecret struct {
 	// CertCreator does the actual cert generation.
 	CertCreator TargetCertCreator
 
-	// CertificateName is the logical name of this certificate for PKI profile resolution.
+	// CertificateName is the well-known name of this certificate for PKI
+	// configuration resolution. It must be a prefixed qualified name in the
+	// format <dns-subdomain>/<name> (for example
+	// "openshift.io/service-ca.service-serving") so it can match a
+	// namedCertificates override in the PKI resource.
 	CertificateName string
 
-	// PKIProfileProvider, when non-nil, enables ConfigurablePKI certificate
-	// key algorithm resolution. When nil, legacy certificate generation is used.
-	PKIProfileProvider pki.PKIProfileProvider
+	// PKIConfigProvider, when non-nil, enables ConfigurablePKI certificate key
+	// algorithm resolution. The caller owns the feature-gate check: pass nil
+	// when ConfigurablePKI is disabled. When non-nil, the PKI resource must
+	// exist; a missing resource fails the sync.
+	PKIConfigProvider pki.ConfigProvider
 
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
@@ -278,7 +284,7 @@ func (c RotatedSelfSignedCertKeySecret) setTargetCertKeyPairSecret(targetCertKey
 	}
 
 	var keyGen crypto.KeyPairGenerator
-	if c.PKIProfileProvider != nil {
+	if c.PKIConfigProvider != nil {
 		var err error
 		keyGen, err = c.resolveKeyPairGenerator()
 		if err != nil {
@@ -315,7 +321,15 @@ func (c RotatedSelfSignedCertKeySecret) setTLSAnnotationsOnTargetCertKeyPairSecr
 }
 
 func (c RotatedSelfSignedCertKeySecret) resolveKeyPairGenerator() (crypto.KeyPairGenerator, error) {
-	return resolveKeyPairGeneratorWithFallback(c.PKIProfileProvider, c.CertCreator.CertificateType(), c.CertificateName)
+	spec, err := c.PKIConfigProvider.Config()
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := pki.ResolveCertificateConfig(spec.Certificates, c.CertCreator.CertificateType(), c.CertificateName)
+	if err != nil {
+		return nil, err
+	}
+	return cfg.Key, nil
 }
 
 type ClientRotation struct {
@@ -348,7 +362,7 @@ type ServingRotation struct {
 }
 
 func (r *ServingRotation) CertificateType() pki.CertificateType {
-	return pki.CertificateTypeServing
+	return pki.CertificateTypeServer
 }
 
 func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Duration, keyGen crypto.KeyPairGenerator) (*crypto.TLSCertificateConfig, error) {
@@ -417,7 +431,7 @@ type SignerRotation struct {
 }
 
 func (r *SignerRotation) CertificateType() pki.CertificateType {
-	return pki.CertificateTypeSigner
+	return pki.CertificateTypeCA
 }
 
 func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duration, keyGen crypto.KeyPairGenerator) (*crypto.TLSCertificateConfig, error) {
@@ -432,8 +446,10 @@ func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duratio
 }
 
 // PeerRotation creates certificates used for both server and client authentication
-// (e.g., etcd peer certificates). It uses CertificateTypePeer for PKI profile
-// resolution, which selects the stronger of the serving and client key configurations.
+// (e.g., etcd peer certificates). It uses CertificateTypePeer for PKI configuration
+// resolution, which selects the stronger of the server and client key configurations,
+// unless a named override in the PKI resource matches the peer certificate's
+// CertificateName, which wins outright.
 //
 // UserInfo is always required. When keyGen is non-nil (ConfigurablePKI enabled),
 // NewPeerCertificate encodes UserInfo as the client identity in the certificate
