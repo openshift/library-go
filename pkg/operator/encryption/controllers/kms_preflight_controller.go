@@ -173,6 +173,11 @@ const (
 	KMSPreflightRemoteKeyIDPodCondition corev1.PodConditionType = "KMSPreflightRemoteKeyID"
 
 	preflightPodStartupTimeout = 3 * time.Minute
+
+	// How long to keep reaping and redeploying preflight pods that fail without
+	// reporting a KMSPreflightResult. Caps unbounded retries for a permanently
+	// broken environment while covering repeated SNO API disruptions.
+	preflightFailedPodRetryTimeout = 20 * time.Minute
 )
 
 // KMSPreflightDeployer abstracts the lifecycle of a preflight workload that
@@ -223,6 +228,8 @@ type kmsPreflightController struct {
 	// calls, but the encryption controllers do not use informers and have no
 	// shared cache available.
 	dirtyDeployer            bool
+	failedPodRetryHash       string
+	failedPodRetrySince      time.Time
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
 	encryptionStatusProvider kms.EncryptionStatusProvider
@@ -427,9 +434,9 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //     stale pod is reaped even when it crashed or never ran
 //     (ImagePullBackOff, Pending), letting a corrected config make progress.
 //
-//     b) Deployed hash matches, pod phase is Failed — write Failed, report
-//     degraded, and keep the pod, whether or not it reported a check result.
-//     The admin fixes the config, which triggers a new hash and cleanup via (a).
+//     b) Deployed hash matches, pod phase is Failed — a reported check failure
+//     is terminal. Otherwise retry failed pods for up to 20 minutes, then
+//     report failure and retain the last pod for inspection.
 //
 //     c) Deployed hash matches, no KMSPreflightResult yet — the check is still
 //     running. If the pod phase is Succeeded, it exited without reporting;
@@ -451,7 +458,7 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //
 //   - 3d (check passed):  writes Result{Succeeded, configHash, remoteKeyID}
 //   - 3e (check failed):  writes Result{Failed,    configHash, remoteKeyID}; EncryptionKMSPreflightControllerDegraded is also set
-//   - 3b (pod failed):   writes Result{Failed,    configHash, remoteKeyID}; EncryptionKMSPreflightControllerDegraded is also set
+//   - 3b (reported failure or retry timeout): writes Result{Failed, configHash, remoteKeyID}; EncryptionKMSPreflightControllerDegraded is also set
 //   - 3c (no result):   no write; EncryptionKMSPreflightControllerDegraded is set for terminal failures
 //
 // Condition matrix:
@@ -469,7 +476,10 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //	2b        No pod, Deploy error                              true     err   True      False        No
 //	3a        Stale pod — Cleanup success                       true     nil   False     True         No
 //	3a        Stale pod — Cleanup error                         true     err   True      False        No
-//	3b        Pod Failed — write result + keep pod              false    *pe   True      False        Yes
+//	3b        Pod Failed, reported check failure — keep pod     false    *pe   True      False        Yes
+//	3b'       Pod Failed, no result, within retry window        true     nil   False     True         No
+//	          (clears stale Failed only while retrying)
+//	3b'       Pod Failed, retry window expired                  false    *pe   True      False        Yes
 //	3c        No result, pod Running, no timeout                true     nil   False     True         No
 //	3c        No result, timeout exceeded                       true     *pe   True      False        Yes
 //	3c        No result, pod Succeeded without reporting        false    *pe   True      False        Yes
@@ -477,7 +487,9 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 //	3d        Check passed — write result fails                 false    err   True      False        No
 //	3e        Check failed — write result + keep pod            false    *pe   True      False        Yes
 //
-// TODO: in the future we might want to add retries for failed preflights.
+// A reported check failure (3b) is terminal because it means KMS is genuinely
+// misconfigured; a pod that failed without reporting a result (3b') is retried,
+// since that is an infrastructure hiccup rather than a KMS verdict.
 func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeue bool, progressReason, progressMessage string, err error) {
 	requiredHash, existingResult, kmsCfg, generation, err := c.preflightRequired(ctx)
 	if err != nil {
@@ -540,16 +552,61 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 		remoteKeyID = kc.Message
 	}
 
-	// Scenario 3b: a failed pod is a failed preflight, with or without a result condition.
-	// Keep it for inspection until a config change triggers cleanup via 3a.
 	resultCondition := FindPodCondition(podStatus.Conditions, KMSPreflightResultPodCondition)
 	if podStatus.Phase == corev1.PodFailed {
-		pe := preflightCheckError(requiredHash, resultCondition)
-		if pe == nil {
-			pe = podFailureError(podStatus)
-			pe.message = fmt.Sprintf("preflight pod failed for hash %s: %s", requiredHash, pe.message)
+		// Scenario 3b: the checker reported an actual check failure
+		// (KMSPreflightResult=False) before exiting. This is a genuine KMS
+		// misconfiguration, so it is terminal: record it and keep the pod for
+		// inspection until a config change triggers cleanup via 3a.
+		if pe := preflightCheckError(requiredHash, resultCondition); pe != nil {
+			return false, "", "", c.reportFailedPreflight(ctx, existingResult, requiredHash, remoteKeyID, pe)
 		}
-		return false, "", "", c.reportFailedPreflight(ctx, existingResult, requiredHash, remoteKeyID, pe)
+
+		// A reported check success is trusted even if the pod later failed
+		// (e.g. sidecar exit after the checker wrote its result).
+		if resultCondition != nil && resultCondition.Status == corev1.ConditionTrue {
+			c.clearFailedPodRetryTracking()
+			if err := c.ensurePreflightResult(ctx, existingResult, operatorv1.KMSPreflightResult{
+				Status:      operatorv1.KMSPreflightResultSucceeded,
+				ConfigHash:  requiredHash,
+				RemoteKeyID: remoteKeyID,
+			}); err != nil {
+				return false, "", "", err
+			}
+			return false, "", "", c.cleanupDeployer(ctx)
+		}
+
+		// Scenario 3b': the pod failed without reporting a check failure. The
+		// check itself did not conclude "KMS is misconfigured" — the pod died for
+		// an infrastructure reason (e.g. it could not write its result because the
+		// apiserver was briefly unavailable during a single-node rollout, OOMKill,
+		// or node loss). Treating this as terminal wedges KMS key creation forever
+		// for an unchanged, valid config. Reap and re-run within a bounded window
+		// (in-memory; resets on process restart). After the window expires, record
+		// Failed and keep the last pod for inspection.
+		pe := podFailureError(podStatus)
+		if c.failedPodRetryHash != requiredHash || c.failedPodRetrySince.IsZero() {
+			c.failedPodRetryHash = requiredHash
+			c.failedPodRetrySince = time.Now()
+		}
+		if time.Since(c.failedPodRetrySince) >= preflightFailedPodRetryTimeout {
+			pe.message = fmt.Sprintf("preflight pod repeatedly failed without reporting a result for hash %s: %s", requiredHash, pe.message)
+			return false, "", "", c.reportFailedPreflight(ctx, existingResult, requiredHash, remoteKeyID, pe)
+		}
+		// Within the retry window only: clear a stale Failed operator result
+		// (e.g. from older builds that recorded inconclusive PodFailed as
+		// terminal) so scenario 2a / the key controller do not block redeploy.
+		// Must not run after expiry — that would thrash clear/rewrite every sync.
+		if isPreflightResultFailed(existingResult, requiredHash) {
+			if err := c.clearPreflightResult(ctx); err != nil {
+				return true, "", "", fmt.Errorf("failed to clear stale preflight result: %w", err)
+			}
+			existingResult = &operatorv1.KMSPreflightResult{}
+		}
+		if err := c.cleanupDeployer(ctx); err != nil {
+			return true, "", "", err
+		}
+		return true, "RunningPreflightCheck", fmt.Sprintf("Preflight pod failed without reporting a result for hash %s (%s); re-running", requiredHash, pe.message), nil
 	}
 
 	// Scenario 3c: pod has not reported its result yet. The checker writes its
@@ -567,6 +624,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 
 	// Scenario 3d: check passed.
 	if resultCondition.Status == corev1.ConditionTrue {
+		c.clearFailedPodRetryTracking()
 		if err := c.ensurePreflightResult(ctx, existingResult, operatorv1.KMSPreflightResult{
 			Status:      operatorv1.KMSPreflightResultSucceeded,
 			ConfigHash:  requiredHash,
@@ -605,6 +663,20 @@ func (c *kmsPreflightController) reportFailedPreflight(ctx context.Context, exis
 	return pe
 }
 
+// clearPreflightResult clears Preflight.Result so an inconclusive failure can
+// be retried without hitting scenario 2a. The caller must have already verified
+// the stored result is Failed for the required hash.
+func (c *kmsPreflightController) clearPreflightResult(ctx context.Context) error {
+	return c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+		s.Preflight.Result = operatorv1.KMSPreflightResult{}
+	})
+}
+
+func (c *kmsPreflightController) clearFailedPodRetryTracking() {
+	c.failedPodRetryHash = ""
+	c.failedPodRetrySince = time.Time{}
+}
+
 // cleanupDeployer calls deployer.Cleanup only when dirtyDeployer is true, then clears
 // the flag on success. This avoids redundant Delete API calls on every sync in
 // steady state when no preflight resources exist.
@@ -620,17 +692,17 @@ func (c *kmsPreflightController) cleanupDeployer(ctx context.Context) error {
 }
 
 // ensurePreflightResult writes result to KMSEncryptionStatus.Preflight.Result
-// if it has not already been written for this hash. It is a no-op when
-// existingResult is non-nil and its ConfigHash already matches result.ConfigHash,
-// making it safe to call on every sync without overwriting a previously stored outcome.
+// if it has not already been written with the same ConfigHash and Status.
+// It is a no-op when existingResult already matches both, making it safe to
+// call on every sync without rewriting an unchanged outcome.
 //
-// Idempotency is keyed on ConfigHash only, not Status, because for a given hash
-// the result status is stable: a pod posts its result condition once and does not
-// change it. Success pods are cleaned up immediately; failure pods are retained
-// until the config changes (new hash), so the same hash cannot produce both
-// Succeeded and Failed.
+// Idempotency is keyed on (ConfigHash, Status). The same hash can move from an
+// inconclusive Failed (recorded by older builds, or after the retry window
+// expires) to Succeeded once a later check reports success, so Status must be
+// part of the key. Definitive check failures and successes for a given hash
+// remain stable once written with that Status.
 func (c *kmsPreflightController) ensurePreflightResult(ctx context.Context, existingResult *operatorv1.KMSPreflightResult, result operatorv1.KMSPreflightResult) error {
-	if existingResult != nil && existingResult.ConfigHash == result.ConfigHash {
+	if existingResult != nil && existingResult.ConfigHash == result.ConfigHash && existingResult.Status == result.Status {
 		return nil
 	}
 	return c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
