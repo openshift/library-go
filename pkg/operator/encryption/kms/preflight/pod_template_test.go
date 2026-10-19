@@ -37,17 +37,8 @@ spec:
       command: ["operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --pod-name=$(POD_NAME)
-        - --pod-namespace=$(POD_NAMESPACE)
-      env:
-      - name: POD_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.name
-      - name: POD_NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
+        - --pod-name=kms-preflight
+        - --pod-namespace=test-ns
       resources:
         requests:
           memory: 50Mi
@@ -107,17 +98,8 @@ spec:
       command: ["operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --pod-name=$(POD_NAME)
-        - --pod-namespace=$(POD_NAMESPACE)
-      env:
-      - name: POD_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.name
-      - name: POD_NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
+        - --pod-name=kms-preflight
+        - --pod-namespace=test-ns
       resources:
         requests:
           memory: 50Mi

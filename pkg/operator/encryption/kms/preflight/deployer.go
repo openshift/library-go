@@ -8,42 +8,52 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	rbacclientv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
-
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 const (
-	// PodName is the fixed name of the preflight pod created by Deploy.
+	// PodName is the fixed name of the preflight Job (and historically the
+	// fixed-name Pod). Job pods use generated names; select them by app label.
 	PodName = "kms-preflight"
 	// CheckContainerName is the container that runs the preflight checker command.
 	CheckContainerName = "kms-preflight-check"
 	// EncryptionConfigSecretName is the secret Deploy creates for the preflight pod.
 	EncryptionConfigSecretName = "kms-preflight-encryption-config"
 
-	// configHashAnnotation records, on the preflight pod, the config hash it was
-	// deployed for. It is set at render time (see assets/kms-preflight-pod.yaml)
-	// and read back by Status so the controller can detect a stale pod even when
-	// the pod never ran and therefore never reported any status condition.
+	// configHashAnnotation records, on the preflight Job, the config hash it was
+	// deployed for. It is set at render time (see assets/kms-preflight-pod.yaml,
+	// copied onto the Job) and read back by Status so the controller can detect a
+	// stale workload even when no pod ever ran.
 	configHashAnnotation = "encryption.apiserver.operator.openshift.io/kms-preflight-config-hash"
 
 	preflightRBACName = "kms-preflight"
-	preflightAppLabel = "openshift-kms-preflight"
+	// PreflightAppLabel is stamped on the Job and its pods (network AllowLists, e2e).
+	PreflightAppLabel = "openshift-kms-preflight"
+
+	// Bound Job retries for SNO API blips / pod disappearance. A reported KMS
+	// verdict exits 0 so the Job Completes and stops retrying.
+	preflightJobBackoffLimit          = int32(6)
+	preflightJobActiveDeadlineSeconds = int64(20 * 60)
 )
 
 var (
 	labels = map[string]string{
-		"app": preflightAppLabel,
+		"app": PreflightAppLabel,
 	}
+
+	propagationBackground = metav1.DeletePropagationBackground
 )
 
-// PodPreflightDeployer creates a one-shot pod to run the preflight checker as a command,
-// with the plugin injected as a sidecar container.
+// PodPreflightDeployer creates a Job whose pod template runs the preflight
+// checker as a command, with the plugin injected as a sidecar container.
 type PodPreflightDeployer struct {
 	namespace string
 	// It uses direct API client instead of a lister to be consistent with what
@@ -51,6 +61,7 @@ type PodPreflightDeployer struct {
 	// In addition to that running the preflight check is not a very frequent operation.
 	coreClient      corev1client.CoreV1Interface
 	rbacClient      rbacclientv1.RbacV1Interface
+	batchClient     batchv1client.BatchV1Interface
 	eventRecorder   events.Recorder
 	operatorImage   string
 	operatorCommand []string
@@ -109,25 +120,48 @@ func (d *PodPreflightDeployer) Deploy(ctx context.Context, configHash string, en
 		return fmt.Errorf("failed to apply preflight RBAC: %w", err)
 	}
 
-	_, err = d.coreClient.Pods(d.namespace).Create(ctx, pod, metav1.CreateOptions{})
+	backoffLimit := preflightJobBackoffLimit
+	activeDeadlineSeconds := preflightJobActiveDeadlineSeconds
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        PodName,
+			Namespace:   d.namespace,
+			Labels:      labels,
+			Annotations: pod.Annotations,
+		},
+		Spec: batchv1.JobSpec{
+			BackoffLimit:          &backoffLimit,
+			ActiveDeadlineSeconds: &activeDeadlineSeconds,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      labels,
+					Annotations: pod.Annotations,
+				},
+				Spec: pod.Spec,
+			},
+		},
+	}
+
+	_, err = d.batchClient.Jobs(d.namespace).Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to create preflight pod: %w", err)
+		return fmt.Errorf("failed to create preflight job: %w", err)
 	}
 
 	return nil
 }
 
-// Status returns the config hash the current preflight pod was deployed for
-// (from its configHashAnnotation) along with the pod status. The hash lets the
-// controller detect a stale pod regardless of whether the pod ever ran.
+// Status returns the config hash the current preflight Job was deployed for
+// (from its configHashAnnotation) along with a PodStatus projected from the Job.
+// The hash lets the controller detect a stale workload regardless of whether a
+// pod ever ran. Custom KMS check conditions on the Job survive pod GC.
 func (d *PodPreflightDeployer) Status(ctx context.Context) (string, corev1.PodStatus, error) {
 	// preflight status checks are not very frequent, so we use the live client instead of a cached lister
-	pod, err := d.coreClient.Pods(d.namespace).Get(ctx, PodName, metav1.GetOptions{})
+	job, err := d.batchClient.Jobs(d.namespace).Get(ctx, PodName, metav1.GetOptions{})
 	if err != nil {
-		return "", corev1.PodStatus{}, fmt.Errorf("failed to get pod for preflight %s/%s: %w", d.namespace, PodName, err)
+		return "", corev1.PodStatus{}, fmt.Errorf("failed to get job for preflight %s/%s: %w", d.namespace, PodName, err)
 	}
 
-	return pod.Annotations[configHashAnnotation], pod.Status, nil
+	return job.Annotations[configHashAnnotation], projectJobToPodStatus(job), nil
 }
 
 func (d *PodPreflightDeployer) Cleanup(ctx context.Context) error {
@@ -137,9 +171,11 @@ func (d *PodPreflightDeployer) Cleanup(ctx context.Context) error {
 	// See Deploy: preflight RBAC is intentionally not deleted here.
 	var errs []error
 
-	err := d.coreClient.Pods(d.namespace).Delete(ctx, PodName, metav1.DeleteOptions{})
+	err := d.batchClient.Jobs(d.namespace).Delete(ctx, PodName, metav1.DeleteOptions{
+		PropagationPolicy: &propagationBackground,
+	})
 	if err != nil && !apierrors.IsNotFound(err) {
-		errs = append(errs, fmt.Errorf("failed to delete pod %s/%s: %w", d.namespace, PodName, err))
+		errs = append(errs, fmt.Errorf("failed to delete job %s/%s: %w", d.namespace, PodName, err))
 	}
 
 	err = d.coreClient.Secrets(d.namespace).Delete(ctx, EncryptionConfigSecretName, metav1.DeleteOptions{})
@@ -171,13 +207,13 @@ func (d *PodPreflightDeployer) applyPreflightRBAC(ctx context.Context) error {
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{""},
-				Resources: []string{"pods"},
+				APIGroups: []string{"batch"},
+				Resources: []string{"jobs"},
 				Verbs:     []string{"get"},
 			},
 			{
-				APIGroups: []string{""},
-				Resources: []string{"pods/status"},
+				APIGroups: []string{"batch"},
+				Resources: []string{"jobs/status"},
 				Verbs:     []string{"update"},
 			},
 		},
@@ -216,6 +252,7 @@ func NewPodPreflightDeployer(
 	namespace string,
 	coreClient corev1client.CoreV1Interface,
 	rbacClient rbacclientv1.RbacV1Interface,
+	batchClient batchv1client.BatchV1Interface,
 	eventRecorder events.Recorder,
 	operatorImage string,
 	operatorCommand []string,
@@ -225,6 +262,7 @@ func NewPodPreflightDeployer(
 		namespace:       namespace,
 		coreClient:      coreClient,
 		rbacClient:      rbacClient,
+		batchClient:     batchClient,
 		eventRecorder:   eventRecorder,
 		operatorImage:   operatorImage,
 		operatorCommand: operatorCommand,
@@ -233,17 +271,18 @@ func NewPodPreflightDeployer(
 }
 
 // NewStaticPodPreflightDeployer creates a deployer that virtualizes a static pod
-// (e.g. hostNetwork=true) while still running as a normal pod.
+// (e.g. hostNetwork=true) while still running as a normal Job pod.
 func NewStaticPodPreflightDeployer(
 	namespace string,
 	coreClient corev1client.CoreV1Interface,
 	rbacClient rbacclientv1.RbacV1Interface,
+	batchClient batchv1client.BatchV1Interface,
 	eventRecorder events.Recorder,
 	operatorImage string,
 	operatorCommand []string,
 	kmsCallTimeout time.Duration,
 ) *PodPreflightDeployer {
-	deployer := NewPodPreflightDeployer(namespace, coreClient, rbacClient, eventRecorder, operatorImage, operatorCommand, kmsCallTimeout)
+	deployer := NewPodPreflightDeployer(namespace, coreClient, rbacClient, batchClient, eventRecorder, operatorImage, operatorCommand, kmsCallTimeout)
 	deployer.virtualStaticPod = true
 	return deployer
 }
