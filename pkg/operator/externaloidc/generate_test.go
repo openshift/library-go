@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -123,6 +124,95 @@ func TestGenerateOffline(t *testing.T) {
 	}
 	if got := dials.Load(); got != 0 {
 		t.Fatalf("generation attempted %d issuer connections", got)
+	}
+}
+
+func TestGenerateTrustedCAFilePath(t *testing.T) {
+	const caPath = "/var/config/system/configmaps/trusted-ca/ca-bundle.crt"
+	resolverErr := errors.New("CA lookup failed")
+	for _, tt := range []struct {
+		name     string
+		resolver TrustedCAFilePathResolver
+		wantPath string
+		wantErr  error
+	}{
+		{name: "no resolver"},
+		{name: "resolver returns empty path", resolver: func() (string, error) { return "", nil }},
+		{name: "resolver returns CA path", resolver: func() (string, error) { return caPath, nil }, wantPath: caPath},
+		{name: "resolver failure", resolver: func() (string, error) { return "", resolverErr }, wantErr: resolverErr},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var options []GeneratorOption
+			if tt.resolver != nil {
+				options = append(options, WithTrustedCAFilePath(tt.resolver))
+			}
+
+			generator := NewAuthenticationConfigurationGenerator(func(string) (string, error) { return testCertData, nil }, options...)
+			config, err := generator.Generate(baseAuthResource.Spec.DeepCopy())
+
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) || config != nil {
+					t.Fatalf("expected no config and error %v, got config %v, error %v", tt.wantErr, config, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			want := baseAuthConfig.DeepCopy()
+			want.TrustedCAFilePath = tt.wantPath
+			if diff := cmp.Diff(want, config, cmpopts.EquateEmpty()); diff != "" {
+				t.Fatalf("unexpected config diff: %s", diff)
+			}
+
+			data, err := json.Marshal(config)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(data, &fields); err != nil {
+				t.Fatal(err)
+			}
+
+			value, present := fields["trustedCAFilePath"]
+			if tt.wantPath == "" {
+				if present {
+					t.Fatalf("unexpected trustedCAFilePath in JSON: %s", value)
+				}
+			} else if string(value) != `"`+tt.wantPath+`"` {
+				t.Fatalf("unexpected trustedCAFilePath in JSON: %s", value)
+			}
+		})
+	}
+}
+
+// TestGenerateTrustedCAFilePathChanges verifies that the resolver is invoked on
+// every Generate call rather than once at construction time, so a change in the
+// underlying CA path is reflected in the next generated configuration without
+// recreating the generator.
+func TestGenerateTrustedCAFilePathChanges(t *testing.T) {
+	var path string
+	generator := NewAuthenticationConfigurationGenerator(
+		func(string) (string, error) { return "", nil },
+		WithTrustedCAFilePath(func() (string, error) { return path, nil }),
+	)
+	for _, tt := range []struct{ name, path string }{
+		{name: "configured", path: "/var/config/trusted-ca/ca-bundle.crt"},
+		{name: "changed", path: "/var/config/other-trusted-ca/ca-bundle.crt"},
+		{name: "removed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			path = tt.path
+			config, err := generator.Generate(&configv1.AuthenticationSpec{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.TrustedCAFilePath != path {
+				t.Fatalf("expected current trusted CA path %q, got %q", path, config.TrustedCAFilePath)
+			}
+		})
 	}
 }
 
@@ -1674,6 +1764,9 @@ func TestAuthenticationConfigurationGeneratorRejectsInvalidInputs(t *testing.T) 
 		mustPanic(t, func() { NewAuthenticationConfigurationGenerator(nil) })
 		mustPanic(t, func() {
 			NewAuthenticationConfigurationGenerator(func(string) (string, error) { return "", nil }, WithExternalClaimsSourcing(nil))
+		})
+		mustPanic(t, func() {
+			NewAuthenticationConfigurationGenerator(func(string) (string, error) { return "", nil }, WithTrustedCAFilePath(nil))
 		})
 	})
 
