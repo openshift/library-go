@@ -43,6 +43,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -170,6 +171,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		encryptionSecretSelector,
 	)
 
+	encryptionStatusProvider := &dynamicKMSEncryptionStatusProvider{client: dynamicClient.Resource(operatorGVR)}
 	controllers, err := encryption.NewControllers(
 		component,
 		[]string{},
@@ -185,7 +187,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		dynamicClient,
 		eventRecorder,
 		nil, // resourceSyncer
-		&dynamicKMSEncryptionStatusProvider{client: dynamicClient.Resource(operatorGVR)},
+		encryptionStatusProvider,
 		kmsPreflightDeployer,
 		encryptionConfigurationComputer,
 	)
@@ -419,6 +421,81 @@ func TestEncryptionIntegration(tt *testing.T) {
 			return false, nil
 		})
 		require.NoError(t, err)
+	}
+	// rotateRemoteKey drives one full remote-key rotation against the write-key secret
+	// for keyID without minting a new encryption key:
+	// bootstrap migrated (if needed) → health reports new ID → promote target after the
+	// convergence window → migration stamps migrated. expectedKeyCount is the stable
+	// encryption-key secret count that must not change.
+	rotateRemoteKey := func(keyID string, expectedKeyCount int, newRemoteKeyID string) {
+		t.Helper()
+		secretName := fmt.Sprintf("encryption-key-%s-%s", component, keyID)
+		waitForRemoteKeyState := func(pred func(state.RemoteKeyState) bool) state.RemoteKeyState {
+			t.Helper()
+			var got state.RemoteKeyState
+			err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+				s, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, secretName, metav1.GetOptions{})
+				if err != nil {
+					return false, err
+				}
+				rk, err := secrets.ReadRemoteKeyStateFromSecret(s)
+				if err != nil {
+					return false, err
+				}
+				got = rk
+				t.Logf("remote-key state for key %s: target=%q migrated=%q convergedID=%q convergedAt=%v",
+					keyID, rk.TargetRemoteKeyID, rk.MigratedRemoteKeyID, rk.ConvergedID, rk.ConvergedAt)
+				return pred(rk), nil
+			})
+			require.NoError(t, err)
+			return got
+		}
+		setHealthReports := func(remoteKeyID string) {
+			t.Helper()
+			err := encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+				s.HealthReports = []operatorv1.KMSPluginHealthReport{{
+					NodeName:        "e2e-node",
+					KeyID:           keyID,
+					RemoteKeyID:     remoteKeyID,
+					Status:          operatorv1.KMSPluginHealthStatusHealthy,
+					LastCheckedTime: metav1.Now(),
+				}}
+			})
+			require.NoError(t, err)
+		}
+
+		current := waitForRemoteKeyState(func(rk state.RemoteKeyState) bool {
+			return rk.TargetRemoteKeyID != ""
+		})
+		if current.MigratedRemoteKeyID == "" || current.MigratedRemoteKeyID != current.TargetRemoteKeyID {
+			t.Logf("KMS remote-key rotation key=%s: bootstrap migrated from target %q", keyID, current.TargetRemoteKeyID)
+			setHealthReports(current.TargetRemoteKeyID)
+			current = waitForRemoteKeyState(func(rk state.RemoteKeyState) bool {
+				return rk.MigratedRemoteKeyID != "" && rk.MigratedRemoteKeyID == rk.TargetRemoteKeyID
+			})
+		}
+
+		t.Logf("KMS remote-key rotation key=%s: %q → %q", keyID, current.MigratedRemoteKeyID, newRemoteKeyID)
+		setHealthReports(newRemoteKeyID)
+		waitForRemoteKeyState(func(rk state.RemoteKeyState) bool {
+			return rk.ConvergedID == newRemoteKeyID && !rk.ConvergedAt.IsZero()
+		})
+
+		// Controllers wait remoteKeyConvergenceDuration (5m); backdate so promote can proceed
+		// within ForeverTestTimeout.
+		backdated := time.Now().Add(-10 * time.Minute).UTC().Format(time.RFC3339)
+		_, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Patch(ctx, secretName, types.MergePatchType, []byte(fmt.Sprintf(
+			`{"metadata":{"annotations":{"encryption.apiserver.operator.openshift.io/remote-key-converged-at":%q}}}`, backdated,
+		)), metav1.PatchOptions{})
+		require.NoError(t, err)
+
+		waitForRemoteKeyState(func(rk state.RemoteKeyState) bool {
+			return rk.TargetRemoteKeyID == newRemoteKeyID && rk.MigratedRemoteKeyID == newRemoteKeyID
+		})
+		waitForKeys(expectedKeyCount)
+		waitForConditionStatus("Encrypted", operatorv1.ConditionTrue)
+		waitForConditionStatus("EncryptionMigrationControllerProgressing", operatorv1.ConditionFalse)
+		waitForConditionStatus("EncryptionMigrationControllerDegraded", operatorv1.ConditionFalse)
 	}
 	waitForKeys(1)
 	waitForConfigs(
@@ -675,6 +752,11 @@ func TestEncryptionIntegration(tt *testing.T) {
 	require.Equal(t, "https://vault.example.com", pluginConfigVaultAddress)
 	pluginConfigVaultKeyPath := pluginConfig.Vault.VaultKeyPath
 	require.Equal(t, "transit/keys/test-transit-key", pluginConfigVaultKeyPath)
+
+	t.Logf("KMS remote-key rotation on write key 8 (no new encryption-key secrets)")
+	for _, remoteKeyID := range []string{"remote-rotated-e2e-1", "remote-rotated-e2e-2", "remote-rotated-e2e-3"} {
+		rotateRemoteKey("8", 7, remoteKeyID)
+	}
 
 	t.Logf("Switch back to aescbc from KMS")
 	_, err = fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(`{"spec":{"encryption":{"type":"aescbc","kms":null}}}`), metav1.PatchOptions{})
