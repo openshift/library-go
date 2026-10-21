@@ -131,6 +131,7 @@ func NewControllers(
 			kubeInformersForNamespaces,
 			secretsClient,
 			encryptionSecretSelector,
+			encryptionStatusProvider,
 			eventRecorder,
 		),
 	}
