@@ -32,6 +32,7 @@ const (
 	kmsHealthDegradedTimeout      = 30 * time.Minute
 
 	kmsRemoteKeysNotConvergedReason = "KMSRemoteKeysNotConverged"
+	kmsHealthReportsMissingReason   = "KMSHealthReportsMissing"
 )
 
 // conditionController maintains the Encrypted condition. It sets it to true iff there is a
@@ -237,22 +238,25 @@ func (c *conditionController) reconcileKMSHealthConditions(ctx context.Context, 
 		return nil
 	}
 
-	// No KMS plugin in the encryption config (including backed keys): clear leftover
-	// HealthReports and leave conditions False.
-	if config == nil || len(config.KMSPlugins) == 0 {
-		if err := c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
-			s.HealthReports = nil
-		}); err != nil {
-			return fmt.Errorf("failed to clear KMS health reports: %w", err)
-		}
-		return nil
-	}
-
 	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
 	if err != nil {
 		return err
 	}
 	if encryptionStatus == nil {
+		return nil
+	}
+
+	// No KMS plugin in the encryption config (including backed keys): clear leftover
+	// HealthReports only when something was previously written, and leave conditions False.
+	if config == nil || len(config.KMSPlugins) == 0 {
+		if len(encryptionStatus.HealthReports) == 0 {
+			return nil
+		}
+		if err := c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+			s.HealthReports = nil
+		}); err != nil {
+			return fmt.Errorf("failed to clear KMS health reports: %w", err)
+		}
 		return nil
 	}
 
@@ -273,15 +277,21 @@ func (c *conditionController) reconcileKMSHealthConditions(ctx context.Context, 
 		return nil
 	}
 
-	reportPerNode := make([]string, 0, len(pruned))
-	for _, report := range pruned {
-		reportPerNode = append(reportPerNode, fmt.Sprintf("%s/%s=%q", report.NodeName, report.KeyID, report.RemoteKeyID))
+	reason := kmsRemoteKeysNotConvergedReason
+	message := "No KMS health reports available"
+	if len(pruned) == 0 {
+		reason = kmsHealthReportsMissingReason
+	} else {
+		reportPerNode := make([]string, 0, len(pruned))
+		for _, report := range pruned {
+			reportPerNode = append(reportPerNode, fmt.Sprintf("%s/%s=%q", report.NodeName, report.KeyID, report.RemoteKeyID))
+		}
+		message = fmt.Sprintf("KMS health reports have not yet converged: %s", strings.Join(reportPerNode, ", "))
 	}
-	message := fmt.Sprintf("KMS health reports have not yet converged: %s", strings.Join(reportPerNode, ", "))
 
 	progressing = progressing.
 		WithStatus(operatorv1.ConditionTrue).
-		WithReason(kmsRemoteKeysNotConvergedReason).
+		WithReason(reason).
 		WithMessage(message)
 
 	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
@@ -297,7 +307,7 @@ func (c *conditionController) reconcileKMSHealthConditions(ctx context.Context, 
 	if existing != nil && existing.Status == operatorv1.ConditionTrue && !now.Before(existing.LastTransitionTime.Add(kmsHealthDegradedTimeout)) {
 		degraded = degraded.
 			WithStatus(operatorv1.ConditionTrue).
-			WithReason(kmsRemoteKeysNotConvergedReason).
+			WithReason(reason).
 			WithMessage(message)
 	}
 	return nil

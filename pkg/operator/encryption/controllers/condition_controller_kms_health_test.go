@@ -45,9 +45,10 @@ func (c *statusValidatingOperatorClient) ApplyOperatorStatus(ctx context.Context
 }
 
 type fakeKMSHealthStatusProvider struct {
-	status *operatorv1.KMSEncryptionStatus
-	getErr error
-	gets   int
+	status  *operatorv1.KMSEncryptionStatus
+	getErr  error
+	gets    int
+	updates int
 }
 
 func (f *fakeKMSHealthStatusProvider) GetKMSEncryptionStatus(_ context.Context) (*operatorv1.KMSEncryptionStatus, error) {
@@ -66,6 +67,7 @@ func (f *fakeKMSHealthStatusProvider) ApplyKMSEncryptionStatus(_ context.Context
 }
 
 func (f *fakeKMSHealthStatusProvider) UpdateKMSEncryptionStatus(_ context.Context, mutate func(*operatorv1.KMSEncryptionStatus)) error {
+	f.updates++
 	if f.status == nil {
 		f.status = &operatorv1.KMSEncryptionStatus{}
 	}
@@ -302,27 +304,59 @@ func TestConditionControllerKMSHealthClearsWithoutKMSPlugins(t *testing.T) {
 	progressingSince := metav1.NewTime(now.Add(-kmsHealthDegradedTimeout))
 
 	tests := []struct {
-		name   string
-		config *encryptiondata.Config
+		name            string
+		config          *encryptiondata.Config
+		status          *operatorv1.KMSEncryptionStatus
+		wantUpdates     int
+		wantReportCount int
 	}{
-		{name: "nil config", config: nil},
-		{name: "empty KMSPlugins", config: &encryptiondata.Config{}},
-		{name: "nil KMSPlugins map", config: &encryptiondata.Config{KMSPlugins: nil}},
+		{
+			name:   "nil config clears leftover reports",
+			config: nil,
+			status: &operatorv1.KMSEncryptionStatus{
+				HealthReports: []operatorv1.KMSPluginHealthReport{{
+					NodeName:        "node-a",
+					KeyID:           "1",
+					RemoteKeyID:     "remote-a",
+					LastCheckedTime: metav1.NewTime(now.Add(-time.Hour)),
+				}},
+			},
+			wantUpdates:     1,
+			wantReportCount: 0,
+		},
+		{
+			name:   "empty KMSPlugins clears leftover reports",
+			config: &encryptiondata.Config{},
+			status: &operatorv1.KMSEncryptionStatus{
+				HealthReports: []operatorv1.KMSPluginHealthReport{{
+					NodeName:        "node-a",
+					KeyID:           "1",
+					RemoteKeyID:     "remote-a",
+					LastCheckedTime: metav1.NewTime(now.Add(-time.Hour)),
+				}},
+			},
+			wantUpdates:     1,
+			wantReportCount: 0,
+		},
+		{
+			name:            "nil KMSPlugins map with no reports skips update",
+			config:          &encryptiondata.Config{KMSPlugins: nil},
+			status:          &operatorv1.KMSEncryptionStatus{},
+			wantUpdates:     0,
+			wantReportCount: 0,
+		},
+		{
+			name:            "kms never enabled skips update",
+			config:          nil,
+			status:          nil,
+			wantUpdates:     0,
+			wantReportCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider := &fakeKMSHealthStatusProvider{
-				status: &operatorv1.KMSEncryptionStatus{
-					HealthReports: []operatorv1.KMSPluginHealthReport{{
-						NodeName:        "node-a",
-						KeyID:           "1",
-						RemoteKeyID:     "remote-a",
-						LastCheckedTime: metav1.NewTime(now.Add(-time.Hour)),
-					}},
-				},
-				getErr: fmt.Errorf("GetKMSEncryptionStatus should not be called"),
-			}
+			provider := &fakeKMSHealthStatusProvider{status: tt.status}
 
 			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
 				&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
@@ -359,16 +393,53 @@ func TestConditionControllerKMSHealthClearsWithoutKMSPlugins(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if provider.gets != 0 {
-				t.Fatalf("expected GetKMSEncryptionStatus not to be called, got %d gets", provider.gets)
+			if provider.gets != 1 {
+				t.Fatalf("expected GetKMSEncryptionStatus once, got %d gets", provider.gets)
 			}
-			if got := len(provider.status.HealthReports); got != 0 {
-				t.Fatalf("expected HealthReports cleared, got %d", got)
+			if provider.updates != tt.wantUpdates {
+				t.Fatalf("expected %d updates, got %d", tt.wantUpdates, provider.updates)
+			}
+			gotReports := 0
+			if provider.status != nil {
+				gotReports = len(provider.status.HealthReports)
+			}
+			if gotReports != tt.wantReportCount {
+				t.Fatalf("expected %d HealthReports, got %d", tt.wantReportCount, gotReports)
 			}
 			assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionFalse, "")
 			assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, "")
 		})
 	}
+}
+
+func TestConditionControllerKMSHealthMissingReportsProgresses(t *testing.T) {
+	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	fakeClock := clocktesting.NewFakePassiveClock(now)
+
+	provider := &fakeKMSHealthStatusProvider{
+		status: &operatorv1.KMSEncryptionStatus{},
+	}
+
+	fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+		&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
+		&operatorv1.OperatorStatus{},
+		nil,
+	)
+
+	c := &conditionController{
+		controllerInstanceName:          "test-EncryptionCondition",
+		controllerKMSHealthInstanceName: "test-KMSHealthCondition",
+		operatorClient:                  fakeOperatorClient,
+		provider:                        newTestProvider(nil),
+		preconditionsFulfilledFn:        alwaysFulfilledPreconditions,
+		encryptionStatusProvider:        provider,
+		clock:                           fakeClock,
+	}
+
+	applyKMSHealth(t, c, kmsConfigWithPlugins())
+
+	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionTrue, kmsHealthReportsMissingReason)
+	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, "")
 }
 
 func TestConditionControllerKMSHealthPrunesStaleReports(t *testing.T) {

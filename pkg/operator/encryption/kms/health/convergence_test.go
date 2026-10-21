@@ -85,7 +85,7 @@ func TestAllKeyIDsConverged(t *testing.T) {
 		reports []operatorv1.KMSPluginHealthReport
 		want    bool
 	}{
-		{name: "empty", want: true},
+		{name: "empty", want: false},
 		{
 			name: "single key unanimous",
 			reports: []operatorv1.KMSPluginHealthReport{

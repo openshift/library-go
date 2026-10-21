@@ -32,12 +32,13 @@ func ConvergedRemoteKeyID(reports []operatorv1.KMSPluginHealthReport) string {
 }
 
 // AllKeyIDsConverged reports whether every KeyID group has a unanimous non-empty
-// RemoteKeyID. Empty input is treated as converged (nothing to assess). During
-// KMS-to-KMS migration multiple KeyIDs report at once and may legitimately carry
-// different RemoteKeyIDs; only disagreement within a KeyID group is non-converged.
+// RemoteKeyID. Empty input is not converged: with KMS plugins configured the system
+// is still waiting for the first health reports. During KMS-to-KMS migration multiple
+// KeyIDs report at once and may legitimately carry different RemoteKeyIDs; only
+// disagreement within a KeyID group is non-converged.
 func AllKeyIDsConverged(reports []operatorv1.KMSPluginHealthReport) bool {
 	if len(reports) == 0 {
-		return true
+		return false
 	}
 	byKeyID := map[string][]operatorv1.KMSPluginHealthReport{}
 	for _, report := range reports {
