@@ -33,13 +33,10 @@ spec:
       command: [{{.Command}}]
       args:
         - --kms-call-timeout={{.KMSCallTimeout}}
-        - --pod-name=$(POD_NAME)
-        - --pod-namespace=$(POD_NAMESPACE)
-      env:
-      - name: POD_NAME
-        valueFrom: { fieldRef: { fieldPath: metadata.name } }
-      - name: POD_NAMESPACE
-        valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+        # Flag names stay --pod-* for CLI/CI compatibility; values are the fixed
+        # preflight Job name/namespace (Job pods have generated names).
+        - --pod-name={{.PodName}}
+        - --pod-namespace={{.Namespace}}
       # TODO: figure out good resource request values.
       resources:
         requests:

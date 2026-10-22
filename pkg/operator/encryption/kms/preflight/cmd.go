@@ -2,7 +2,6 @@ package preflight
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	kmsservice "k8s.io/kms/pkg/service"
 )
 
 // kmsSocketPattern matches the socket path each co-located KMSv2 plugin is
@@ -51,8 +51,10 @@ func NewCommand(ctx context.Context) *cobra.Command {
 func (o *options) addFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.kmsSockets, "kms-sockets", nil, "KMS plugin endpoints in unix:// URI format (e.g. unix:///var/run/kmsplugin/kms-1.sock); the first socket receives full verification (Status + Encrypt + Decrypt), remaining sockets are checked for reachability (Status only)")
 	fs.DurationVar(&o.kmsCallTimeout, "kms-call-timeout", 0, "timeout for each gRPC call to the KMS plugin")
-	fs.StringVar(&o.podName, "pod-name", o.podName, "name of pod to use to report checker status")
-	fs.StringVar(&o.podNamespace, "pod-namespace", o.podNamespace, "namespace of pod to report checker status")
+	// Flags keep the historical --pod-* names for CLI/CI compatibility. The
+	// checker reports onto the preflight Job of the same name/namespace.
+	fs.StringVar(&o.podName, "pod-name", o.podName, "name of the preflight Job to report checker status on")
+	fs.StringVar(&o.podNamespace, "pod-namespace", o.podNamespace, "namespace of the preflight Job to report checker status on")
 	fs.StringVar(&o.kubeconfig, "kubeconfig", o.kubeconfig, "path to a kubeconfig; empty uses in-cluster config")
 }
 
@@ -84,29 +86,6 @@ func (o *options) validate() error {
 }
 
 func (o *options) run(ctx context.Context) error {
-	// First socket gets full verification, remaining sockets get status-only checks.
-	socketToVerify := o.kmsSockets[0]
-	for _, socket := range o.kmsSockets[1:] {
-		// k8senvelopekmsv2.NewGRPCService is not a public API and may change.
-		// If it breaks, we can inline a minimal gRPC client using k8s.io/kms directly.
-		klog.Infof("Checking reachability of KMS plugin at %s", socket)
-		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, "preflight", o.kmsCallTimeout)
-		if err != nil {
-			return fmt.Errorf("failed to create KMS gRPC client for %s: %w", socket, err)
-		}
-		c := newChecker(service)
-		if _, err := c.checkStatus(ctx); err != nil {
-			return fmt.Errorf("KMS plugin at %s is not reachable: %w", socket, err)
-		}
-		klog.Infof("KMS plugin at %s is reachable", socket)
-	}
-
-	klog.Infof("Running full KMS preflight check at %s", socketToVerify)
-	service, err := k8senvelopekmsv2.NewGRPCService(ctx, socketToVerify, "preflight", o.kmsCallTimeout)
-	if err != nil {
-		return fmt.Errorf("failed to create KMS gRPC client for %s: %w", socketToVerify, err)
-	}
-
 	kubeConfig, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)
 	if err != nil {
 		return fmt.Errorf("failed to build kubeconfig: %w", err)
@@ -116,17 +95,54 @@ func (o *options) run(ctx context.Context) error {
 		return fmt.Errorf("failed to create kube client: %w", err)
 	}
 
-	checker := newChecker(service)
 	start := time.Now()
-	status, checkErr := checker.check(ctx)
+	status, checkErr := o.runChecks(ctx)
 
-	podClient := kubeClient.CoreV1().Pods(o.podNamespace)
-	reportErr := setPodCheckCondition(ctx, podClient, o.podName, status, checkErr)
-	// join the errors to not lose the original error message
-	if err := errors.Join(checkErr, reportErr); err != nil {
-		return err
+	// Persist the verdict on the Job (named via --pod-name) so it survives pod GC.
+	// Exit 0 after a successful report (pass or fail) so the Job Completes and
+	// does not retry a conclusive KMS misconfiguration. Exit non-zero only when
+	// the report write fails, letting the Job create another attempt.
+	jobClient := kubeClient.BatchV1().Jobs(o.podNamespace)
+	reportErr := setJobCheckCondition(ctx, jobClient, o.podName, status, checkErr)
+	if reportErr != nil {
+		if checkErr != nil {
+			klog.Errorf("KMS preflight check failed and could not report result on job %s/%s: check=%v report=%v",
+				o.podNamespace, o.podName, checkErr, reportErr)
+		}
+		return fmt.Errorf("failed to report preflight result on job %s/%s: %w", o.podNamespace, o.podName, reportErr)
 	}
 
+	if checkErr != nil {
+		klog.Infof("KMS preflight check failed (reported on job), total latency=%v: %v", time.Since(start), checkErr)
+		return nil
+	}
 	klog.Infof("KMS preflight check passed, total latency=%v", time.Since(start))
 	return nil
+}
+
+func (o *options) runChecks(ctx context.Context) (*kmsservice.StatusResponse, error) {
+	// First socket gets full verification, remaining sockets get status-only checks.
+	socketToVerify := o.kmsSockets[0]
+	for _, socket := range o.kmsSockets[1:] {
+		// k8senvelopekmsv2.NewGRPCService is not a public API and may change.
+		// If it breaks, we can inline a minimal gRPC client using k8s.io/kms directly.
+		klog.Infof("Checking reachability of KMS plugin at %s", socket)
+		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, "preflight", o.kmsCallTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create KMS gRPC client for %s: %w", socket, err)
+		}
+		c := newChecker(service)
+		if _, err := c.checkStatus(ctx); err != nil {
+			return nil, fmt.Errorf("KMS plugin at %s is not reachable: %w", socket, err)
+		}
+		klog.Infof("KMS plugin at %s is reachable", socket)
+	}
+
+	klog.Infof("Running full KMS preflight check at %s", socketToVerify)
+	service, err := k8senvelopekmsv2.NewGRPCService(ctx, socketToVerify, "preflight", o.kmsCallTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create KMS gRPC client for %s: %w", socketToVerify, err)
+	}
+
+	return newChecker(service).check(ctx)
 }

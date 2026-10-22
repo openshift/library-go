@@ -90,12 +90,12 @@ func AssertPreflightDeploy(ctx context.Context, t testing.TB, clientSet ClientSe
 	require.NotNil(t, deployer)
 	require.NotEmpty(t, namespace)
 
-	preflightPod, err := clientSet.Kube.CoreV1().Pods(namespace).Get(ctx, preflight.PodName, metav1.GetOptions{})
-	require.NoError(t, err, "preflight pod %s/%s", namespace, preflight.PodName)
+	preflightJob, err := clientSet.Kube.BatchV1().Jobs(namespace).Get(ctx, preflight.PodName, metav1.GetOptions{})
+	require.NoError(t, err, "preflight job %s/%s", namespace, preflight.PodName)
 
-	require.Len(t, preflightPod.Spec.Containers, 1)
-	require.Equal(t, preflight.CheckContainerName, preflightPod.Spec.Containers[0].Name)
-	require.NotEmpty(t, preflightPod.Spec.InitContainers, "expected KMS plugin init container")
+	require.Len(t, preflightJob.Spec.Template.Spec.Containers, 1)
+	require.Equal(t, preflight.CheckContainerName, preflightJob.Spec.Template.Spec.Containers[0].Name)
+	require.NotEmpty(t, preflightJob.Spec.Template.Spec.InitContainers, "expected KMS plugin init container")
 
 	var deployedHash string
 	var status corev1.PodStatus

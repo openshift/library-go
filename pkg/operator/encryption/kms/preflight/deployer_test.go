@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -97,18 +98,9 @@ spec:
       command: ["cluster-kube-apiserver-operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --pod-name=$(POD_NAME)
-        - --pod-namespace=$(POD_NAMESPACE)
+        - --pod-name=kms-preflight
+        - --pod-namespace=openshift-kube-apiserver
         - --kms-sockets=unix:///var/run/kmsplugin/kms-1.sock
-      env:
-      - name: POD_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.name
-      - name: POD_NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
       resources:
         requests:
           memory: 50Mi
@@ -186,18 +178,9 @@ spec:
       command: ["cluster-kube-apiserver-operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --pod-name=$(POD_NAME)
-        - --pod-namespace=$(POD_NAMESPACE)
+        - --pod-name=kms-preflight
+        - --pod-namespace=openshift-kube-apiserver
         - --kms-sockets=unix:///var/run/kmsplugin/kms-1.sock
-      env:
-      - name: POD_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.name
-      - name: POD_NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
       resources:
         requests:
           memory: 50Mi
@@ -305,18 +288,9 @@ spec:
       command: ["cluster-kube-apiserver-operator","kms-preflight"]
       args:
         - --kms-call-timeout=10s
-        - --pod-name=$(POD_NAME)
-        - --pod-namespace=$(POD_NAMESPACE)
+        - --pod-name=kms-preflight
+        - --pod-namespace=openshift-kube-apiserver
         - --kms-sockets=unix:///var/run/kmsplugin/kms-2.sock,unix:///var/run/kmsplugin/kms-1.sock
-      env:
-      - name: POD_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.name
-      - name: POD_NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
       resources:
         requests:
           memory: 50Mi
@@ -449,6 +423,7 @@ func newTestDeployer(t *testing.T, objects ...runtime.Object) (*PodPreflightDepl
 		testNamespace,
 		kubeClient.CoreV1(),
 		kubeClient.RbacV1(),
+		kubeClient.BatchV1(),
 		events.NewInMemoryRecorder("kms-preflight-deployer-test", clock.RealClock{}),
 		testOperatorImage,
 		testOperatorCommand,
@@ -466,6 +441,7 @@ func newTestStaticPodDeployer(t *testing.T, objects ...runtime.Object) (*PodPref
 		testNamespace,
 		kubeClient.CoreV1(),
 		kubeClient.RbacV1(),
+		kubeClient.BatchV1(),
 		events.NewInMemoryRecorder("kms-preflight-deployer-test", clock.RealClock{}),
 		testOperatorImage,
 		testOperatorCommand,
@@ -532,7 +508,7 @@ func TestPodPreflightDeployer_Deploy(t *testing.T) {
 			if len(actions) != 11 {
 				t.Fatalf("expected 11 actions, got %d: %#v", len(actions), actions)
 			}
-			if !actions[0].Matches("delete", "pods") {
+			if !actions[0].Matches("delete", "jobs") {
 				t.Fatalf("unexpected action: %#v", actions[0])
 			}
 			if !actions[1].Matches("delete", "secrets") {
@@ -573,7 +549,7 @@ func TestPodPreflightDeployer_Deploy(t *testing.T) {
 			if !actions[9].Matches("create", "rolebindings") {
 				t.Fatalf("unexpected action: %#v", actions[9])
 			}
-			if !actions[10].Matches("create", "pods") {
+			if !actions[10].Matches("create", "jobs") {
 				t.Fatalf("unexpected action: %#v", actions[10])
 			}
 			createAction, ok := actions[10].(clienttesting.CreateAction)
@@ -584,12 +560,21 @@ func TestPodPreflightDeployer_Deploy(t *testing.T) {
 				t.Fatalf("unexpected namespace %q", createAction.GetNamespace())
 			}
 
-			actualPod, ok := createAction.GetObject().(*corev1.Pod)
+			actualJob, ok := createAction.GetObject().(*batchv1.Job)
 			if !ok {
-				t.Fatalf("expected *corev1.Pod, got %T", createAction.GetObject())
+				t.Fatalf("expected *batchv1.Job, got %T", createAction.GetObject())
 			}
-			if !equality.Semantic.DeepEqual(expectedPod, actualPod) {
-				t.Fatalf("pod does not match expected:\ngot:  %+v\nwant: %+v", actualPod, expectedPod)
+			if actualJob.Name != PodName {
+				t.Fatalf("unexpected job name %q", actualJob.Name)
+			}
+			if actualJob.Annotations[configHashAnnotationKey] != testConfigHash {
+				t.Fatalf("unexpected job config hash annotation: %q", actualJob.Annotations[configHashAnnotationKey])
+			}
+			if !equality.Semantic.DeepEqual(expectedPod.Spec, actualJob.Spec.Template.Spec) {
+				t.Fatalf("job pod template spec does not match expected:\ngot:  %+v\nwant: %+v", actualJob.Spec.Template.Spec, expectedPod.Spec)
+			}
+			if !equality.Semantic.DeepEqual(expectedPod.Annotations, actualJob.Spec.Template.Annotations) {
+				t.Fatalf("job pod template annotations do not match expected:\ngot:  %+v\nwant: %+v", actualJob.Spec.Template.Annotations, expectedPod.Annotations)
 			}
 		})
 	}
@@ -636,7 +621,7 @@ func TestPodPreflightDeployer_Deploy_secretCreateFailure(t *testing.T) {
 	if len(actions) != 3 {
 		t.Fatalf("expected 3 actions, got %d: %#v", len(actions), actions)
 	}
-	if !actions[0].Matches("delete", "pods") {
+	if !actions[0].Matches("delete", "jobs") {
 		t.Fatalf("unexpected action: %#v", actions[0])
 	}
 	if !actions[1].Matches("delete", "secrets") {
@@ -645,7 +630,7 @@ func TestPodPreflightDeployer_Deploy_secretCreateFailure(t *testing.T) {
 	if !actions[2].Matches("create", "secrets") {
 		t.Fatalf("unexpected action: %#v", actions[2])
 	}
-	assertNoActionMatching(t, actions, "create", "pods")
+	assertNoActionMatching(t, actions, "create", "jobs")
 	assertNoActionMatching(t, actions, "get", "secrets")
 }
 
@@ -673,7 +658,7 @@ func TestPodPreflightDeployer_Deploy_pluginApplyFailure(t *testing.T) {
 	if len(actions) != 4 {
 		t.Fatalf("expected 4 actions, got %d: %#v", len(actions), actions)
 	}
-	if !actions[0].Matches("delete", "pods") {
+	if !actions[0].Matches("delete", "jobs") {
 		t.Fatalf("unexpected action: %#v", actions[0])
 	}
 	if !actions[1].Matches("delete", "secrets") {
@@ -685,19 +670,19 @@ func TestPodPreflightDeployer_Deploy_pluginApplyFailure(t *testing.T) {
 	if !actions[3].Matches("get", "secrets") {
 		t.Fatalf("unexpected action: %#v", actions[3])
 	}
-	assertNoActionMatching(t, actions, "create", "pods")
+	assertNoActionMatching(t, actions, "create", "jobs")
 }
 
 // Verifies that a forbidden pod create returns a wrapped error with the secret
 // already created and no preflight pod present (partial deploy state).
 func TestPodPreflightDeployer_Deploy_podCreateFailure(t *testing.T) {
 	deployer, kubeClient := newTestDeployer(t)
-	kubeClient.PrependReactor("create", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
+	kubeClient.PrependReactor("create", "jobs", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewForbidden(batchv1.Resource("jobs"), PodName, nil)
 	})
 
 	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t))
-	if err == nil || !strings.Contains(err.Error(), "failed to create preflight pod") {
+	if err == nil || !strings.Contains(err.Error(), "failed to create preflight job") {
 		t.Fatalf("expected pod create error, got %v", err)
 	}
 
@@ -705,7 +690,7 @@ func TestPodPreflightDeployer_Deploy_podCreateFailure(t *testing.T) {
 	if len(actions) != 11 {
 		t.Fatalf("expected 11 actions, got %d: %#v", len(actions), actions)
 	}
-	if !actions[0].Matches("delete", "pods") {
+	if !actions[0].Matches("delete", "jobs") {
 		t.Fatalf("unexpected action: %#v", actions[0])
 	}
 	if !actions[1].Matches("delete", "secrets") {
@@ -735,7 +720,7 @@ func TestPodPreflightDeployer_Deploy_podCreateFailure(t *testing.T) {
 	if !actions[9].Matches("create", "rolebindings") {
 		t.Fatalf("unexpected action: %#v", actions[9])
 	}
-	if !actions[10].Matches("create", "pods") {
+	if !actions[10].Matches("create", "jobs") {
 		t.Fatalf("unexpected action: %#v", actions[10])
 	}
 }
@@ -743,15 +728,15 @@ func TestPodPreflightDeployer_Deploy_podCreateFailure(t *testing.T) {
 // Verifies that initial cleanup failure aborts Deploy early with a wrapped error
 // and performs no secret or pod creates.
 func TestPodPreflightDeployer_Deploy_cleanupFailure(t *testing.T) {
-	existingPod := &corev1.Pod{
+	existingJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PodName,
 			Namespace: testNamespace,
 		},
 	}
-	deployer, kubeClient := newTestDeployer(t, existingPod)
-	kubeClient.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
+	deployer, kubeClient := newTestDeployer(t, existingJob)
+	kubeClient.PrependReactor("delete", "jobs", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewForbidden(batchv1.Resource("jobs"), PodName, nil)
 	})
 
 	err := deployer.Deploy(context.Background(), testConfigHash, testPreflightEncryptionConfigSecret(t))
@@ -763,19 +748,19 @@ func TestPodPreflightDeployer_Deploy_cleanupFailure(t *testing.T) {
 	if len(actions) != 2 {
 		t.Fatalf("expected 2 actions, got %d: %#v", len(actions), actions)
 	}
-	if !actions[0].Matches("delete", "pods") {
+	if !actions[0].Matches("delete", "jobs") {
 		t.Fatalf("unexpected action: %#v", actions[0])
 	}
 	if !actions[1].Matches("delete", "secrets") {
 		t.Fatalf("unexpected action: %#v", actions[1])
 	}
 	assertNoActionMatching(t, actions, "create", "secrets")
-	assertNoActionMatching(t, actions, "create", "pods")
+	assertNoActionMatching(t, actions, "create", "jobs")
 }
 
 func TestPodPreflightDeployer_Deploy_deletesStaleResources(t *testing.T) {
 	ctx := context.Background()
-	stalePod := &corev1.Pod{
+	staleJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PodName,
 			Namespace: testNamespace,
@@ -783,7 +768,7 @@ func TestPodPreflightDeployer_Deploy_deletesStaleResources(t *testing.T) {
 	}
 	staleSecret := testPreflightEncryptionConfigSecret(t)
 	staleSecret.Data = map[string][]byte{"stale": []byte("data")}
-	deployer, kubeClient := newTestDeployer(t, stalePod, staleSecret)
+	deployer, kubeClient := newTestDeployer(t, staleJob, staleSecret)
 
 	err := deployer.Deploy(ctx, testConfigHash, testPreflightEncryptionConfigSecret(t))
 	if err != nil {
@@ -794,7 +779,7 @@ func TestPodPreflightDeployer_Deploy_deletesStaleResources(t *testing.T) {
 	if len(actions) != 11 {
 		t.Fatalf("expected 11 actions, got %d: %#v", len(actions), actions)
 	}
-	if !actions[0].Matches("delete", "pods") {
+	if !actions[0].Matches("delete", "jobs") {
 		t.Fatalf("unexpected action: %#v", actions[0])
 	}
 	if !actions[1].Matches("delete", "secrets") {
@@ -824,7 +809,7 @@ func TestPodPreflightDeployer_Deploy_deletesStaleResources(t *testing.T) {
 	if !actions[9].Matches("create", "rolebindings") {
 		t.Fatalf("unexpected action: %#v", actions[9])
 	}
-	if !actions[10].Matches("create", "pods") {
+	if !actions[10].Matches("create", "jobs") {
 		t.Fatalf("unexpected action: %#v", actions[10])
 	}
 }
@@ -838,33 +823,32 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 		expectErr   string
 	}{
 		{
-			name:      "missing pod returns error",
-			expectErr: "failed to get pod",
+			name:      "missing job returns error",
+			expectErr: "failed to get job",
 		},
 		{
-			name: "pod returns hash and pod status",
+			name: "job returns hash and projected running status",
 			objects: []runtime.Object{
-				&corev1.Pod{
+				&batchv1.Job{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        PodName,
 						Namespace:   testNamespace,
 						Annotations: map[string]string{configHashAnnotationKey: testConfigHash},
 					},
-					Status: corev1.PodStatus{Phase: corev1.PodRunning},
+					Status: batchv1.JobStatus{Active: 1},
 				},
 			},
 			expectHash:  testConfigHash,
 			expectPhase: corev1.PodRunning,
 		},
 		{
-			name: "pod without annotation returns empty hash",
+			name: "job without annotation returns empty hash",
 			objects: []runtime.Object{
-				&corev1.Pod{
+				&batchv1.Job{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      PodName,
 						Namespace: testNamespace,
 					},
-					Status: corev1.PodStatus{Phase: corev1.PodPending},
 				},
 			},
 			expectHash:  "",
@@ -897,7 +881,7 @@ func TestPodPreflightDeployer_Status(t *testing.T) {
 }
 
 func TestPodPreflightDeployer_Cleanup(t *testing.T) {
-	existingPod := &corev1.Pod{
+	existingJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PodName,
 			Namespace: testNamespace,
@@ -917,13 +901,13 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 		verifyActions     func(t *testing.T, actions []clienttesting.Action)
 	}{
 		{
-			name:    "deletes existing pod and secret",
-			objects: []runtime.Object{existingPod, existingSecret},
+			name:    "deletes existing job and secret",
+			objects: []runtime.Object{existingJob, existingSecret},
 			verifyActions: func(t *testing.T, actions []clienttesting.Action) {
 				if len(actions) != 2 {
 					t.Fatalf("expected 2 actions, got %d: %#v", len(actions), actions)
 				}
-				if !actions[0].Matches("delete", "pods") {
+				if !actions[0].Matches("delete", "jobs") {
 					t.Fatalf("unexpected action: %#v", actions[0])
 				}
 				deleteAction, ok := actions[0].(clienttesting.DeleteAction)
@@ -931,7 +915,7 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 					t.Fatalf("expected DeleteAction, got %T", actions[0])
 				}
 				if deleteAction.GetName() != PodName {
-					t.Fatalf("unexpected pod name %q", deleteAction.GetName())
+					t.Fatalf("unexpected job name %q", deleteAction.GetName())
 				}
 				if deleteAction.GetNamespace() != testNamespace {
 					t.Fatalf("unexpected namespace %q", deleteAction.GetNamespace())
@@ -947,7 +931,7 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 				if len(actions) != 2 {
 					t.Fatalf("expected 2 actions, got %d: %#v", len(actions), actions)
 				}
-				if !actions[0].Matches("delete", "pods") {
+				if !actions[0].Matches("delete", "jobs") {
 					t.Fatalf("unexpected action: %#v", actions[0])
 				}
 				if !actions[1].Matches("delete", "secrets") {
@@ -956,19 +940,19 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 			},
 		},
 		{
-			name:    "delete pod error is returned",
-			objects: []runtime.Object{existingPod},
+			name:    "delete job error is returned",
+			objects: []runtime.Object{existingJob},
 			setupClient: func(kubeClient *fake.Clientset) {
-				kubeClient.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-					return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
+				kubeClient.PrependReactor("delete", "jobs", func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, apierrors.NewForbidden(batchv1.Resource("jobs"), PodName, nil)
 				})
 			},
-			expectErr: "failed to delete pod",
+			expectErr: "failed to delete job",
 			verifyActions: func(t *testing.T, actions []clienttesting.Action) {
 				if len(actions) != 2 {
 					t.Fatalf("expected 2 actions, got %d: %#v", len(actions), actions)
 				}
-				if !actions[0].Matches("delete", "pods") {
+				if !actions[0].Matches("delete", "jobs") {
 					t.Fatalf("unexpected action: %#v", actions[0])
 				}
 				if !actions[1].Matches("delete", "secrets") {
@@ -989,7 +973,7 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 				if len(actions) != 2 {
 					t.Fatalf("expected 2 actions, got %d: %#v", len(actions), actions)
 				}
-				if !actions[0].Matches("delete", "pods") {
+				if !actions[0].Matches("delete", "jobs") {
 					t.Fatalf("unexpected action: %#v", actions[0])
 				}
 				if !actions[1].Matches("delete", "secrets") {
@@ -997,25 +981,25 @@ func TestPodPreflightDeployer_Cleanup(t *testing.T) {
 				}
 			},
 		},
-		// Verifies that when both pod and secret delete fail, Cleanup returns an
+		// Verifies that when both job and secret delete fail, Cleanup returns an
 		// error containing messages for both failures.
 		{
 			name:    "both delete errors are returned",
-			objects: []runtime.Object{existingPod, existingSecret},
+			objects: []runtime.Object{existingJob, existingSecret},
 			setupClient: func(kubeClient *fake.Clientset) {
-				kubeClient.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-					return true, nil, apierrors.NewForbidden(corev1.Resource("pods"), PodName, nil)
+				kubeClient.PrependReactor("delete", "jobs", func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, apierrors.NewForbidden(batchv1.Resource("jobs"), PodName, nil)
 				})
 				kubeClient.PrependReactor("delete", "secrets", func(action clienttesting.Action) (bool, runtime.Object, error) {
 					return true, nil, apierrors.NewForbidden(corev1.Resource("secrets"), EncryptionConfigSecretName, nil)
 				})
 			},
-			expectErrContains: []string{"failed to delete pod", "failed to delete secret"},
+			expectErrContains: []string{"failed to delete job", "failed to delete secret"},
 			verifyActions: func(t *testing.T, actions []clienttesting.Action) {
 				if len(actions) != 2 {
 					t.Fatalf("expected 2 actions, got %d: %#v", len(actions), actions)
 				}
-				if !actions[0].Matches("delete", "pods") {
+				if !actions[0].Matches("delete", "jobs") {
 					t.Fatalf("unexpected action: %#v", actions[0])
 				}
 				if !actions[1].Matches("delete", "secrets") {

@@ -2,6 +2,7 @@ package encryption
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -73,13 +74,33 @@ func AssertNoPreflightConfigDrift(ctx context.Context, t testing.TB, clientSet C
 	require.NotEmpty(t, namespace)
 	require.NotEmpty(t, labelSelector)
 
-	preflightPod, err := clientSet.Kube.CoreV1().Pods(namespace).Get(ctx, preflight.PodName, metav1.GetOptions{})
-	require.NoError(t, err, "preflight pod %s/%s", namespace, preflight.PodName)
+	preflightPod, err := getPreflightJobPod(ctx, clientSet, namespace)
+	require.NoError(t, err, "preflight job pod in %s", namespace)
 
 	targetPod, err := waitForOperandPod(ctx, clientSet, namespace, labelSelector)
 	require.NoError(t, err, "waiting for Running pod in %s matching %q", namespace, labelSelector)
 
 	assertNoPodSpecDrift(t, targetPod, preflightPod, DefaultPreflightPodSpecDriftIgnore...)
+}
+
+func getPreflightJobPod(ctx context.Context, clientSet ClientSet, namespace string) (*corev1.Pod, error) {
+	pods, err := clientSet.Kube.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "app=" + preflight.PreflightAppLabel,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("no preflight pods with app=%s in %s", preflight.PreflightAppLabel, namespace)
+	}
+	newest := &pods.Items[0]
+	for i := range pods.Items[1:] {
+		p := &pods.Items[i+1]
+		if p.CreationTimestamp.After(newest.CreationTimestamp.Time) {
+			newest = p
+		}
+	}
+	return newest, nil
 }
 
 // AssertNoPreflightConfigDriftFromCapture runs the PodSpec drift check against a
