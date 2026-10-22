@@ -8,6 +8,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"sort"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -658,27 +659,55 @@ type preflightError struct {
 func (e *preflightError) Error() string { return e.message }
 
 func podFailureError(podStatus corev1.PodStatus) *preflightError {
+	var msgParts []string
+	// apply the pod level status message first
+	if podStatus.Message != "" {
+		msgParts = append(msgParts, podStatus.Message)
+	}
+
+	// then the container status messages next
 	for _, cs := range podStatus.ContainerStatuses {
-		if cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
-			reason := cs.State.Terminated.Reason
-			if reason == "" {
-				reason = "Unknown"
+		if cs.State.Terminated == nil || cs.State.Terminated.ExitCode == 0 {
+			continue
+		}
+		containerReason := "unknown"
+		if cs.State.Terminated.Reason != "" {
+			containerReason = cs.State.Terminated.Reason
+		}
+		detail := fmt.Sprintf("container %s exited with %d (%s)", cs.Name, cs.State.Terminated.ExitCode, containerReason)
+		if m := strings.TrimSpace(cs.State.Terminated.Message); m != "" {
+			detail = fmt.Sprintf("%s: %s", detail, m)
+		}
+		msgParts = append(msgParts, detail)
+	}
+
+	// Prefer lastState: after CrashLoopBackOff / sandbox teardown, State often
+	// only has ContainerStatusUnknown while lastState still holds e.g. Exec format error.
+	for _, cs := range podStatus.InitContainerStatuses {
+		initMsg := ""
+		if t := cs.LastTerminationState.Terminated; t != nil && t.ExitCode != 0 {
+			initMsg = strings.TrimSpace(t.Message)
+		}
+		if initMsg == "" {
+			if t := cs.State.Terminated; t != nil && t.ExitCode != 0 {
+				initMsg = strings.TrimSpace(t.Message)
 			}
-			msg := fmt.Sprintf("at least one container %s exited with %d (%s)", cs.Name, cs.State.Terminated.ExitCode, reason)
-			if cs.State.Terminated.Message != "" {
-				msg = fmt.Sprintf("%s: %s", msg, cs.State.Terminated.Message)
-			}
-			return &preflightError{reason: reason, message: msg}
+		}
+		if initMsg != "" {
+			msgParts = append(msgParts, fmt.Sprintf("init container %s: %s", cs.Name, initMsg))
 		}
 	}
+
 	reason := "Unknown"
 	if podStatus.Reason != "" {
 		reason = podStatus.Reason
 	}
-	if podStatus.Message != "" {
-		return &preflightError{reason: reason, message: podStatus.Message}
+
+	msg := strings.Join(msgParts, "; ")
+	if msg == "" {
+		msg = "unknown"
 	}
-	return &preflightError{reason: reason, message: "unknown"}
+	return &preflightError{reason: reason, message: msg}
 }
 
 func podStartupTimeoutError(podStatus corev1.PodStatus, msgPrefix string) *preflightError {
