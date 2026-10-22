@@ -13,34 +13,15 @@ import (
 // DeploymentProgressingCondition computes an operator Progressing condition from
 // the deployment's own status conditions and replica counts.
 //
-// Possible outcomes, evaluated in order:
-//   - Progressing=True / NewGeneration: spec changed but the deployment controller
-//     has not reconciled yet, and the change is not a pure scale.
-//   - Progressing=False / ProgressDeadlineExceeded: the deployment timed out.
-//   - Progressing=True / PodsUpdating: rollout is active.
-//   - Progressing=False / AsExpected: rollout is complete.
+// Returns Progressing=False with reason ProgressDeadlineExceeded if the deployment
+// has timed out, Progressing=True with reason PodsUpdating if the deployment has
+// not yet reached the NewReplicaSetAvailable state, and Progressing=False with
+// reason AsExpected otherwise.
 func DeploymentProgressingCondition(deployment *appsv1.Deployment) operatorv1.OperatorCondition {
 	desiredReplicas := ptr.Deref(deployment.Spec.Replicas, 1)
 	timedOutMessage, timedOut := HasDeploymentTimedOutProgressing(deployment.Status)
 
-	statusIsStale := deployment.Generation != deployment.Status.ObservedGeneration
-	// Pure scales never create a new ReplicaSet, so KCM does not update the
-	// Progressing condition for them — the existing condition remains accurate.
-	// Detect a scale by comparing spec.replicas to status.Replicas (the actual
-	// pod count across all ReplicaSets, equal to the old spec in steady state).
-	scalePending := desiredReplicas != deployment.Status.Replicas
-
 	switch {
-	// Checked before timedOut so that a spec change applied after a
-	// ProgressDeadlineExceeded does not inherit the stale False condition.
-	case statusIsStale && !scalePending:
-		return operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeProgressing,
-			Status:  operatorv1.ConditionTrue,
-			Reason:  "NewGeneration",
-			Message: fmt.Sprintf("deployment/%s.%s: waiting for deployment controller to observe spec generation %d", deployment.Name, deployment.Namespace, deployment.Generation),
-		}
-
 	case timedOut:
 		return operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeProgressing,

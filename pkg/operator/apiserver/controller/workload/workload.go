@@ -313,7 +313,8 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, workload *appsv1.
 		WithReason(progressingCond.Reason).
 		WithMessage(progressingCond.Message)
 
-	workloadIsBeingUpdated := progressingCond.Status == operatorv1.ConditionTrue
+	_, workloadIsBeingUpdatedTooLong := deployment.HasDeploymentTimedOutProgressing(workload.Status)
+	workloadIsBeingUpdated := !deployment.HasDeploymentProgressed(workload.Status) && !workloadIsBeingUpdatedTooLong
 
 	desiredReplicas := ptr.Deref(workload.Spec.Replicas, 1)
 	// During a rollout the default maxSurge (25%) will allow the available
