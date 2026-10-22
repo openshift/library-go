@@ -635,3 +635,39 @@ func AssertKMSPreflightDegradedForOperator(ctx context.Context, t testing.TB, cl
 		"KMS preflight Degraded=True not observed for %s/cluster: degradedTrue=%t observed=%q (previous observed=%q)",
 		cr.gvr.Resource, degradedTrue, preflight.ObservedConfigHash, previous.ObservedConfigHash)
 }
+
+// AssertOperatorConditions polls immediately and every two seconds for up to
+// three minutes until all requested operator conditions exist and match their
+// expected statuses and, when specified, reasons. Missing conditions, mismatches,
+// and transient API errors are retried. Other errors and context cancellation
+// fail the assertion. Success verifies a matching snapshot, not sustained health.
+func AssertOperatorConditions(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, expected ...operatorv1.OperatorCondition) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	var conditions []operatorv1.OperatorCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		status, err := cr.decodeKMSOperatorStatus(obj.Object)
+		if err != nil {
+			return false, err
+		}
+		conditions = status.Conditions
+		for _, want := range expected {
+			condition := v1helpers.FindOperatorCondition(conditions, want.Type)
+			if condition == nil {
+				return false, nil
+			}
+			if condition.Status != want.Status || (want.Reason != "" && condition.Reason != want.Reason) {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	require.NoError(t, err, "%s: expected conditions %+v; last observed conditions: %+v", operatorNamespace, expected, conditions)
+}

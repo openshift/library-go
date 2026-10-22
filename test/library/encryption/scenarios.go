@@ -452,6 +452,9 @@ type ProvidersMigrationScenario struct {
 	// The test will migrate through each provider in order, then always end by
 	// switching to identity (off) to verify the resource is re-written unencrypted.
 	EncryptionProviders []EncryptionProvider
+	// AssertConditionsFunc optionally verifies operator conditions after migrations
+	// between providers, excluding initial enablement and identity cleanup.
+	AssertConditionsFunc func(context.Context, testing.TB, ClientSet, string)
 }
 
 // ShuffleEncryptionProviders returns a new slice with the providers in random order,
@@ -512,6 +515,18 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 	}
 	scenarios := []testStep{inParallel(createSteps...)}
 
+	var conditionSteps []testStep
+	for _, scenario := range migrationScenarios {
+		if scenario.AssertConditionsFunc != nil {
+			conditionSteps = append(conditionSteps, testStep{
+				name: fmt.Sprintf("Assert%sConditions", scenario.ResourceName),
+				testFunc: func(t testing.TB) {
+					scenario.AssertConditionsFunc(ctx, t, GetClients(NewE(t)), scenario.OperatorNamespace)
+				},
+			})
+		}
+	}
+
 	// step 2: migrate through each provider in sequence
 	for i, provider := range providers {
 		prefix := "EncryptWith"
@@ -541,6 +556,9 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 		}
 
 		scenarios = append(scenarios, inParallel(migrateSteps...), inParallel(assertSteps...))
+		if i > 0 && len(conditionSteps) > 0 {
+			scenarios = append(scenarios, inParallel(conditionSteps...))
+		}
 	}
 
 	// step 3: switch to identity (off) to verify the resource is re-written unencrypted
