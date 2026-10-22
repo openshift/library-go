@@ -133,8 +133,8 @@ func TestConditionControllerKMSHealthProgresses(t *testing.T) {
 
 	applyKMSHealth(t, c, kmsConfigWithPlugins())
 
-	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionTrue, "KMSRemoteKeysNotConverged")
-	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, "")
+	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionTrue, kmsRemoteKeysNotConvergedReason)
+	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
 }
 
 func TestConditionControllerKMSHealthNotDegradedBeforeTimeout(t *testing.T) {
@@ -185,8 +185,8 @@ func TestConditionControllerKMSHealthNotDegradedBeforeTimeout(t *testing.T) {
 
 	applyKMSHealth(t, c, kmsConfigWithPlugins())
 
-	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionTrue, "KMSRemoteKeysNotConverged")
-	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, "")
+	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionTrue, kmsRemoteKeysNotConvergedReason)
+	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
 }
 
 func TestConditionControllerKMSHealthDegradedAfterTimeout(t *testing.T) {
@@ -237,8 +237,8 @@ func TestConditionControllerKMSHealthDegradedAfterTimeout(t *testing.T) {
 
 	applyKMSHealth(t, c, kmsConfigWithPlugins())
 
-	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionTrue, "KMSRemoteKeysNotConverged")
-	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionTrue, "KMSRemoteKeysNotConverged")
+	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionTrue, kmsRemoteKeysNotConvergedReason)
+	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionTrue, kmsRemoteKeysNotConvergedReason)
 }
 
 func TestConditionControllerKMSHealthPreservesConditionsOnStatusError(t *testing.T) {
@@ -406,8 +406,8 @@ func TestConditionControllerKMSHealthClearsWithoutKMSPlugins(t *testing.T) {
 			if gotReports != tt.wantReportCount {
 				t.Fatalf("expected %d HealthReports, got %d", tt.wantReportCount, gotReports)
 			}
-			assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionFalse, "")
-			assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, "")
+			assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
+			assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
 		})
 	}
 }
@@ -439,7 +439,7 @@ func TestConditionControllerKMSHealthMissingReportsProgresses(t *testing.T) {
 	applyKMSHealth(t, c, kmsConfigWithPlugins())
 
 	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionTrue, kmsHealthReportsMissingReason)
-	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, "")
+	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
 }
 
 func TestConditionControllerKMSHealthPrunesStaleReports(t *testing.T) {
@@ -497,8 +497,103 @@ func TestConditionControllerKMSHealthPrunesStaleReports(t *testing.T) {
 			t.Fatalf("stale report still present: %#v", report)
 		}
 	}
-	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionFalse, "")
-	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, "")
+	// Replaced-node stale reports are pruned without degrading when the remainder is converged.
+	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
+	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
+}
+
+func TestConditionControllerKMSHealthProbeFailedDegrades(t *testing.T) {
+	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	fakeClock := clocktesting.NewFakePassiveClock(now)
+
+	provider := &fakeKMSHealthStatusProvider{
+		status: &operatorv1.KMSEncryptionStatus{
+			HealthReports: []operatorv1.KMSPluginHealthReport{
+				{
+					NodeName:        "node-a",
+					KeyID:           "1",
+					Status:          operatorv1.KMSPluginHealthStatusHealthy,
+					RemoteKeyID:     "remote-a",
+					LastCheckedTime: metav1.NewTime(now.Add(-time.Minute)),
+				},
+				{
+					NodeName:        "node-b",
+					KeyID:           "1",
+					Status:          operatorv1.KMSPluginHealthStatusUnhealthy,
+					Detail:          "permission denied",
+					LastCheckedTime: metav1.NewTime(now.Add(-time.Minute)),
+				},
+			},
+		},
+	}
+
+	fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+		&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
+		&operatorv1.OperatorStatus{},
+		nil,
+	)
+
+	c := &conditionController{
+		controllerInstanceName:          "test-EncryptionCondition",
+		controllerKMSHealthInstanceName: "test-KMSHealthCondition",
+		operatorClient:                  fakeOperatorClient,
+		provider:                        newTestProvider(nil),
+		preconditionsFulfilledFn:        alwaysFulfilledPreconditions,
+		encryptionStatusProvider:        provider,
+		clock:                           fakeClock,
+	}
+
+	applyKMSHealth(t, c, kmsConfigWithPlugins())
+
+	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
+	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionTrue, kmsProbeFailedReason)
+}
+
+func TestConditionControllerKMSHealthConvergedAsExpected(t *testing.T) {
+	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	fakeClock := clocktesting.NewFakePassiveClock(now)
+
+	provider := &fakeKMSHealthStatusProvider{
+		status: &operatorv1.KMSEncryptionStatus{
+			HealthReports: []operatorv1.KMSPluginHealthReport{
+				{
+					NodeName:        "node-a",
+					KeyID:           "1",
+					Status:          operatorv1.KMSPluginHealthStatusHealthy,
+					RemoteKeyID:     "remote-a",
+					LastCheckedTime: metav1.NewTime(now.Add(-time.Minute)),
+				},
+				{
+					NodeName:        "node-b",
+					KeyID:           "1",
+					Status:          operatorv1.KMSPluginHealthStatusHealthy,
+					RemoteKeyID:     "remote-a",
+					LastCheckedTime: metav1.NewTime(now.Add(-time.Minute)),
+				},
+			},
+		},
+	}
+
+	fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+		&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
+		&operatorv1.OperatorStatus{},
+		nil,
+	)
+
+	c := &conditionController{
+		controllerInstanceName:          "test-EncryptionCondition",
+		controllerKMSHealthInstanceName: "test-KMSHealthCondition",
+		operatorClient:                  fakeOperatorClient,
+		provider:                        newTestProvider(nil),
+		preconditionsFulfilledFn:        alwaysFulfilledPreconditions,
+		encryptionStatusProvider:        provider,
+		clock:                           fakeClock,
+	}
+
+	applyKMSHealth(t, c, kmsConfigWithPlugins())
+
+	assertCondition(t, fakeOperatorClient, kmsHealthProgressingCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
+	assertCondition(t, fakeOperatorClient, kmsHealthDegradedCondition, operatorv1.ConditionFalse, kmsAsExpectedReason)
 }
 
 func TestConditionControllerSyncKMSHealthErrorDoesNotBlockEncrypted(t *testing.T) {

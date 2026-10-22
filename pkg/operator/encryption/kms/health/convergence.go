@@ -1,6 +1,7 @@
 package health
 
 import (
+	"fmt"
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -79,4 +80,23 @@ func PruneStaleReports(reports []operatorv1.KMSPluginHealthReport, now time.Time
 		}
 	}
 	return kept
+}
+
+// FailedProbes returns node/key=detail strings for reports whose Status is
+// Unhealthy or Error. Empty Detail falls back to the status string.
+func FailedProbes(reports []operatorv1.KMSPluginHealthReport) []string {
+	var failed []string
+	for _, report := range reports {
+		switch report.Status {
+		case operatorv1.KMSPluginHealthStatusUnhealthy,
+			operatorv1.KMSPluginHealthStatusError:
+			detail := report.Detail
+			if detail == "" {
+				detail = string(report.Status)
+			}
+			failed = append(failed,
+				fmt.Sprintf("%s/%s=%s", report.NodeName, report.KeyID, detail))
+		}
+	}
+	return failed
 }

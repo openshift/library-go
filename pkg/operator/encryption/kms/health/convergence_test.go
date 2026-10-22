@@ -150,3 +150,23 @@ func TestPruneStaleReports(t *testing.T) {
 		t.Fatalf("got %#v, want only fresh node-a", kept)
 	}
 }
+
+func TestFailedProbes(t *testing.T) {
+	reports := []operatorv1.KMSPluginHealthReport{
+		{NodeName: "a", KeyID: "1", Status: operatorv1.KMSPluginHealthStatusHealthy, RemoteKeyID: "r1"},
+		{NodeName: "b", KeyID: "1", Status: operatorv1.KMSPluginHealthStatusUnhealthy, Detail: "bad"},
+		{NodeName: "c", KeyID: "1", Status: operatorv1.KMSPluginHealthStatusError, Detail: "boom"},
+		{NodeName: "d", KeyID: "1", RemoteKeyID: "r1"},
+		{NodeName: "e", KeyID: "2", Status: operatorv1.KMSPluginHealthStatusError},
+	}
+	failed := FailedProbes(reports)
+	want := []string{"b/1=bad", "c/1=boom", "e/2=Error"}
+	if len(failed) != len(want) {
+		t.Fatalf("FailedProbes = %#v, want %#v", failed, want)
+	}
+	for i := range want {
+		if failed[i] != want[i] {
+			t.Fatalf("FailedProbes[%d] = %q, want %q", i, failed[i], want[i])
+		}
+	}
+}
