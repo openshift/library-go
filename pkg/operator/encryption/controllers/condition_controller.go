@@ -33,6 +33,8 @@ const (
 
 	kmsRemoteKeysNotConvergedReason = "KMSRemoteKeysNotConverged"
 	kmsHealthReportsMissingReason   = "KMSHealthReportsMissing"
+	kmsProbeFailedReason            = "KMSProbeFailed"
+	kmsAsExpectedReason             = "AsExpected"
 )
 
 // conditionController maintains the Encrypted condition. It sets it to true iff there is a
@@ -219,10 +221,12 @@ func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (
 func (c *conditionController) reconcileKMSHealthConditions(ctx context.Context, config *encryptiondata.Config) (err error) {
 	progressing := applyoperatorv1.OperatorCondition().
 		WithType(kmsHealthProgressingCondition).
-		WithStatus(operatorv1.ConditionFalse)
+		WithStatus(operatorv1.ConditionFalse).
+		WithReason(kmsAsExpectedReason)
 	degraded := applyoperatorv1.OperatorCondition().
 		WithType(kmsHealthDegradedCondition).
-		WithStatus(operatorv1.ConditionFalse)
+		WithStatus(operatorv1.ConditionFalse).
+		WithReason(kmsAsExpectedReason)
 	defer func() {
 		// Skip apply on reconcile errors so we do not stamp False and reset the LTT clock.
 		if err != nil {
@@ -261,6 +265,8 @@ func (c *conditionController) reconcileKMSHealthConditions(ctx context.Context, 
 	}
 
 	now := c.clock.Now()
+	// Drop abandoned reporters (e.g. replaced master nodes) without degrading: a normal
+	// control-plane replacement leaves a stale LastCheckedTime until prune TTL elapses.
 	pruned := health.PruneStaleReports(encryptionStatus.HealthReports, now, health.DefaultReportPruneTTL)
 	if len(pruned) != len(encryptionStatus.HealthReports) {
 		// Prune inside the callback so conflict retries re-read status and do not
@@ -273,6 +279,19 @@ func (c *conditionController) reconcileKMSHealthConditions(ctx context.Context, 
 		}
 	}
 
+	// Failed probes degrade immediately (no Progressing hysteresis). There should
+	// not be failing KMS plugins: an old-key failure typically needs vault/admin
+	// help (no in-place field updates), while a write-key failure is actionable
+	// via in-place updates after the external issue is sorted out.
+	if failed := health.FailedProbes(pruned); len(failed) > 0 {
+		degraded = degraded.
+			WithStatus(operatorv1.ConditionTrue).
+			WithReason(kmsProbeFailedReason).
+			WithMessage("KMS plugin probe failed: " + strings.Join(failed, ", "))
+		return nil
+	}
+
+	// Remaining reports are Healthy (or empty Status); Unhealthy/Error already returned above.
 	if health.AllKeyIDsConverged(pruned) {
 		return nil
 	}
@@ -303,6 +322,7 @@ func (c *conditionController) reconcileKMSHealthConditions(ctx context.Context, 
 	// Degrade only after that stamp is at least kmsHealthDegradedTimeout old
 	// (hysteresis for rollouts / slow SKUs). On first observation existing is nil or
 	// not True yet — wait for a later sync once LTT has been recorded.
+	// ProbeFailed already set Degraded above without waiting.
 	existing := operatorv1helpers.FindOperatorCondition(operatorStatus.Conditions, kmsHealthProgressingCondition)
 	if existing != nil && existing.Status == operatorv1.ConditionTrue && !now.Before(existing.LastTransitionTime.Add(kmsHealthDegradedTimeout)) {
 		degraded = degraded.
