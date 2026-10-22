@@ -106,31 +106,49 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 		}
 	}
 
-	verifySecretHasIntermediateCA := func(t *testing.T, actual, initial *corev1.Secret) {
+	verifySecretHasIntermediateCA := func(t *testing.T, actual *corev1.Secret, intermediatesCount int) {
 		t.Helper()
-
-		initialCA, err := crypto.GetCAFromBytes(initial.Data["tls.crt"], initial.Data["tls.key"])
-		if err != nil {
-			t.Fatal(err)
-		}
 
 		actualCA, err := crypto.GetCAFromBytes(actual.Data["tls.crt"], actual.Data["tls.key"])
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if len(actualCA.Config.Certs) != 2 {
-			t.Fatalf("expected exactly 2 certificates but got %d", len(actualCA.Config.Certs))
+		if len(actualCA.Config.Certs) != intermediatesCount+1 {
+			t.Fatalf("expected exactly %d certificates but got %d", intermediatesCount+1, len(actualCA.Config.Certs))
 		}
 
-		intermediate := actualCA.Config.Certs[1]
+		intermediates := actualCA.Config.Certs[1:]
 
-		if string(intermediate.Issuer.CommonName) != string(initialCA.Config.Certs[0].Issuer.CommonName) {
-			t.Errorf("expected the intermediate certificate to have an issuer name matching %q but got %q", initialCA.Config.Certs[0].Issuer.CommonName, intermediate.Issuer.CommonName)
-		}
+		// ensure that the intermediate chain is correctly built if more than one intermediate is expected
+		for i := range intermediatesCount {
+			intermediate := intermediates[i]
 
-		if string(intermediate.Subject.CommonName) != actualCA.Config.Certs[0].Subject.CommonName {
-			t.Errorf("expected the intermediate certificate to have a subject name matching %q but got %q", actualCA.Config.Certs[0].Subject.CommonName, intermediate.Subject.CommonName)
+			if !intermediate.IsCA {
+				t.Fatal("expected intermediate to be a CA certificate but it was not")
+			}
+
+			if err := intermediate.CheckSignatureFrom(intermediate); err == nil {
+				t.Fatal("expected intermediate to not be self-signed, but it was")
+			}
+
+			if i == 0 {
+				// the first intermediate should be for the leaf certificate signer
+				if intermediate.Subject.CommonName != actualCA.Config.Certs[0].Subject.CommonName {
+					t.Fatalf("expected the first intermediate certificate to have subject %q but got %q", actualCA.Config.Certs[0].Subject.CommonName, intermediate.Subject.CommonName)
+				}
+				continue
+			}
+	
+			// in order to have a verifiable trust path through intermediates to the
+			// first issuer, each subsequent intermediate certificate must cross-sign
+			// the issuer of the previous intermediate certificate.
+			previousIntermediate := intermediates[i-1]
+
+			if intermediate.Subject.CommonName != previousIntermediate.Issuer.CommonName {
+				t.Fatalf("expected intermediate to have subject %q but got %q", previousIntermediate.Issuer.CommonName, intermediate.Subject.CommonName)
+			}
+			
 		}
 	}
 
@@ -167,6 +185,58 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 			Type: corev1.SecretTypeTLS,
 			Data: map[string][]byte{"tls.crt": certBytes.Bytes(), "tls.key": keyBytes.Bytes()},
 		}, ca.Certs[0].NotBefore
+	}
+
+	createInitialSecretWithCrossSignedSignerContents := func() *corev1.Secret {
+		initialCA, err := crypto.NewSigningCertificate("initialSigner", crypto.RSAKeyPairGenerator{Bits: 4096}, crypto.WithLifetime(time.Hour))
+		if err != nil {
+			panic("couldn't create initial self-signed CA for testing")
+		}
+
+		signerName := fmt.Sprintf("%s_%s@%d", "ns", "signer", time.Now().Unix())
+		ca, err := crypto.NewSigningCertificate(signerName, crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithLifetime(time.Hour))
+		if err != nil {
+			panic("couldn't create self-signed CA cert for testing")
+		}
+
+		initialSigner := crypto.CA{
+			Config:          initialCA,
+			SerialGenerator: &crypto.RandomSerialGenerator{},
+		}
+
+		intermediateCA, err := crypto.NewSigningCertificate(signerName, crypto.NewStaticKeyPairGenerator(ca.Key), crypto.WithLifetime(time.Hour), crypto.WithSigner(&initialSigner))
+		if err != nil {
+			panic("couldn't create intermediate CA cert for testing")
+		}
+
+		ca.Certs = append(ca.Certs, intermediateCA.Certs[0])
+
+		certBytes := &bytes.Buffer{}
+		keyBytes := &bytes.Buffer{}
+		err = ca.WriteCertConfig(certBytes, keyBytes)
+		if err != nil {
+			panic("couldn't write self-signed CA cert data for testing")
+		}
+
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:       "ns",
+				Name:            "signer",
+				ResourceVersion: "10",
+				Annotations: map[string]string{
+					CertificateIssuer:              ca.Certs[0].Issuer.CommonName,
+					CertificateNotBeforeAnnotation: ca.Certs[0].NotBefore.Format(time.RFC3339),
+					CertificateNotAfterAnnotation:  ca.Certs[0].NotAfter.Format(time.RFC3339),
+					CertificateKeyAlgorithm:        crypto.KeyAlgorithmForPrivateKey(ca.Key),
+					annotations.OpenShiftComponent: "test",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					Name: "operator",
+				}},
+			},
+			Type: corev1.SecretTypeTLS,
+			Data: map[string][]byte{"tls.crt": certBytes.Bytes(), "tls.key": keyBytes.Bytes()},
+		}
 	}
 
 	initialSecretWithContents, notBeforeTime := createInitialSecretWithSignerContents("ns", "signer")
@@ -328,7 +398,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				verifyActionsOnUpdated(t, actions)
 				verifyControllerUpdatedSecret(t, true, controllerUpdatedSecret)
 				verifySecret(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret))
-				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), initialSecretWithContents)
+				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), 1)
 			},
 		},
 		{
@@ -353,7 +423,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				verifyActionsOnUpdated(t, actions)
 				verifyControllerUpdatedSecret(t, true, controllerUpdatedSecret)
 				verifySecret(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret))
-				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), initialSecretWithContents)
+				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), 1)
 				verifyKeyAlgorithm(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), "ECDSA-P256")
 			},
 		},
@@ -379,7 +449,7 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 				verifyActionsOnUpdated(t, actions)
 				verifyControllerUpdatedSecret(t, true, controllerUpdatedSecret)
 				verifySecret(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret))
-				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), initialSecretWithContents)
+				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), 1)
 				verifyKeyAlgorithm(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), "RSA-3072")
 			},
 		},
@@ -399,6 +469,32 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 			verifyResult: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
 				verifyActionsEmpty(t, client.Actions())
 				verifyControllerUpdatedSecret(t, false, controllerUpdatedSecret)
+			},
+		},
+		{
+			name:          "already contains a cross-signed intermediate, update due to differing key algorithms (RSA initially, ECDSA after), contains both the older and newer cross-signed intermediates",
+			initialSecret: createInitialSecretWithCrossSignedSignerContents(),
+			PKIProfileProvider: pki.NewStaticPKIProfileProvider(&configv1alpha1.PKIProfile{
+				Defaults: configv1alpha1.DefaultCertificateConfig{
+					Key: configv1alpha1.KeyConfig{
+						Algorithm: configv1alpha1.KeyAlgorithmECDSA,
+						ECDSA: configv1alpha1.ECDSAKeyConfig{
+							Curve: configv1alpha1.ECDSACurveP256,
+						},
+					},
+				},
+			}),
+			expectedEvents: []*corev1.Event{
+				{Reason: "SignerUpdateRequired", Message: `"signer" in "ns" requires a new signing cert/key pair: key algorithm changed from "RSA-2048" to "ECDSA-P256"`},
+				{Reason: "SecretUpdated", Message: `Updated Secret/signer -n ns because it changed`},
+			},
+			verifyResult: func(t *testing.T, client *kubefake.Clientset, controllerUpdatedSecret bool) {
+				actions := client.Actions()
+				verifyActionsOnUpdated(t, actions)
+				verifyControllerUpdatedSecret(t, true, controllerUpdatedSecret)
+				verifySecret(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret))
+				verifySecretHasIntermediateCA(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), 2)
+				verifyKeyAlgorithm(t, actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret), "ECDSA-P256")
 			},
 		},
 	}

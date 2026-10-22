@@ -312,12 +312,31 @@ func (c RotatedSigningCASecret) setSigningCertKeyPairSecret(signingCertKeyPairSe
 
 			// if the old signer certificate is already expired it is too late to cross-sign.
 			if timeClock.Now().Before(oldSigner.Config.Certs[0].NotAfter) {
-				intermediateCA, err := crypto.NewSigningCertificate(signerName, crypto.NewStaticKeyPairGenerator(ca.Key), crypto.WithSigner(oldSigner), crypto.WithClock(timeClock))
+				oldSignerCARemainingLifetime := -1 * timeClock.Now().Sub(oldSigner.Config.Certs[0].NotAfter)
+				intermediateCA, err := crypto.NewSigningCertificate(signerName, crypto.NewStaticKeyPairGenerator(ca.Key), crypto.WithSigner(oldSigner), crypto.WithClock(timeClock), crypto.WithLifetime(oldSignerCARemainingLifetime))
 				if err != nil {
 					return nil, fmt.Errorf("creating intermediate certificate for bridging trust between old and new signer certs: %w", err)
 				}
 
 				ca.Certs = append(ca.Certs, intermediateCA.Certs[0])
+
+				// check for any cross-signed certificates for the old signer that are still valid
+				// and carry them over. This allows multiple rotations within the original validity window
+				// while still retaining intermediates that bridge trust across that entire chain.
+				for _, cert := range oldSigner.Config.Certs {
+					if cert.IsCA && bytes.Equal(cert.RawIssuer, cert.RawSubject) {
+						if err := cert.CheckSignatureFrom(cert); err == nil {
+							continue
+						}
+					}
+
+					// already expired
+					if cert.NotAfter.Before(timeClock.Now()) {
+						continue
+					}
+
+					ca.Certs = append(ca.Certs, cert)
+				}
 			}
 		}
 	}

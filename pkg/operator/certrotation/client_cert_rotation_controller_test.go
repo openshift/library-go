@@ -501,19 +501,19 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 	type testcase struct {
 		name string
 
-		initialSignerPKIProfile *v1alpha1.PKIProfile
-		updatedSignerPKIProfile *v1alpha1.PKIProfile
+		rotations int
 
-		targetPKIProfile *v1alpha1.PKIProfile
+		signerPKIProfiles []*v1alpha1.PKIProfile
+		targetPKIProfile  *v1alpha1.PKIProfile
 
 		certCreator TargetCertCreator
 
-		timeSinceInitialSync time.Duration
+		rotationDurationStep time.Duration
 
 		verifyOptionFn func(*x509.VerifyOptions)
 
-		expectedSecondaryCertChainLength int
-		expectInitialCABundleToValidate  bool
+		expectedCertChainLengths         []int
+		expectedInitialCABundleValidates []bool
 	}
 
 	rsa2048PKIProfile := &v1alpha1.PKIProfile{
@@ -540,9 +540,12 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 
 	testcases := []testcase{
 		{
-			name:                    "signer PKI key algorithm change, non-PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			name:      "signer PKI key algorithm change, non-PKI serving certificate as target certificate, single rotation during original validity period, results in valid cross-signed serving cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+			},
 			certCreator: &ServingRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -553,18 +556,21 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
 			// such that we get a net-new signer name for target cert generation.
-			timeSinceInitialSync: time.Minute,
+			rotationDurationStep: time.Minute,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 3,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{2, 3},
+			expectedInitialCABundleValidates: []bool{true},
 		},
 		{
-			name:                    "signer PKI key algorithm change, non-PKI client certificate as target certificate, results in valid cross-signed client cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			name:      "signer PKI key algorithm change, non-PKI client certificate as target certificate, single rotation during original validity period, results in valid cross-signed client cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+			},
 			certCreator: &ClientRotation{
 				UserInfo: &user.DefaultInfo{
 					Name:   "hsimpson",
@@ -574,17 +580,20 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
 			// such that we get a net-new signer name for target cert generation.
-			timeSinceInitialSync: time.Minute,
+			rotationDurationStep: time.Minute,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 			},
-			expectedSecondaryCertChainLength: 2,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{1, 2},
+			expectedInitialCABundleValidates: []bool{true},
 		},
 		{
-			name:                    "signer PKI key algorithm change, non-PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			name:      "signer PKI key algorithm change, non-PKI peer certificate as target certificate, single rotation during original validity period, results in valid cross-signed peer cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+			},
 			certCreator: &PeerRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -598,19 +607,22 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
 			// such that we get a net-new signer name for target cert generation.
-			timeSinceInitialSync: time.Minute,
+			rotationDurationStep: time.Minute,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 3,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{2, 3},
+			expectedInitialCABundleValidates: []bool{true},
 		},
 		{
-			name:                    "signer PKI key algorithm change, PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			updatedSignerPKIProfile: ecdsaP256PKIProfile,
-			targetPKIProfile:        rsa2048PKIProfile,
+			name:      "signer PKI key algorithm change, PKI serving certificate as target certificate, single rotation during original validity period, results in valid cross-signed serving cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
 			certCreator: &ServingRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -621,19 +633,22 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
 			// such that we get a net-new signer name for target cert generation.
-			timeSinceInitialSync: time.Minute,
+			rotationDurationStep: time.Minute,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 3,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{2, 3},
+			expectedInitialCABundleValidates: []bool{true},
 		},
 		{
-			name:                    "signer PKI key algorithm change, PKI client certificate as target certificate, results in valid cross-signed client cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			updatedSignerPKIProfile: ecdsaP256PKIProfile,
-			targetPKIProfile:        rsa2048PKIProfile,
+			name:      "signer PKI key algorithm change, PKI client certificate as target certificate, single rotation during original validity period, results in valid cross-signed client cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
 			certCreator: &ClientRotation{
 				UserInfo: &user.DefaultInfo{
 					Name:   "hsimpson",
@@ -643,18 +658,21 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
 			// such that we get a net-new signer name for target cert generation.
-			timeSinceInitialSync: time.Minute,
+			rotationDurationStep: time.Minute,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 			},
-			expectedSecondaryCertChainLength: 2,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{1, 2},
+			expectedInitialCABundleValidates: []bool{true},
 		},
 		{
-			name:                    "signer PKI key algorithm change, PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			updatedSignerPKIProfile: ecdsaP256PKIProfile,
-			targetPKIProfile:        rsa2048PKIProfile,
+			name:      "signer PKI key algorithm change, PKI peer certificate as target certificate, single rotation during original validity period, results in valid cross-signed peer cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
 			certCreator: &PeerRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -668,18 +686,182 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
 			// such that we get a net-new signer name for target cert generation.
-			timeSinceInitialSync: time.Minute,
+			rotationDurationStep: time.Minute,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 3,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{2, 3},
+			expectedInitialCABundleValidates: []bool{true},
+		},
+		{
+			name:      "signer PKI key algorithm change, non-PKI serving certificate as target certificate, multiple rotations during original validity period, results in valid cross-signed serving cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+				rsa2048PKIProfile,
+			},
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			rotationDurationStep: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedCertChainLengths:         []int{2, 3, 4},
+			expectedInitialCABundleValidates: []bool{true, true},
+		},
+		{
+			name:      "signer PKI key algorithm change, non-PKI client certificate as target certificate, multiple rotations during original validity period, results in valid cross-signed client cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+				rsa2048PKIProfile,
+			},
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			rotationDurationStep: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedCertChainLengths:         []int{1, 2, 3},
+			expectedInitialCABundleValidates: []bool{true, true},
+		},
+		{
+			name:      "signer PKI key algorithm change, non-PKI peer certificate as target certificate, multiple rotations during original validity period, results in valid cross-signed peer cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+				rsa2048PKIProfile,
+			},
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			rotationDurationStep: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedCertChainLengths:         []int{2, 3, 4},
+			expectedInitialCABundleValidates: []bool{true, true},
+		},
+		{
+			name:      "signer PKI key algorithm change, PKI serving certificate as target certificate, multiple rotations during original validity period, results in valid cross-signed serving cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			rotationDurationStep: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedCertChainLengths:         []int{2, 3, 4},
+			expectedInitialCABundleValidates: []bool{true, true},
+		},
+		{
+			name:      "signer PKI key algorithm change, PKI client certificate as target certificate, multiple rotations during original validity period, results in valid cross-signed client cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			rotationDurationStep: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedCertChainLengths:         []int{1, 2, 3},
+			expectedInitialCABundleValidates: []bool{true, true},
+		},
+		{
+			name:      "signer PKI key algorithm change, PKI peer certificate as target certificate, multiple rotations during original validity period, results in valid cross-signed peer cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+				ecdsaP256PKIProfile,
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			// ensure that we have progressed by at least some amount of time
+			// greater than 1 second so that the unix time representation changes
+			// such that we get a net-new signer name for target cert generation.
+			rotationDurationStep: time.Minute,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedCertChainLengths:         []int{2, 3, 4},
+			expectedInitialCABundleValidates: []bool{true, true},
 		},
 		// refresh time met
 		{
-			name:                    "signer PKI key algorithm unchanged, refresh time passed, non-PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
+			name:      "signer PKI key algorithm unchanged, refresh time passed, non-PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
 			certCreator: &ServingRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -687,33 +869,79 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 					}
 				},
 			},
-			timeSinceInitialSync: 13 * time.Hour,
+			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 3,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{2, 3},
+			expectedInitialCABundleValidates: []bool{true},
 		},
 		{
-			name:                    "signer PKI key algorithm unchanged, refresh time passed, non-PKI client certificate as target certificate, results in valid cross-signed client cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
+			name:      "signer PKI key algorithm unchanged, refresh time passed twice, non-PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			rotationDurationStep: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedCertChainLengths:         []int{2, 3, 3},
+			expectedInitialCABundleValidates: []bool{true, false},
+		},
+		{
+			name:      "signer PKI key algorithm unchanged, refresh time passed, non-PKI client certificate as target certificate, results in valid cross-signed client cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
 			certCreator: &ClientRotation{
 				UserInfo: &user.DefaultInfo{
 					Name:   "hsimpson",
 					Groups: []string{"donut-lovers"},
 				},
 			},
-			timeSinceInitialSync: 13 * time.Hour,
+			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 			},
-			expectedSecondaryCertChainLength: 2,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{1, 2},
+			expectedInitialCABundleValidates: []bool{true},
 		},
 		{
-			name:                    "signer PKI key algorithm unchanged, refresh time passed, non-PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
+			name:      "signer PKI key algorithm unchanged, refresh time passed twice, non-PKI client certificate as target certificate, results in valid cross-signed client cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			rotationDurationStep: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedCertChainLengths:         []int{1, 2, 2},
+			expectedInitialCABundleValidates: []bool{true, false},
+		},
+		{
+			name:      "signer PKI key algorithm unchanged, refresh time passed, non-PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
 			certCreator: &PeerRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -724,54 +952,20 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 					Name: "certrotation.test.openshift.io",
 				},
 			},
-			timeSinceInitialSync: 13 * time.Hour,
+			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 3,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{2, 3},
+			expectedInitialCABundleValidates: []bool{true},
 		},
 		{
-			name:                    "signer PKI key algorithm unchanged, refresh time passed, PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			targetPKIProfile:        rsa2048PKIProfile,
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			name:      "signer PKI key algorithm unchanged, refresh time passed twice, non-PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
 			},
-			timeSinceInitialSync: 13 * time.Hour,
-			verifyOptionFn: func(vo *x509.VerifyOptions) {
-				vo.DNSName = "certrotation.test.openshift.io"
-				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
-			},
-			expectedSecondaryCertChainLength: 3,
-			expectInitialCABundleToValidate:  true,
-		},
-		{
-			name:                    "signer PKI key algorithm unchanged, refresh time passed, PKI client certificate as target certificate, results in valid cross-signed client cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			targetPKIProfile:        rsa2048PKIProfile,
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
-			},
-			timeSinceInitialSync: 13 * time.Hour,
-			verifyOptionFn: func(vo *x509.VerifyOptions) {
-				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
-			},
-			expectedSecondaryCertChainLength: 2,
-			expectInitialCABundleToValidate:  true,
-		},
-		{
-			name:                    "signer PKI key algorithm unchanged, refresh time passed, PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			targetPKIProfile:        rsa2048PKIProfile,
 			certCreator: &PeerRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -782,18 +976,155 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 					Name: "certrotation.test.openshift.io",
 				},
 			},
-			timeSinceInitialSync: 13 * time.Hour,
+			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 3,
-			expectInitialCABundleToValidate:  true,
+			expectedCertChainLengths:         []int{2, 3, 3},
+			expectedInitialCABundleValidates: []bool{true, false},
+		},
+		{
+			name:      "signer PKI key algorithm unchanged, refresh time passed, PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			rotationDurationStep: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedCertChainLengths:         []int{2, 3},
+			expectedInitialCABundleValidates: []bool{true},
+		},
+		{
+			name:      "signer PKI key algorithm unchanged, refresh time passed twice, PKI serving certificate as target certificate, results in valid cross-signed serving cert chain",
+			rotations: 2,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
+			certCreator: &ServingRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+			},
+			rotationDurationStep: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+			expectedCertChainLengths:         []int{2, 3, 3},
+			expectedInitialCABundleValidates: []bool{true, false},
+		},
+		{
+			name:      "signer PKI key algorithm unchanged, refresh time passed, PKI client certificate as target certificate, results in valid cross-signed client cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			rotationDurationStep: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedCertChainLengths:         []int{1, 2},
+			expectedInitialCABundleValidates: []bool{true},
+		},
+		{
+			name:      "signer PKI key algorithm unchanged, refresh time passed twice, PKI client certificate as target certificate, results in valid cross-signed client cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
+			certCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "hsimpson",
+					Groups: []string{"donut-lovers"},
+				},
+			},
+			rotationDurationStep: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+			},
+			expectedCertChainLengths:         []int{1, 2, 2},
+			expectedInitialCABundleValidates: []bool{true, false},
+		},
+		{
+			name:      "signer PKI key algorithm unchanged, refresh time passed, PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			rotationDurationStep: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedCertChainLengths:         []int{2, 3},
+			expectedInitialCABundleValidates: []bool{true},
+		},
+		{
+			name:      "signer PKI key algorithm unchanged, refresh time passed, PKI peer certificate as target certificate, results in valid cross-signed peer cert chain",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
+			certCreator: &PeerRotation{
+				Hostnames: func() []string {
+					return []string{
+						"certrotation.test.openshift.io",
+					}
+				},
+				UserInfo: &user.DefaultInfo{
+					Name: "certrotation.test.openshift.io",
+				},
+			},
+			rotationDurationStep: 13 * time.Hour,
+			verifyOptionFn: func(vo *x509.VerifyOptions) {
+				vo.DNSName = "certrotation.test.openshift.io"
+				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+			},
+			expectedCertChainLengths:         []int{2, 3, 3},
+			expectedInitialCABundleValidates: []bool{true, false},
 		},
 		// expiration
 		{
-			name:                    "signer PKI key algorithm unchanged, expired, non-PKI serving certificate as target certificate, results in no cross-signed intermediate",
-			initialSignerPKIProfile: rsa2048PKIProfile,
+			name:      "signer PKI key algorithm unchanged, expired, non-PKI serving certificate as target certificate, results in no cross-signed intermediate",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
 			certCreator: &ServingRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -801,34 +1132,39 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 					}
 				},
 			},
-			timeSinceInitialSync: 25 * time.Hour,
+			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 2,
-			expectInitialCABundleToValidate:  false,
+			expectedCertChainLengths:         []int{2, 2},
+			expectedInitialCABundleValidates: []bool{false},
 		},
 		{
-			name:                    "signer PKI key algorithm unchanged, expired, non-PKI client certificate as target certificate, results in no cross-signed intermediate",
-			initialSignerPKIProfile: rsa2048PKIProfile,
+			name:      "signer PKI key algorithm unchanged, expired, non-PKI client certificate as target certificate, results in no cross-signed intermediate",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
 			certCreator: &ClientRotation{
 				UserInfo: &user.DefaultInfo{
 					Name:   "hsimpson",
 					Groups: []string{"donut-lovers"},
 				},
 			},
-			timeSinceInitialSync: 25 * time.Hour,
+			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 			},
-			expectedSecondaryCertChainLength: 1,
-			expectInitialCABundleToValidate:  false,
+			expectedCertChainLengths:         []int{1, 1},
+			expectedInitialCABundleValidates: []bool{false},
 		},
 		{
-			name:                    "signer PKI key algorithm unchanged, expired, non-PKI peer certificate as target certificate, results in no cross-signed intermediate",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			updatedSignerPKIProfile: ecdsaP256PKIProfile,
+			name:      "signer PKI key algorithm unchanged, expired, non-PKI peer certificate as target certificate, results in no cross-signed intermediate",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
 			certCreator: &PeerRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -839,18 +1175,21 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 					Name: "certrotation.test.openshift.io",
 				},
 			},
-			timeSinceInitialSync: 25 * time.Hour,
+			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 2,
-			expectInitialCABundleToValidate:  false,
+			expectedCertChainLengths:         []int{2, 2},
+			expectedInitialCABundleValidates: []bool{false},
 		},
 		{
-			name:                    "signer PKI key algorithm unchanged, expired, PKI serving certificate as target certificate, results in no cross-signed intermediate",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			targetPKIProfile:        rsa2048PKIProfile,
+			name:      "signer PKI key algorithm unchanged, expired, PKI serving certificate as target certificate, results in no cross-signed intermediate",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
 			certCreator: &ServingRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -858,35 +1197,41 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 					}
 				},
 			},
-			timeSinceInitialSync: 25 * time.Hour,
+			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 2,
-			expectInitialCABundleToValidate:  false,
+			expectedCertChainLengths:         []int{2, 2},
+			expectedInitialCABundleValidates: []bool{false},
 		},
 		{
-			name:                    "signer PKI key algorithm unchanged, expired, PKI client certificate as target certificate, results in no cross-signed intermediate",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			targetPKIProfile:        rsa2048PKIProfile,
+			name:      "signer PKI key algorithm unchanged, expired, PKI client certificate as target certificate, results in no cross-signed intermediate",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
 			certCreator: &ClientRotation{
 				UserInfo: &user.DefaultInfo{
 					Name:   "hsimpson",
 					Groups: []string{"donut-lovers"},
 				},
 			},
-			timeSinceInitialSync: 25 * time.Hour,
+			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
 			},
-			expectedSecondaryCertChainLength: 1,
-			expectInitialCABundleToValidate:  false,
+			expectedCertChainLengths:         []int{1, 1},
+			expectedInitialCABundleValidates: []bool{false},
 		},
 		{
-			name:                    "signer PKI key algorithm unchanged, expired, PKI peer certificate as target certificate, results in no cross-signed intermediate",
-			initialSignerPKIProfile: rsa2048PKIProfile,
-			targetPKIProfile:        rsa2048PKIProfile,
+			name:      "signer PKI key algorithm unchanged, expired, PKI peer certificate as target certificate, results in no cross-signed intermediate",
+			rotations: 1,
+			signerPKIProfiles: []*v1alpha1.PKIProfile{
+				rsa2048PKIProfile,
+			},
+			targetPKIProfile: rsa2048PKIProfile,
 			certCreator: &PeerRotation{
 				Hostnames: func() []string {
 					return []string{
@@ -897,13 +1242,13 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 					Name: "certrotation.test.openshift.io",
 				},
 			},
-			timeSinceInitialSync: 25 * time.Hour,
+			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
 				vo.DNSName = "certrotation.test.openshift.io"
 				vo.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 			},
-			expectedSecondaryCertChainLength: 2,
-			expectInitialCABundleToValidate:  false,
+			expectedCertChainLengths:         []int{2, 2},
+			expectedInitialCABundleValidates: []bool{false},
 		},
 	}
 
@@ -921,11 +1266,13 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			now := time.Now()
 			clockTime := clocktesting.NewFakePassiveClock(now)
 
+			rotationIndex := 0
+
 			var signerPKIProvider pki.PKIProfileProvider
 			mockProvider := &mockPKIProfileProvider{}
-			if tc.initialSignerPKIProfile != nil {
+			if len(tc.signerPKIProfiles) >= 1 {
 				signerPKIProvider = mockProvider
-				mockProvider.profile = tc.initialSignerPKIProfile
+				mockProvider.profile = tc.signerPKIProfiles[rotationIndex]
 			}
 
 			var targetPKIProvider pki.PKIProfileProvider
@@ -1016,125 +1363,148 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			certActionSecret := certAction.(clienttesting.CreateAction).GetObject().(*corev1.Secret)
 			secretInformer.Informer().GetIndexer().Add(certActionSecret)
 
-			// Do some updates to simulate some time passing and any configuration changes that should occur.
-			clockTime.SetTime(now.Add(tc.timeSinceInitialSync))
-			if tc.updatedSignerPKIProfile != nil {
-				mockProvider.profile = tc.updatedSignerPKIProfile
-			}
-
-			err = controller.SyncWorker(ctx)
-			if err != nil {
-				t.Fatalf("secondary controller sync failed: %v", err)
-			}
-
-			// Ensure all the update actions have occurred.
-			// Because cross-signing only matters when the signer has rotated, we should
-			// see that exactly 3 additional updates have occurred:
-			//     1. The signer CA secret has been updated.
-			//     2. The CA bundle has been updated (because the signer CA is different)
-			//     3. The target certificate has been updated (because the desired issuer (signer) configuration has changed)
-			// Additionally, capture the updated CA bundle for use in later verification.
-
-			actions = fakeClient.Actions()
-			if len(actions) != 6 {
-				t.Fatalf("expected secondary controller sync to perform 3 additional actions to total 6 actions but got %d", len(actions))
-			}
-
-			secondaryCABundleAction := actions[4]
-			if secondaryCABundleAction.GetVerb() != "update" || secondaryCABundleAction.GetResource().Resource != "configmaps" {
-				t.Errorf("unexpected secondary ca bundle action: %v", secondaryCABundleAction)
-			}
-			secondaryCABundleActionConfigMap := secondaryCABundleAction.(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
-			secondaryCABundle, ok := secondaryCABundleActionConfigMap.Data["ca-bundle.crt"]
-			if !ok {
-				t.Fatalf("no secondary CA bundle data")
-			}
-
-			secondaryClientCertAction := actions[5]
-			if secondaryClientCertAction.GetVerb() != "update" || secondaryClientCertAction.GetResource().Resource != "secrets" {
-				t.Errorf("unexpected secondary client cert action: %v", secondaryClientCertAction)
-			}
-			secondaryClientCertActionSecret := secondaryClientCertAction.(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
-			secondaryClientCertChain, ok := secondaryClientCertActionSecret.Data["tls.crt"]
-			if !ok {
-				t.Fatalf("no secondary client cert chain")
-			}
-
-			secondaryCertChainCerts := []*x509.Certificate{}
-			for len(secondaryClientCertChain) > 0 {
-				var block *pem.Block
-				block, secondaryClientCertChain = pem.Decode(secondaryClientCertChain)
-				if block == nil {
-					break
+			initialActions := 3
+			for i := range tc.rotations {
+				// Do some updates to simulate some time passing and any configuration changes that should occur.
+				clockTime.SetTime(now.Add(tc.rotationDurationStep))
+				now = now.Add(tc.rotationDurationStep)
+				if len(tc.signerPKIProfiles) >= 1+(i+1) {
+					mockProvider.profile = tc.signerPKIProfiles[(i + 1)]
 				}
 
-				if block.Type != "CERTIFICATE" {
-					continue
-				}
-
-				// Parse the raw DER bytes inside the PEM block into an x509 Certificate
-				cert, err := x509.ParseCertificate(block.Bytes)
+				err = controller.SyncWorker(ctx)
 				if err != nil {
-					t.Fatalf("parsing secondary cert chain: %v", err)
+					t.Fatalf("rotation %d controller sync failed: %v", (i + 1), err)
 				}
 
-				secondaryCertChainCerts = append(secondaryCertChainCerts, cert)
-			}
+				// Ensure all the update actions have occurred.
+				// Because cross-signing only matters when the signer has rotated, we should
+				// see that exactly 3 additional updates have occurred:
+				//     1. The signer CA secret has been updated.
+				//     2. The CA bundle has been updated (because the signer CA is different)
+				//     3. The target certificate has been updated (because the desired issuer (signer) configuration has changed)
+				// Additionally, capture the updated CA bundle for use in later verification.
 
-			if len(secondaryCertChainCerts) != tc.expectedSecondaryCertChainLength {
-				t.Fatalf("expected the secondary cert chain to contain exactly %d certificates but got %d", tc.expectedSecondaryCertChainLength, len(secondaryCertChainCerts))
-			}
+				actions = fakeClient.Actions()
+				expectedActionsCount := initialActions + (3 * (i + 1))
+				if len(actions) != expectedActionsCount {
+					actionStrings := []string{}
+					for _, action := range actions {
+						name := "unknown"
+						if uaction, ok := action.(clienttesting.UpdateAction); ok {
+							name = uaction.GetObject().(metav1.Object).GetName()
+						}
+						actionStrings = append(actionStrings, fmt.Sprintf("%s - %s/%s - %s/%s", action.GetVerb(), action.GetResource().String(), action.GetSubresource(), action.GetNamespace(), name))
+					}
+					t.Fatalf("expected rotation %d controller sync to perform 3 additional actions to total %d actions but got %d. Actions: %s", i+1, expectedActionsCount, len(actions), strings.Join(actionStrings, "\n"))
+				}
 
-			leaf := secondaryCertChainCerts[0]
-			intermediates := []*x509.Certificate{}
-			if len(secondaryCertChainCerts) > 1 {
-				intermediates = secondaryCertChainCerts[1:]
-			}
+				rotationSignerAction := actions[expectedActionsCount-3]
+				if signerAction.GetVerb() != "create" || signerAction.GetResource().Resource != "secrets" {
+					t.Errorf("unexpected rotation ca bundle action: %v", signerAction)
+				}
+				rotationSignerActionSecret := rotationSignerAction.(clienttesting.CreateAction).GetObject().(*corev1.Secret)
+				secretInformer.Informer().GetIndexer().Add(rotationSignerActionSecret)
 
-			initialRoots := x509.NewCertPool()
-			ok = initialRoots.AppendCertsFromPEM([]byte(initialCABundle))
-			if !ok {
-				t.Fatal("parsing initial CA bundle certificates resulted in no appended certs")
-			}
+				rotationCABundleAction := actions[expectedActionsCount-2]
+				if rotationCABundleAction.GetVerb() != "update" || rotationCABundleAction.GetResource().Resource != "configmaps" {
+					t.Errorf("unexpected rotation ca bundle action: %v", rotationCABundleAction)
+				}
+				rotationCABundleActionConfigMap := rotationCABundleAction.(clienttesting.UpdateAction).GetObject().(*corev1.ConfigMap)
+				rotationCABundle, ok := rotationCABundleActionConfigMap.Data["ca-bundle.crt"]
+				if !ok {
+					t.Fatalf("no rotation CA bundle data")
+				}
 
-			updatedRoots := x509.NewCertPool()
-			ok = updatedRoots.AppendCertsFromPEM([]byte(secondaryCABundle))
-			if !ok {
-				t.Fatal("parsing secondary CA bundle certificates resulted in no appended certs")
-			}
+				rotationTargetCertAction := actions[expectedActionsCount-1]
+				if rotationTargetCertAction.GetVerb() != "update" || rotationTargetCertAction.GetResource().Resource != "secrets" {
+					t.Errorf("unexpected rotation target cert action: %v", rotationTargetCertAction)
+				}
+				rotationTargetCertActionSecret := rotationTargetCertAction.(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+				rotationTargetCertChain, ok := rotationTargetCertActionSecret.Data["tls.crt"]
+				if !ok {
+					t.Fatalf("no rotation target cert chain")
+				}
 
-			intermediatesPool := x509.NewCertPool()
-			for _, cert := range intermediates {
-				intermediatesPool.AddCert(cert)
-			}
+				rotationTargetChainCerts := []*x509.Certificate{}
+				for len(rotationTargetCertChain) > 0 {
+					var block *pem.Block
+					block, rotationTargetCertChain = pem.Decode(rotationTargetCertChain)
+					if block == nil {
+						break
+					}
 
-			initialVerifyOptions := &x509.VerifyOptions{
-				Roots:         initialRoots,
-				Intermediates: intermediatesPool,
-				CurrentTime:   clockTime.Now().Add(time.Minute),
-			}
+					if block.Type != "CERTIFICATE" {
+						continue
+					}
 
-			secondaryVerifyOptions := &x509.VerifyOptions{
-				Roots:         updatedRoots,
-				Intermediates: intermediatesPool,
-				CurrentTime:   clockTime.Now().Add(time.Minute),
-			}
+					// Parse the raw DER bytes inside the PEM block into an x509 Certificate
+					cert, err := x509.ParseCertificate(block.Bytes)
+					if err != nil {
+						t.Fatalf("parsing rotation cert chain: %v", err)
+					}
 
-			if tc.verifyOptionFn != nil {
-				tc.verifyOptionFn(initialVerifyOptions)
-				tc.verifyOptionFn(secondaryVerifyOptions)
-			}
+					rotationTargetChainCerts = append(rotationTargetChainCerts, cert)
+				}
 
-			_, err = leaf.Verify(*initialVerifyOptions)
-			if err != nil && tc.expectInitialCABundleToValidate {
-				t.Fatalf("failed to verify the new leaf certificate using the initial CA bundle: %v", err)
-			} else if err == nil && !tc.expectInitialCABundleToValidate {
-				t.Fatal("successfully verified the new leaf certificate using the initial CA bundle, but expected it to fail")
-			}
+				if len(rotationTargetChainCerts) != tc.expectedCertChainLengths[i+1] {
+					for _, cert := range rotationTargetChainCerts {
+						fmt.Println(cert.Subject.CommonName, cert.Issuer.CommonName, cert.NotAfter.Before(now), cert.NotAfter, now)
+					}
+					t.Fatalf("expected the rotation cert chain to contain exactly %d certificates but got %d", tc.expectedCertChainLengths[i+1], len(rotationTargetChainCerts))
+				}
 
-			_, err = leaf.Verify(*secondaryVerifyOptions)
-			if err != nil {
-				t.Fatalf("failed to verify the new leaf certificate using the secondary CA bundle: %v", err)
+				leaf := rotationTargetChainCerts[0]
+				intermediates := []*x509.Certificate{}
+				if len(rotationTargetChainCerts) > 1 {
+					intermediates = rotationTargetChainCerts[1:]
+				}
+
+				initialRoots := x509.NewCertPool()
+				ok = initialRoots.AppendCertsFromPEM([]byte(initialCABundle))
+				if !ok {
+					t.Fatal("parsing initial CA bundle certificates resulted in no appended certs")
+				}
+
+				updatedRoots := x509.NewCertPool()
+				ok = updatedRoots.AppendCertsFromPEM([]byte(rotationCABundle))
+				if !ok {
+					t.Fatal("parsing rotation CA bundle certificates resulted in no appended certs")
+				}
+
+				intermediatesPool := x509.NewCertPool()
+				for _, cert := range intermediates {
+					intermediatesPool.AddCert(cert)
+				}
+
+				initialVerifyOptions := &x509.VerifyOptions{
+					Roots:         initialRoots,
+					Intermediates: intermediatesPool,
+					CurrentTime:   clockTime.Now().Add(time.Minute),
+				}
+
+				rotationVerifyOptions := &x509.VerifyOptions{
+					Roots:         updatedRoots,
+					Intermediates: intermediatesPool,
+					CurrentTime:   clockTime.Now().Add(time.Minute),
+				}
+
+				if tc.verifyOptionFn != nil {
+					tc.verifyOptionFn(initialVerifyOptions)
+					tc.verifyOptionFn(rotationVerifyOptions)
+				}
+
+				_, err = leaf.Verify(*initialVerifyOptions)
+				if err != nil && tc.expectedInitialCABundleValidates[i] {
+					t.Fatalf("failed to verify the new leaf certificate using the initial CA bundle: %v", err)
+				} else if err == nil && !tc.expectedInitialCABundleValidates[i] {
+					t.Fatal("successfully verified the new leaf certificate using the initial CA bundle, but expected it to fail")
+				}
+
+				_, err = leaf.Verify(*rotationVerifyOptions)
+				if err != nil {
+					t.Fatalf("failed to verify the new leaf certificate using the rotation CA bundle: %v", err)
+				}
 			}
 		})
 	}
