@@ -6,6 +6,8 @@ import (
 	"math/rand/v2"
 	"testing"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/clock"
 
@@ -437,8 +439,18 @@ func oasProvidersMigrationScenario(ctx context.Context) library.ProvidersMigrati
 	}
 }
 
+func assertKMSHealth(ctx context.Context, t testing.TB, clientSet library.ClientSet, operatorNamespace string) {
+	t.Helper()
+	library.AssertKMSHealthReports(ctx, t, clientSet, operatorNamespace)
+	library.AssertOperatorConditions(ctx, t, clientSet, operatorNamespace,
+		operatorv1.OperatorCondition{Type: "KMSHealthDegraded", Status: operatorv1.ConditionFalse, Reason: "AsExpected"},
+		operatorv1.OperatorCondition{Type: "KMSHealthProgressing", Status: operatorv1.ConditionFalse, Reason: "AsExpected"},
+	)
+}
+
 func kasKMSToKMSMigrationScenario(providers []library.EncryptionProvider) library.ProvidersMigrationScenario {
 	scenario := kasProvidersMigrationScenario(providers)
+	scenario.AssertConditionsFunc = assertKMSHealth
 	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
 		library.AssertWellKnownSecretOfLifeEncrypted(t, clientSet, resource)
 		library.AssertWellKnownSecretOfLifeEncryptedWithKMS(t, clientSet,
@@ -451,6 +463,7 @@ func kasKMSToKMSMigrationScenario(providers []library.EncryptionProvider) librar
 
 func authKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
 	scenario := authProvidersMigrationScenario(ctx)
+	scenario.AssertConditionsFunc = assertKMSHealth
 	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
 		library.AssertWellKnownTokenOfLifeEncrypted(t, clientSet, resource)
 		library.AssertWellKnownTokenOfLifeEncryptedWithKMS(t, clientSet,
@@ -463,6 +476,7 @@ func authKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrati
 
 func oasKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
 	scenario := oasProvidersMigrationScenario(ctx)
+	scenario.AssertConditionsFunc = assertKMSHealth
 	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
 		library.AssertWellKnownRouteOfLifeEncrypted(t, clientSet, resource)
 		library.AssertWellKnownRouteOfLifeEncryptedWithKMS(t, clientSet,

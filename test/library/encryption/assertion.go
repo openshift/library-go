@@ -635,3 +635,100 @@ func AssertKMSPreflightDegradedForOperator(ctx context.Context, t testing.TB, cl
 		"KMS preflight Degraded=True not observed for %s/cluster: degradedTrue=%t observed=%q (previous observed=%q)",
 		cr.gvr.Resource, degradedTrue, preflight.ObservedConfigHash, previous.ObservedConfigHash)
 }
+
+// AssertKMSHealthReports waits up to fifteen minutes for every current operand node
+// to publish a healthy report for the migrated write key after this check starts.
+// Reports from backed keys and earlier observations cannot satisfy this assertion.
+func AssertKMSHealthReports(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	operandNamespace := operandNamespaceForOperator(operatorNamespace)
+	require.NotEmpty(t, operandNamespace)
+	keyMeta, err := GetLastKeyMeta(t, clientSet.Kube, "openshift-config-managed",
+		"encryption.apiserver.operator.openshift.io/component="+operandNamespace)
+	require.NoError(t, err)
+	keyID, ok := encryptionKeyNameToKeyID(keyMeta.Name)
+	require.True(t, ok, "invalid encryption key secret name %q", keyMeta.Name)
+	expectedKeyID := strconv.FormatUint(keyID, 10)
+	started := time.Now()
+	var reports []operatorv1.KMSPluginHealthReport
+	var expectedNodes map[string]struct{}
+	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+		pods, err := clientSet.Kube.CoreV1().Pods(operandNamespace).List(ctx, metav1.ListOptions{LabelSelector: "apiserver=true"})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		expectedNodes = map[string]struct{}{}
+		for _, pod := range pods.Items {
+			if pod.DeletionTimestamp != nil {
+				continue
+			}
+			if pod.Spec.NodeName == "" || pod.Status.Phase != corev1.PodRunning {
+				return false, nil
+			}
+			expectedNodes[pod.Spec.NodeName] = struct{}{}
+		}
+		if len(expectedNodes) == 0 {
+			return false, nil
+		}
+		obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		status, err := cr.decodeKMSOperatorStatus(obj.Object)
+		if err != nil {
+			return false, err
+		}
+		reports = status.EncryptionStatus.HealthReports
+		for _, report := range reports {
+			if _, expected := expectedNodes[report.NodeName]; expected && report.KeyID == expectedKeyID &&
+				report.Status == operatorv1.KMSPluginHealthStatusHealthy && report.RemoteKeyID != "" && report.LastCheckedTime.After(started) {
+				delete(expectedNodes, report.NodeName)
+			}
+		}
+		return len(expectedNodes) == 0, nil
+	})
+	require.NoError(t, err, "%s: waiting for fresh healthy reports for key %s; remaining nodes: %+v; reports: %+v", operatorNamespace, expectedKeyID, expectedNodes, reports)
+}
+
+// AssertOperatorConditions polls immediately and every two seconds for up to
+// fifteen minutes until all requested operator conditions exist and match their
+// expected statuses and, when specified, reasons. Missing conditions, mismatches,
+// and transient API errors are retried. Other errors and context cancellation
+// fail the assertion. Success verifies a matching snapshot, not sustained health.
+func AssertOperatorConditions(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, expected ...operatorv1.OperatorCondition) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	var conditions []operatorv1.OperatorCondition
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+		obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		status, err := cr.decodeKMSOperatorStatus(obj.Object)
+		if err != nil {
+			return false, err
+		}
+		conditions = status.Conditions
+		for _, want := range expected {
+			condition := v1helpers.FindOperatorCondition(conditions, want.Type)
+			if condition == nil {
+				return false, nil
+			}
+			if condition.Status != want.Status || (want.Reason != "" && condition.Reason != want.Reason) {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	require.NoError(t, err, "%s: expected conditions %+v; last observed conditions: %+v", operatorNamespace, expected, conditions)
+}
