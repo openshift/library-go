@@ -1,13 +1,16 @@
 package certrotation
 
 import (
+	"bytes"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -128,7 +131,7 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			actual := needNewTargetCertKeyPairForTime(test.annotations, signer, test.refresh, test.refreshOnlyWhenExpired)
+			actual := needNewTargetCertKeyPairForTime(test.annotations, signer, test.refresh, test.refreshOnlyWhenExpired, clock.RealClock{})
 			if !strings.HasPrefix(actual, test.expected) {
 				t.Errorf("expected %v, got %v", test.expected, actual)
 			}
@@ -262,6 +265,112 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				actions := client.Actions()
 				if len(actions) != 0 {
 					t.Fatal(spew.Sdump(actions))
+				}
+			},
+		},
+		{
+			name: "update write with CA with intermediate certificate",
+			caFn: func() (*crypto.CA, error) {
+				initialSignerCert, err := crypto.NewSigningCertificate("initial-signer", crypto.RSAKeyPairGenerator{}, crypto.WithLifetime(time.Hour))
+				if err != nil {
+					return nil, fmt.Errorf("creating initial signer certificate: %w", err)
+				}
+
+				initialCertBytes, initialKeyBytes := &bytes.Buffer{}, &bytes.Buffer{}
+				err = initialSignerCert.WriteCertConfig(initialCertBytes, initialKeyBytes)
+				if err != nil {
+					return nil, fmt.Errorf("writing initial signer bytes: %w", err)
+				}
+
+				initialCASigner, err := crypto.GetCAFromBytes(initialCertBytes.Bytes(), initialKeyBytes.Bytes())
+				if err != nil {
+					return nil, fmt.Errorf("creating CA from initial signer bytes: %w", err)
+				}
+
+				updatedSignerCert, err := crypto.NewSigningCertificate("updated-signer", crypto.RSAKeyPairGenerator{}, crypto.WithLifetime(time.Hour))
+				if err != nil {
+					return nil, fmt.Errorf("creating updated signer certificate: %w", err)
+				}
+
+				intermediateCert, err := crypto.NewSigningCertificate("updated-signer", crypto.NewStaticKeyPairGenerator(updatedSignerCert.Key), crypto.WithLifetime(time.Hour), crypto.WithSigner(initialCASigner))
+				if err != nil {
+					return nil, fmt.Errorf("creating intermediate updated signer certificate to bridge trust: %w", err)
+				}
+				updatedSignerCert.Certs = append(updatedSignerCert.Certs, intermediateCert.Certs[0])
+
+				updatedSignerCertBytes, updatedSignerKeyBytes := &bytes.Buffer{}, &bytes.Buffer{}
+				err = updatedSignerCert.WriteCertConfig(updatedSignerCertBytes, updatedSignerKeyBytes)
+				if err != nil {
+					return nil, fmt.Errorf("writing updated signer bytes: %w", err)
+				}
+
+				updatedSignerCA, err := crypto.GetCAFromBytes(updatedSignerCertBytes.Bytes(), updatedSignerKeyBytes.Bytes())
+				if err != nil {
+					return nil, fmt.Errorf("creating CA from updated signer bytes: %w", err)
+				}
+
+				return updatedSignerCA, nil
+			},
+			RefreshOnlyWhenExpired: false,
+			initialSecretFn: func() *corev1.Secret {
+				caBundleSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret", ResourceVersion: "10"},
+					Data:       map[string][]byte{},
+					Type:       corev1.SecretTypeTLS,
+				}
+				return caBundleSecret
+			},
+			verifyActions: func(t *testing.T, client *kubefake.Clientset) {
+				actions := client.Actions()
+				if len(actions) != 1 {
+					t.Fatal(spew.Sdump(actions))
+				}
+
+				if !actions[0].Matches("update", "secrets") {
+					t.Error(actions[0])
+				}
+
+				actual := actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+				if len(actual.Annotations) == 0 {
+					t.Errorf("expected certificates to be annotated")
+				}
+				ownershipValue, found := actual.Annotations[annotations.OpenShiftComponent]
+				if !found {
+					t.Errorf("expected secret to have ownership annotations, got: %v", actual.Annotations)
+				}
+				if ownershipValue != "test" {
+					t.Errorf("expected ownership annotation to be 'test', got: %v", ownershipValue)
+				}
+				if len(actual.Data["tls.crt"]) == 0 || len(actual.Data["tls.key"]) == 0 {
+					t.Error(actual.Data)
+				}
+				if actual.Annotations[CertificateHostnames] != "bar,foo" {
+					t.Error(actual.Annotations[CertificateHostnames])
+				}
+				if len(actual.OwnerReferences) != 1 {
+					t.Errorf("expected to have exactly one owner reference")
+				}
+				if actual.OwnerReferences[0].Name != "operator" {
+					t.Errorf("expected owner reference to be 'operator', got %v", actual.OwnerReferences[0].Name)
+				}
+
+				signer, err := crypto.GetCAFromBytes(actual.Data["tls.crt"], actual.Data["tls.key"])
+				if err != nil {
+					t.Fatalf("getting CA from secret data: %v", err)
+				}
+
+				if len(signer.Config.Certs) != 3 {
+					t.Fatalf("expected serving certificate chain to have 3 certificates, but got %d", len(signer.Config.Certs))
+				}
+
+				intermediate := signer.Config.Certs[2]
+
+				if string(intermediate.Issuer.CommonName) == string(signer.Config.Certs[0].Issuer.CommonName) {
+					t.Errorf("expected the intermediate certificate to have an issuer name not matching the issuer of the leaf certificate")
+				}
+
+				if string(intermediate.Subject.CommonName) != signer.Config.Certs[0].Issuer.CommonName {
+					t.Errorf("expected the intermediate certificate to have a subject name matching the issuer of the leaf certificate %q but got %q", signer.Config.Certs[0].Issuer.CommonName, intermediate.Subject.CommonName)
 				}
 			},
 		},
@@ -412,7 +521,6 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				}
 				if signingCertKeyPair.Config.Certs[0].Issuer.CommonName != "signer-tests" {
 					t.Error(signingCertKeyPair.Config.Certs[0].Issuer.CommonName)
-
 				}
 				if signingCertKeyPair.Config.Certs[1].Subject.CommonName != "signer-tests" {
 					t.Error(signingCertKeyPair.Config.Certs[0].Issuer.CommonName)
@@ -456,7 +564,6 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 				}
 				if signingCertKeyPair.Config.Certs[0].Issuer.CommonName != "signer-tests" {
 					t.Error(signingCertKeyPair.Config.Certs[0].Issuer.CommonName)
-
 				}
 				if signingCertKeyPair.Config.Certs[1].Subject.CommonName != "signer-tests" {
 					t.Error(signingCertKeyPair.Config.Certs[0].Issuer.CommonName)
@@ -533,6 +640,7 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 		refreshOnlyWhenExpired bool
 		creationRequired       bool
 		expected               string
+		keyPairGenerator       crypto.KeyPairGenerator
 	}{
 		{
 			name:             "secret doesn't exist",
@@ -549,7 +657,7 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						CertificateNotAfterAnnotation:  now.Add(1 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Minute).Format(time.RFC3339),
 						CertificateIssuer:              "test-ca",
 					},
 				},
@@ -619,7 +727,7 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Minute).Format(time.RFC3339),
 						// CertificateIssuer unset
 					},
 				},
@@ -636,7 +744,7 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Minute).Format(time.RFC3339),
 						CertificateIssuer:              "test-ca",
 					},
 				},
@@ -647,13 +755,13 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			expected:      "", // no refresh needed
 		},
 		{
-			name:             "issuer not in ca bundle - expired cert",
+			name:             "issuer doesn't match current signer",
 			creationRequired: false,
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Minute).Format(time.RFC3339),
 						CertificateIssuer:              "old-ca-name", // not in bundle
 					},
 				},
@@ -661,7 +769,7 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			signer:        testCA,
 			caBundleCerts: testCA.Config.Certs, // only contains test-ca
 			refresh:       time.Hour,
-			expected:      `issuer "old-ca-name", not in ca bundle:`,
+			expected:      `issuer "old-ca-name" does not match desired signer subject "test-ca"`,
 		},
 		{
 			name:             "issuer in ca bundle with multiple certs",
@@ -670,7 +778,7 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						CertificateNotAfterAnnotation:  now.Add(2 * time.Hour).Format(time.RFC3339),
-						CertificateNotBeforeAnnotation: now.Add(-1 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Minute).Format(time.RFC3339),
 						CertificateIssuer:              "other-ca",
 					},
 				},
@@ -678,7 +786,26 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 			signer:        testCA,
 			caBundleCerts: append(testCA.Config.Certs, otherCA.Config.Certs...), // both test-ca and other-ca
 			refresh:       time.Hour,
-			expected:      "", // other-ca is in the bundle
+			expected:      `issuer "other-ca" does not match desired signer subject "test-ca"`, // other-ca is in the bundle
+		},
+		{
+			name:             "mismatched key algorithms",
+			creationRequired: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						CertificateNotAfterAnnotation:  now.Add(1 * time.Hour).Format(time.RFC3339),
+						CertificateNotBeforeAnnotation: now.Add(-1 * time.Minute).Format(time.RFC3339),
+						CertificateIssuer:              "test-ca",
+						CertificateKeyAlgorithm:        "RSA-2048",
+					},
+				},
+			},
+			signer:           testCA,
+			caBundleCerts:    testCA.Config.Certs,
+			refresh:          time.Hour,
+			keyPairGenerator: crypto.RSAKeyPairGenerator{Bits: 4096},
+			expected:         `key algorithm changed from "RSA-2048" to "RSA-4096"`,
 		},
 	}
 
@@ -691,6 +818,8 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 				test.refresh,
 				test.refreshOnlyWhenExpired,
 				test.creationRequired,
+				clock.RealClock{}, // use a real clock here because these tests mock the annotations to represent time-based scenarios.
+				test.keyPairGenerator,
 			)
 
 			if test.expected == "" {
@@ -743,7 +872,7 @@ func TestClientRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 			r := &ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "test-user", Groups: []string{"test-group"}},
 			}
-			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen)
+			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen, clock.RealClock{})
 			if err != nil {
 				t.Fatalf("NewCertificate() error = %v", err)
 			}
@@ -796,7 +925,7 @@ func TestServingRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 			r := &ServingRotation{
 				Hostnames: func() []string { return []string{"localhost", "127.0.0.1"} },
 			}
-			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen)
+			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen, clock.RealClock{})
 			if err != nil {
 				t.Fatalf("NewCertificate() error = %v", err)
 			}
@@ -854,7 +983,7 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 			keyGen:    nil,
 			userInfo:  &user.DefaultInfo{Name: "wrong-name"},
 			hostnames: []string{"localhost", "127.0.0.1"},
-			wantErr:   "conflicts",
+			wantAlg:   x509.RSA,
 		},
 	}
 	for _, tc := range testCases {
@@ -868,7 +997,7 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 				Hostnames: func() []string { return tc.hostnames },
 				UserInfo:  tc.userInfo,
 			}
-			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen)
+			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen, clock.RealClock{})
 			if tc.wantErr != "" {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tc.wantErr)
@@ -956,7 +1085,7 @@ func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 			r := &SignerRotation{
 				SignerName: "test-intermediate",
 			}
-			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen)
+			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen, clock.RealClock{})
 			if err != nil {
 				t.Fatalf("NewCertificate() error = %v", err)
 			}
