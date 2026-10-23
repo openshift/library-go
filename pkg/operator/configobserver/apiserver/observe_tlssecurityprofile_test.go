@@ -14,6 +14,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 
+	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
@@ -162,7 +163,7 @@ func TestObserveTLSSecurityProfileWithGroupPaths(t *testing.T) {
 	// The observer FIPS-filters groups, so expectations differ by runtime mode.
 	// Under fips140=on, X25519MLKEM768 and X25519 are dropped; only the NIST
 	// P-curves survive.
-	fips := isFIPSEnabled()
+	fips := crypto.IsFIPSEnabled()
 	pick := func(nonFIPS, fipsMode []string) []string {
 		if fips {
 			return fipsMode
