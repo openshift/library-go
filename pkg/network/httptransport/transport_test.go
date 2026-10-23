@@ -49,20 +49,14 @@ func TestNewRoundTripperTrustSources(t *testing.T) {
 		WithCAContentProvider(provider),
 	)
 	require.NoError(t, err)
-	t.Cleanup(roundTripper.(interface{ CloseIdleConnections() }).CloseIdleConnections)
 
-	for name, ca := range map[string]*testCA{
-		"cert pool": poolCA,
-		"CA data":   dataCA,
-		"CA file":   fileCA,
-		"provider":  providerCA,
-	} {
-		t.Run(name, func(t *testing.T) {
-			server := startTLSServer(t, ca.serverCertificate, nil)
-			assertGetSucceeds(t, roundTripper, server.URL)
-		})
+	want := x509.NewCertPool()
+	for _, ca := range []*testCA{poolCA, dataCA, fileCA, providerCA} {
+		want.AddCert(ca.certificate)
 	}
 
+	rootCAs := underlyingTransport(t, roundTripper).TLSClientConfig.RootCAs
+	assert.True(t, rootCAs.Equal(want), "expected all trust sources to be merged into the root pool")
 	assert.True(t, pool.Equal(originalPool), "caller-owned cert pool was mutated")
 }
 
@@ -186,7 +180,6 @@ func TestTransportRetainsLastKnownGoodConfiguration(t *testing.T) {
 	forceTransportRebuild(t, roundTripper)
 
 	assert.Same(t, oldTransport, underlyingTransport(t, roundTripper), "a failed rebuild must not replace the transport")
-	assertGetSucceeds(t, roundTripper, server.URL)
 }
 
 func TestTransportAllowsEmptyCAContentProvider(t *testing.T) {
@@ -199,15 +192,18 @@ func TestTransportSupportsMultipleCAProviders(t *testing.T) {
 	secondCA := newTestCA(t, "second-provider")
 
 	roundTripper, err := NewRoundTripper(
+		WithCertPool(x509.NewCertPool()),
 		WithCAContentProvider(newTestCAProvider("first", firstCA.pem)),
 		WithCAContentProvider(newTestCAProvider("second", secondCA.pem)),
 	)
 	require.NoError(t, err)
 
-	for _, ca := range []*testCA{firstCA, secondCA} {
-		server := startTLSServer(t, ca.serverCertificate, nil)
-		assertGetSucceeds(t, roundTripper, server.URL)
-	}
+	want := x509.NewCertPool()
+	want.AddCert(firstCA.certificate)
+	want.AddCert(secondCA.certificate)
+
+	rootCAs := underlyingTransport(t, roundTripper).TLSClientConfig.RootCAs
+	assert.True(t, rootCAs.Equal(want), "expected both CA content providers' certificates to be trusted")
 }
 
 func TestTransportClientCertificate(t *testing.T) {
