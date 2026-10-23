@@ -1,4 +1,4 @@
-package apiserver
+package crypto
 
 import (
 	"slices"
@@ -27,7 +27,7 @@ func TestFIPSApprovedTLSGroups(t *testing.T) {
 	}
 	for _, tc := range perGroup {
 		t.Run(tc.name, func(t *testing.T) {
-			got := fipsApprovedTLSGroups([]configv1.TLSGroup{tc.group})
+			got := FIPSApprovedTLSGroups([]configv1.TLSGroup{tc.group})
 			gotApproved := len(got) == 1
 			if gotApproved != tc.wantApproved {
 				t.Errorf("fipsApprovedTLSGroups(%q) = %v, want approved=%v", tc.group, got, tc.wantApproved)
@@ -43,13 +43,13 @@ func TestFIPSApprovedTLSGroups(t *testing.T) {
 			configv1.TLSGroupSecP256r1,
 		}
 		want := []configv1.TLSGroup{configv1.TLSGroupSecP384r1, configv1.TLSGroupSecP256r1}
-		if got := fipsApprovedTLSGroups(in); !slices.Equal(got, want) {
+		if got := FIPSApprovedTLSGroups(in); !slices.Equal(got, want) {
 			t.Errorf("fipsApprovedTLSGroups(%q) = %q, want %q", in, got, want)
 		}
 	})
 
 	t.Run("empty input yields empty output", func(t *testing.T) {
-		if got := fipsApprovedTLSGroups(nil); len(got) != 0 {
+		if got := FIPSApprovedTLSGroups(nil); len(got) != 0 {
 			t.Errorf("fipsApprovedTLSGroups(nil) = %q, want empty", got)
 		}
 	})
