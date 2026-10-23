@@ -135,7 +135,10 @@ func TestTransportReloadsCAProviders(t *testing.T) {
 	require.NoError(t, err)
 
 	assertGetSucceeds(t, roundTripper, firstServer.URL)
+	oldTransport := underlyingTransport(t, roundTripper)
 	provider.setContent(secondCA.pem)
+	waitForTransportRebuild(t, roundTripper, oldTransport)
+
 	assertGetSucceeds(t, roundTripper, secondServer.URL)
 	assertGetFails(t, roundTripper, firstServer.URL)
 }
@@ -149,7 +152,11 @@ func TestTransportRetainsLastKnownGoodConfiguration(t *testing.T) {
 	require.NoError(t, err)
 	assertGetSucceeds(t, roundTripper, server.URL)
 
+	oldTransport := underlyingTransport(t, roundTripper)
 	provider.setContent([]byte("not a certificate"))
+	forceTransportRebuild(t, roundTripper)
+
+	assert.Same(t, oldTransport, underlyingTransport(t, roundTripper), "a failed rebuild must not replace the transport")
 	assertGetSucceeds(t, roundTripper, server.URL)
 }
 
@@ -294,9 +301,11 @@ func TestTransportTLSProfile(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		oldTransport := underlyingTransport(t, roundTripper)
 		provider.setContent(newTestCA(t, "second-ca").pem)
+		rebuilt := waitForTransportRebuild(t, roundTripper, oldTransport)
 
-		tlsConfig := underlyingTransport(t, roundTripper).TLSClientConfig
+		tlsConfig := rebuilt.TLSClientConfig
 		assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
 		assert.Equal(t, cipherSuites, tlsConfig.CipherSuites)
 	})
@@ -485,4 +494,38 @@ func underlyingTransport(t *testing.T, roundTripper http.RoundTripper) *http.Tra
 	}
 	t.Fatalf("got transport type %T, want *http.Transport or *dynamicTransport", roundTripper)
 	return nil
+}
+
+// waitForTransportRebuild blocks until roundTripper's underlying transport is
+// no longer oldTransport. Enqueue rebuilds asynchronously, so tests that
+// trigger a CA content change must synchronize on the swap before asserting
+// on its effect instead of racing the rebuild goroutine.
+func waitForTransportRebuild(t *testing.T, roundTripper http.RoundTripper, oldTransport *http.Transport) *http.Transport {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		current := underlyingTransport(t, roundTripper)
+		if current != oldTransport {
+			return current
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for transport rebuild")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// forceTransportRebuild drives a dynamicTransport's rebuild synchronously, under the
+// same lock Enqueue's async rebuild uses. Tests use it to assert on a rebuild
+// attempt that is expected to fail, since a failed rebuild never swaps
+// transport and so can't be waited on with waitForTransportRebuild.
+func forceTransportRebuild(t *testing.T, roundTripper http.RoundTripper) {
+	t.Helper()
+	dynamic, ok := roundTripper.(*dynamicTransport)
+	require.True(t, ok, "got transport type %T, want *dynamicTransport", roundTripper)
+
+	dynamic.rebuildMu.Lock()
+	defer dynamic.rebuildMu.Unlock()
+	dynamic.rebuild()
 }

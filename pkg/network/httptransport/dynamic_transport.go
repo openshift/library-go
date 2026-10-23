@@ -35,9 +35,18 @@ func (t *dynamicTransport) CloseIdleConnections() {
 // provider reports a change. CA rotations are rare and never bursty, so a single
 // serialized rebuild per notification is sufficient.
 func (t *dynamicTransport) Enqueue() {
-	t.rebuildMu.Lock()
-	defer t.rebuildMu.Unlock()
-	t.rebuild()
+	// Rebuild asynchronously so the calling CA content provider's notification
+	// goroutine isn't blocked on our rebuild.
+	go func() {
+		// Multiple CA content providers can be registered on the same
+		// dynamicTransport, each notifying from its own goroutine. The lock isn't
+		// for memory safety (transport is an atomic.Pointer); it serializes the
+		// read-build-swap sequence in rebuild() so a slower rebuild started with
+		// stale CA content can't finish after and overwrite a newer one.
+		t.rebuildMu.Lock()
+		defer t.rebuildMu.Unlock()
+		t.rebuild()
+	}()
 }
 
 func (t *dynamicTransport) rebuild() {
