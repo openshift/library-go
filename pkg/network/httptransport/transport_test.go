@@ -98,11 +98,6 @@ func TestNewRoundTripperValidation(t *testing.T) {
 			wantErr: "WithCertPool may only be specified once",
 		},
 		{
-			name:    "duplicate proxy",
-			opts:    []Option{WithProxyFunc(nil), WithProxyFunc(nil)},
-			wantErr: "WithProxyFunc may only be specified once",
-		},
-		{
 			name:    "invalid provider content",
 			opts:    []Option{WithCAContentProvider(newTestCAProvider("bad", []byte("bad")))},
 			wantErr: "failed to parse CA content from provider",
@@ -219,6 +214,23 @@ func TestTransportProxyConfiguration(t *testing.T) {
 		roundTripper, err := NewRoundTripper(WithProxyFunc(nil))
 		require.NoError(t, err)
 		assert.Nil(t, underlyingTransport(t, roundTripper).Proxy)
+	})
+
+	t.Run("last of multiple wins", func(t *testing.T) {
+		first, err := url.Parse("http://first.example.com:3128")
+		require.NoError(t, err)
+		second, err := url.Parse("http://second.example.com:3128")
+		require.NoError(t, err)
+
+		roundTripper, err := NewRoundTripper(
+			WithProxyFunc(func(*http.Request) (*url.URL, error) { return first, nil }),
+			WithProxyFunc(func(*http.Request) (*url.URL, error) { return second, nil }),
+		)
+		require.NoError(t, err)
+
+		got, err := underlyingTransport(t, roundTripper).Proxy(&http.Request{URL: &url.URL{Scheme: "https", Host: "example.com"}})
+		require.NoError(t, err)
+		assert.Equal(t, second.String(), got.String())
 	})
 }
 
