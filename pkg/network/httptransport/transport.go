@@ -157,21 +157,22 @@ func NewRoundTripper(opts ...Option) (http.RoundTripper, error) {
 		}
 	}
 
-	transport, err := config.newHTTPTransport()
-	if err != nil {
-		return nil, err
-	}
 	if len(config.caContentProviders) == 0 {
-		return transport, nil
+		return config.newHTTPTransport()
 	}
 
 	roundTripper := &dynamicTransport{config: &config}
-	roundTripper.transport.Store(transport)
-
 	for _, provider := range config.caContentProviders {
 		provider.AddListener(roundTripper)
 	}
 
+	// Transport must be built after the providers are registered,
+	// otherwise we can potentially lose some change events.
+	transport, err := config.newHTTPTransport()
+	if err != nil {
+		return nil, err
+	}
+	roundTripper.transport.Store(transport)
 	return roundTripper, nil
 }
 
