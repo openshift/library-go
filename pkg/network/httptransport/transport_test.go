@@ -66,6 +66,40 @@ func TestNewRoundTripperTrustSources(t *testing.T) {
 	assert.True(t, pool.Equal(originalPool), "caller-owned cert pool was mutated")
 }
 
+func TestNewRoundTripperCertPoolOptions(t *testing.T) {
+	t.Run("last pool wins", func(t *testing.T) {
+		firstCA := newTestCA(t, "first-pool-ca")
+		secondCA := newTestCA(t, "second-pool-ca")
+
+		firstPool := x509.NewCertPool()
+		firstPool.AddCert(firstCA.certificate)
+		secondPool := x509.NewCertPool()
+		secondPool.AddCert(secondCA.certificate)
+
+		roundTripper, err := NewRoundTripper(WithCertPool(firstPool), WithCertPool(secondPool))
+		require.NoError(t, err)
+
+		rootCAs := underlyingTransport(t, roundTripper).TLSClientConfig.RootCAs
+		assert.True(t, rootCAs.Equal(secondPool), "expected the last WithCertPool call to win")
+		assert.False(t, rootCAs.Equal(firstPool), "first pool should have been discarded")
+	})
+
+	t.Run("nil resets to the system cert pool", func(t *testing.T) {
+		ca := newTestCA(t, "discarded-pool-ca")
+		pool := x509.NewCertPool()
+		pool.AddCert(ca.certificate)
+
+		roundTripper, err := NewRoundTripper(WithCertPool(pool), WithCertPool(nil))
+		require.NoError(t, err)
+
+		systemPool, err := x509.SystemCertPool()
+		require.NoError(t, err)
+
+		rootCAs := underlyingTransport(t, roundTripper).TLSClientConfig.RootCAs
+		assert.True(t, rootCAs.Equal(systemPool), "expected WithCertPool(nil) to reset to the system cert pool")
+	})
+}
+
 func TestNewRoundTripperValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -91,11 +125,6 @@ func TestNewRoundTripperValidation(t *testing.T) {
 			name:    "key without certificate",
 			opts:    []Option{WithClientCertificateFile("", "key.pem")},
 			wantErr: "certFile and keyFile must be specified together",
-		},
-		{
-			name:    "duplicate cert pool",
-			opts:    []Option{WithCertPool(nil), WithCertPool(nil)},
-			wantErr: "WithCertPool may only be specified once",
 		},
 		{
 			name:    "zero TLS min version",

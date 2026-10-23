@@ -21,7 +21,6 @@ type Option func(*Config) error
 // Config holds the transport config. It's public so that library users can create their own Option,
 // e.g. load CA from a ConfigMap and return WithCAData.
 type Config struct {
-	basePoolSet        bool
 	basePool           *x509.CertPool
 	staticCAs          [][]*x509.Certificate
 	caContentProviders []dynamiccertificates.CAContentProvider
@@ -78,17 +77,14 @@ func WithCAFile(name, path string) Option {
 	}
 }
 
-// WithCertPool uses a snapshot of pool as the base trust pool instead of the
-// system certificate pool. A nil pool retains the default system trust pool.
-// At most one WithCertPool option may be supplied.
+// WithCertPool uses a snapshot of pool as the base trust pool instead of the system certificate pool.
+// A nil pool retains the default system trust pool. It may be supplied multiple times; the last one wins.
 func WithCertPool(pool *x509.CertPool) Option {
 	return func(config *Config) error {
-		if config.basePoolSet {
-			return errors.New("WithCertPool may only be specified once")
-		}
-		config.basePoolSet = true
 		if pool != nil {
 			config.basePool = pool.Clone()
+		} else {
+			config.basePool = nil
 		}
 		return nil
 	}
