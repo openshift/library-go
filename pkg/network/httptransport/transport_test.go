@@ -98,6 +98,16 @@ func TestNewRoundTripperValidation(t *testing.T) {
 			wantErr: "WithCertPool may only be specified once",
 		},
 		{
+			name:    "zero TLS min version",
+			opts:    []Option{WithTLSMinVersion(0)},
+			wantErr: "WithTLSMinVersion requires a non-zero TLS version",
+		},
+		{
+			name:    "empty TLS cipher suites",
+			opts:    []Option{WithTLSCipherSuites(nil)},
+			wantErr: "WithTLSCipherSuites requires at least one cipher suite",
+		},
+		{
 			name:    "invalid provider content",
 			opts:    []Option{WithCAContentProvider(newTestCAProvider("bad", []byte("bad")))},
 			wantErr: "failed to parse CA content from provider",
@@ -231,6 +241,87 @@ func TestTransportProxyConfiguration(t *testing.T) {
 		got, err := underlyingTransport(t, roundTripper).Proxy(&http.Request{URL: &url.URL{Scheme: "https", Host: "example.com"}})
 		require.NoError(t, err)
 		assert.Equal(t, second.String(), got.String())
+	})
+}
+
+func TestTransportTLSProfile(t *testing.T) {
+	cipherSuites := []uint16{
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	}
+
+	t.Run("crypto/tls defaults", func(t *testing.T) {
+		roundTripper, err := NewRoundTripper()
+		require.NoError(t, err)
+
+		tlsConfig := underlyingTransport(t, roundTripper).TLSClientConfig
+		assert.Equal(t, libcrypto.DefaultTLSVersion(), tlsConfig.MinVersion)
+		assert.Equal(t, libcrypto.DefaultCiphers(), tlsConfig.CipherSuites)
+	})
+
+	t.Run("configured profile", func(t *testing.T) {
+		roundTripper, err := NewRoundTripper(WithTLSMinVersion(tls.VersionTLS13), WithTLSCipherSuites(cipherSuites))
+		require.NoError(t, err)
+
+		tlsConfig := underlyingTransport(t, roundTripper).TLSClientConfig
+		assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
+		assert.Equal(t, cipherSuites, tlsConfig.CipherSuites)
+	})
+
+	t.Run("last option wins when specified multiple times", func(t *testing.T) {
+		roundTripper, err := NewRoundTripper(
+			WithTLSMinVersion(tls.VersionTLS12),
+			WithTLSMinVersion(tls.VersionTLS13),
+			WithTLSCipherSuites(cipherSuites),
+			WithTLSCipherSuites(cipherSuites[:1]),
+		)
+		require.NoError(t, err)
+
+		tlsConfig := underlyingTransport(t, roundTripper).TLSClientConfig
+		assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
+		assert.Equal(t, cipherSuites[:1], tlsConfig.CipherSuites)
+	})
+
+	// The profile must survive the transport rebuild a CA rotation triggers,
+	// otherwise reloading trust would silently widen the TLS configuration.
+	t.Run("survives a CA provider rebuild", func(t *testing.T) {
+		provider := newTestCAProvider("provider", newTestCA(t, "first-ca").pem)
+
+		roundTripper, err := NewRoundTripper(
+			WithCAContentProvider(provider),
+			WithTLSMinVersion(tls.VersionTLS13),
+			WithTLSCipherSuites(cipherSuites),
+		)
+		require.NoError(t, err)
+
+		provider.setContent(newTestCA(t, "second-ca").pem)
+
+		tlsConfig := underlyingTransport(t, roundTripper).TLSClientConfig
+		assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
+		assert.Equal(t, cipherSuites, tlsConfig.CipherSuites)
+	})
+
+	// Assert the profile is enforced on the wire, not merely recorded.
+	t.Run("rejects a server below the version floor", func(t *testing.T) {
+		ca := newTestCA(t, "tls12-only-ca")
+
+		server := httptest.NewUnstartedServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+			response.WriteHeader(http.StatusOK)
+		}))
+		server.TLS = &tls.Config{
+			Certificates: []tls.Certificate{ca.serverCertificate},
+			MaxVersion:   tls.VersionTLS12,
+		}
+		server.StartTLS()
+		t.Cleanup(server.Close)
+
+		roundTripper, err := NewRoundTripper(
+			WithCAData("server-ca", ca.pem),
+			WithTLSMinVersion(tls.VersionTLS13),
+		)
+		require.NoError(t, err)
+
+		assertGetFails(t, roundTripper, server.URL)
 	})
 }
 

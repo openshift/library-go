@@ -11,6 +11,8 @@ import (
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	clientcert "k8s.io/client-go/util/cert"
+
+	libcrypto "github.com/openshift/library-go/pkg/crypto"
 )
 
 // Option configures an outbound HTTP transport.
@@ -26,6 +28,8 @@ type Config struct {
 	clientCertificates []tls.Certificate
 	proxyConfigured    bool
 	proxyFunc          func(*http.Request) (*url.URL, error)
+	tlsMinVersion      uint16
+	tlsCipherSuites    []uint16
 }
 
 // WithCAContentProvider adds a CA content provider to the transport's trust
@@ -125,9 +129,34 @@ func WithProxyFunc(proxyFunc func(*http.Request) (*url.URL, error)) Option {
 	}
 }
 
+// WithTLSMinVersion sets the minimum TLS version the transport offers.
+func WithTLSMinVersion(version uint16) Option {
+	return func(config *Config) error {
+		if version == 0 {
+			return errors.New("WithTLSMinVersion requires a non-zero TLS version")
+		}
+		config.tlsMinVersion = version
+		return nil
+	}
+}
+
+// WithTLSCipherSuites sets the cipher suites offered for TLS 1.2, 1.1, and 1.0 connection.
+// TLS 1.3 suites are not configurable in crypto/tls.
+func WithTLSCipherSuites(cipherSuites []uint16) Option {
+	return func(config *Config) error {
+		if len(cipherSuites) == 0 {
+			return errors.New("WithTLSCipherSuites requires at least one cipher suite")
+		}
+		config.tlsCipherSuites = append([]uint16(nil), cipherSuites...)
+		return nil
+	}
+}
+
 // NewRoundTripper constructs an outbound HTTP round tripper from the supplied
-// options. By default, it trusts the system certificate pool and honors the
-// standard proxy environment variables.
+// options. By default, it trusts the system certificate pool, honors the
+// standard proxy environment variables, and applies the OpenShift-wide TLS
+// defaults (minimum version and cipher suites) from pkg/crypto.DefaultTLSVersion
+// and pkg/crypto.DefaultCiphers.
 //
 // The concrete type of the returned http.RoundTripper is not part of the API.
 // When no CA content provider is supplied it is a static *http.Transport; when
@@ -171,9 +200,19 @@ func (config *Config) newHTTPTransport() (*http.Transport, error) {
 		return nil, err
 	}
 
-	tlsConfig := &tls.Config{RootCAs: rootCAs}
+	tlsConfig := &tls.Config{
+		RootCAs:      rootCAs,
+		MinVersion:   libcrypto.DefaultTLSVersion(),
+		CipherSuites: libcrypto.DefaultCiphers(),
+	}
 	if len(config.clientCertificates) > 0 {
 		tlsConfig.Certificates = append([]tls.Certificate(nil), config.clientCertificates...)
+	}
+	if config.tlsMinVersion > 0 {
+		tlsConfig.MinVersion = config.tlsMinVersion
+	}
+	if len(config.tlsCipherSuites) > 0 {
+		tlsConfig.CipherSuites = append([]uint16(nil), config.tlsCipherSuites...)
 	}
 
 	transport := utilnet.SetTransportDefaults(&http.Transport{TLSClientConfig: tlsConfig})
