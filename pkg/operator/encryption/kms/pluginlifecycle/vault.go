@@ -6,12 +6,13 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin data.
 // It assumes the input data has been already been validated.
-func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig kms.VaultKMSPluginConfig, refData *referenceDataResolver) (*vault, error) {
+func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig kms.VaultKMSPluginConfig, refData *referenceDataResolver, ports pluginPorts) (*vault, error) {
 	secretName := vaultConfig.Authentication.AppRole.Secret.Name
 	if secretName == "" {
 		return nil, fmt.Errorf("vault AppRole authentication secret name cannot be empty")
@@ -51,6 +52,7 @@ func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig kms.VaultK
 		roleID:       roleID,
 		secretIDPath: secretIDPath,
 		caBundlePath: caBundlePath,
+		ports:        ports,
 	}, nil
 }
 
@@ -63,6 +65,7 @@ type vault struct {
 	roleID       string
 	secretIDPath string
 	caBundlePath string
+	ports        pluginPorts
 }
 
 // Name returns the sidecar name appended by the key id.
@@ -73,13 +76,15 @@ func (v *vault) Name() string {
 // BuildSidecarContainer returns a container spec for the Vault KMS plugin sidecar
 // configured with the Vault address, namespace, transit mount, and transit key.
 func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
-	// Required API fields: always set.
+	// Required API fields: always set. Ports are explicit (0 disables the endpoint).
 	args := []string{
 		fmt.Sprintf("-listen-address=%s", v.udsPath),
 		fmt.Sprintf("-vault-address=%s", v.config.VaultAddress),
 		fmt.Sprintf("-vault-key-path=%s", v.config.VaultKeyPath),
 		fmt.Sprintf("-approle-role-id=%s", v.roleID),
 		fmt.Sprintf("-approle-secret-id-path=%s", v.secretIDPath),
+		fmt.Sprintf("-health-port=%d", v.ports.health),
+		fmt.Sprintf("-metrics-port=%d", v.ports.metrics),
 	}
 
 	// Optional fields: only pass non-empty values.
@@ -96,15 +101,7 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 		args = append(args, fmt.Sprintf("-vault-auth-namespace=%s", v.config.VaultAuthNamespace))
 	}
 
-	// Temporary workarounds. These should go away as we progress with the feature.
-	args = append(args,
-		// TODO: remove once we support scraping metrics from each KMS plugin sidecar independently.
-		// Set the port to zero to disable metrics serving.
-		// Slack discussion: https://redhat-external.slack.com/archives/C09KZ5QCBUH/p1780926464635219
-		"-metrics-port=0",
-	)
-
-	return corev1.Container{
+	container := corev1.Container{
 		Name:            v.Name(),
 		Image:           v.config.KMSPluginImage,
 		Args:            args,
@@ -128,5 +125,76 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 			Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 			SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 		},
-	}, nil
+	}
+
+	if v.ports.healthEnabled() {
+		// Probe timings (SuccessThreshold left at the API default of 1):
+		//
+		// StartupProbe — gates liveness/readiness until /readyz succeeds so kubelet
+		// does not emit connection-refused Unhealthy events while the plugin is still
+		// authenticating to Vault and bringing up its HTTP server. period=2s,
+		// timeout=1s, failureThreshold=30 => ~60s before the sidecar is killed
+		// (timeout stays below period so sequential hangs cannot stretch the budget).
+		// CI on/off and migration rollouts typically become ready well under that.
+		//
+		// LivenessProbe — /healthz every 10s, timeout=5s, failureThreshold=3 (~30s of
+		// sustained failure before restart). Deliberately slower than readiness: a
+		// brief Vault blip should not restart the plugin and tear down the UDS the
+		// API server is using mid-request. The longer timeout absorbs a slow Vault
+		// round-trip inside the plugin health handler.
+		//
+		// ReadinessProbe — /readyz every 5s, timeout=5s, failureThreshold=3 (~15s).
+		// Faster than liveness so a native sidecar that loses Vault readiness holds
+		// the pod (and thus API-server traffic/rollouts) until encrypt/decrypt works
+		// again.
+		container.StartupProbe = httpProbe("/readyz", v.ports.health, 2, 1, 30)
+		container.LivenessProbe = httpProbe("/healthz", v.ports.health, 10, 5, 3)
+		container.ReadinessProbe = httpProbe("/readyz", v.ports.health, 5, 5, 3)
+	}
+	if ports := v.containerPorts(); len(ports) > 0 {
+		container.Ports = ports
+	}
+
+	return container, nil
+}
+
+func (v *vault) containerPorts() []corev1.ContainerPort {
+	var ports []corev1.ContainerPort
+	if v.ports.healthEnabled() {
+		health := corev1.ContainerPort{
+			Name:          "health",
+			ContainerPort: v.ports.health,
+			Protocol:      corev1.ProtocolTCP,
+		}
+		if v.ports.hostPort {
+			health.HostPort = v.ports.health
+		}
+		ports = append(ports, health)
+	}
+	if v.ports.metricsEnabled() {
+		metrics := corev1.ContainerPort{
+			Name:          "metrics",
+			ContainerPort: v.ports.metrics,
+			Protocol:      corev1.ProtocolTCP,
+		}
+		if v.ports.hostPort {
+			metrics.HostPort = v.ports.metrics
+		}
+		ports = append(ports, metrics)
+	}
+	return ports
+}
+
+func httpProbe(path string, port, periodSeconds, timeoutSeconds, failureThreshold int32) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: path,
+				Port: intstr.FromInt32(port),
+			},
+		},
+		PeriodSeconds:    periodSeconds,
+		TimeoutSeconds:   timeoutSeconds,
+		FailureThreshold: failureThreshold,
+	}
 }
