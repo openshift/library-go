@@ -116,12 +116,9 @@ func WithClientCertificateFile(certFile, keyFile string) Option {
 
 // WithProxyFunc explicitly configures proxy resolution. A nil function
 // disables proxying altogether. If this option is omitted, the transport uses the standard
-// proxy environment variables. At most one proxy option may be supplied.
+// proxy environment variables. It may be supplied multiple times; the last one wins.
 func WithProxyFunc(proxyFunc func(*http.Request) (*url.URL, error)) Option {
 	return func(config *Config) error {
-		if config.proxyConfigured {
-			return errors.New("WithProxyFunc may only be specified once")
-		}
 		config.proxyConfigured = true
 		config.proxyFunc = proxyFunc
 		return nil
