@@ -146,7 +146,7 @@ func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, c
 	refDataVolumeMount := corev1.VolumeMount{Name: refDataVolumeName, MountPath: refDataMountPath, ReadOnly: true}
 
 	sockets := make([]string, 0, len(kmsConfigurations))
-	for _, kmsConfiguration := range kmsConfigurations {
+	for i, kmsConfiguration := range kmsConfigurations {
 		keyID := kmsConfiguration.Name
 		sockets = append(sockets, kmsConfiguration.Endpoint)
 
@@ -162,7 +162,12 @@ func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, c
 			keyID:                keyID,
 		}
 
-		provider, err := newSidecarProvider(keyID, kmsConfiguration.Endpoint, pluginConfig, refData)
+		ports, err := portsForPodSpecAtIndex(i, podSpec, b.preflightChecker)
+		if err != nil {
+			return fmt.Errorf("failed to allocate KMS plugin ports: %w", err)
+		}
+
+		provider, err := newSidecarProvider(keyID, kmsConfiguration.Endpoint, pluginConfig, refData, ports)
 		if err != nil {
 			return fmt.Errorf("failed to create a sidecar provider for keyID %s: %w", keyID, err)
 		}
