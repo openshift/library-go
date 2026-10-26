@@ -840,44 +840,6 @@ func (ControllerManagerSpec) SwaggerDoc() map[string]string {
 	return map_ControllerManagerSpec
 }
 
-var map_CRIOCredentialProviderConfig = map[string]string{
-	"":         "CRIOCredentialProviderConfig holds cluster-wide singleton resource configurations for CRI-O credential provider, the name of this instance is \"cluster\". CRI-O credential provider is a binary shipped with CRI-O that provides a way to obtain container image pull credentials from external sources. For example, it can be used to fetch mirror registry credentials from secrets resources in the cluster within the same namespace the pod will be running in. CRIOCredentialProviderConfig configuration specifies the pod image sources registries that should trigger the CRI-O credential provider execution, which will resolve the CRI-O mirror configurations and obtain the necessary credentials for pod creation. Note: Configuration changes will only take effect after the kubelet restarts, which is automatically managed by the cluster during rollout.\n\nThe resource is a singleton named \"cluster\".\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
-	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"spec":     "spec defines the desired configuration of the CRI-O Credential Provider. This field is required and must be provided when creating the resource.",
-	"status":   "status represents the current state of the CRIOCredentialProviderConfig. When omitted or nil, it indicates that the status has not yet been set by the controller. The controller will populate this field with validation conditions and operational state.",
-}
-
-func (CRIOCredentialProviderConfig) SwaggerDoc() map[string]string {
-	return map_CRIOCredentialProviderConfig
-}
-
-var map_CRIOCredentialProviderConfigList = map[string]string{
-	"":         "CRIOCredentialProviderConfigList contains a list of CRIOCredentialProviderConfig resources\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
-	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-}
-
-func (CRIOCredentialProviderConfigList) SwaggerDoc() map[string]string {
-	return map_CRIOCredentialProviderConfigList
-}
-
-var map_CRIOCredentialProviderConfigSpec = map[string]string{
-	"":            "CRIOCredentialProviderConfigSpec defines the desired configuration of the CRI-O Credential Provider.",
-	"matchImages": "matchImages is a list of string patterns used to determine whether the CRI-O credential provider should be invoked for a given image. This list is passed to the kubelet CredentialProviderConfig, and if any pattern matches the requested image, CRI-O credential provider will be invoked to obtain credentials for pulling that image or its mirrors. Depending on the platform, the CRI-O credential provider may be installed alongside an existing platform specific provider. Conflicts between the existing platform specific provider image match configuration and this list will be handled by the following precedence rule: credentials from built-in kubelet providers (e.g., ECR, GCR, ACR) take precedence over those from the CRIOCredentialProviderConfig when both match the same image. To avoid uncertainty, it is recommended to avoid configuring your private image patterns to overlap with existing platform specific provider config(e.g., the entries from https://github.com/openshift/machine-config-operator/blob/main/templates/common/aws/files/etc-kubernetes-credential-providers-ecr-credential-provider.yaml). You can check the resource's Status conditions to see if any entries were ignored due to exact matches with known built-in provider patterns.\n\nThis field is optional, the items of the list must contain between 1 and 50 entries. The list is treated as a set, so duplicate entries are not allowed.\n\nFor more details, see: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/ https://github.com/cri-o/crio-credential-provider#architecture\n\nEach entry in matchImages is a pattern which can optionally contain a port and a path. Each entry must be no longer than 512 characters. Wildcards ('*') are supported for full subdomain labels, such as '*.k8s.io' or 'k8s.*.io', and for top-level domains, such as 'k8s.*' (which matches 'k8s.io' or 'k8s.net'). A global wildcard '*' (matching any domain) is not allowed. Wildcards may replace an entire hostname label (e.g., *.example.com), but they cannot appear within a label (e.g., f*oo.example.com) and are not allowed in the port or path. For example, 'example.*.com' is valid, but 'exa*mple.*.com' is not. Each wildcard matches only a single domain label, so '*.io' does **not** match '*.k8s.io'.\n\nA match exists between an image and a matchImage when all of the below are true: Both contain the same number of domain parts and each part matches. The URL path of an matchImages must be a prefix of the target image URL path. If the matchImages contains a port, then the port must match in the image as well.\n\nExample values of matchImages: - 123456789.dkr.ecr.us-east-1.amazonaws.com - *.azurecr.io - gcr.io - *.*.registry.io - registry.io:8080/path",
-}
-
-func (CRIOCredentialProviderConfigSpec) SwaggerDoc() map[string]string {
-	return map_CRIOCredentialProviderConfigSpec
-}
-
-var map_CRIOCredentialProviderConfigStatus = map[string]string{
-	"":           "CRIOCredentialProviderConfigStatus defines the observed state of CRIOCredentialProviderConfig",
-	"conditions": "conditions represent the latest available observations of the configuration state. When omitted, it indicates that no conditions have been reported yet. The maximum number of conditions is 16. Conditions are stored as a map keyed by condition type, ensuring uniqueness.\n\nExpected condition types include: \"Validated\": indicates whether the matchImages configuration is valid",
-}
-
-func (CRIOCredentialProviderConfigStatus) SwaggerDoc() map[string]string {
-	return map_CRIOCredentialProviderConfigStatus
-}
-
 var map_GatherConfig = map[string]string{
 	"":                  "gatherConfig provides data gathering configuration options.",
 	"dataPolicy":        "dataPolicy allows user to enable additional global obfuscation of the IP addresses and base domain in the Insights archive data. Valid values are \"None\" and \"ObfuscateNetworking\". When set to None the data is not obfuscated. When set to ObfuscateNetworking the IP addresses and the cluster domain name are obfuscated. When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.",
@@ -946,52 +908,6 @@ func (Storage) SwaggerDoc() map[string]string {
 	return map_Storage
 }
 
-var map_CertificateConfig = map[string]string{
-	"":    "CertificateConfig specifies configuration parameters for certificates. At least one property must be specified.",
-	"key": "key specifies the cryptographic parameters for the certificate's key pair. Currently this is the only configurable parameter. When omitted in an overrides entry, the key configuration from defaults is used.",
-}
-
-func (CertificateConfig) SwaggerDoc() map[string]string {
-	return map_CertificateConfig
-}
-
-var map_CustomPKIPolicy = map[string]string{
-	"": "CustomPKIPolicy contains administrator-specified cryptographic configuration. Administrators must specify defaults for all certificates and may optionally override specific categories of certificates.",
-}
-
-func (CustomPKIPolicy) SwaggerDoc() map[string]string {
-	return map_CustomPKIPolicy
-}
-
-var map_DefaultCertificateConfig = map[string]string{
-	"":    "DefaultCertificateConfig specifies the default certificate configuration parameters. All fields are required to ensure that defaults are fully specified for all certificates.",
-	"key": "key specifies the cryptographic parameters for the certificate's key pair. This field is required in defaults to ensure all certificates have a well-defined key configuration.",
-}
-
-func (DefaultCertificateConfig) SwaggerDoc() map[string]string {
-	return map_DefaultCertificateConfig
-}
-
-var map_ECDSAKeyConfig = map[string]string{
-	"":      "ECDSAKeyConfig specifies parameters for ECDSA key generation.",
-	"curve": "curve specifies the NIST elliptic curve for ECDSA keys. Valid values are \"P256\", \"P384\", and \"P521\".\n\nWhen set to P256, the NIST P-256 curve (also known as secp256r1) is used, providing 128-bit security.\n\nWhen set to P384, the NIST P-384 curve (also known as secp384r1) is used, providing 192-bit security.\n\nWhen set to P521, the NIST P-521 curve (also known as secp521r1) is used, providing 256-bit security.",
-}
-
-func (ECDSAKeyConfig) SwaggerDoc() map[string]string {
-	return map_ECDSAKeyConfig
-}
-
-var map_KeyConfig = map[string]string{
-	"":          "KeyConfig specifies cryptographic parameters for key generation.",
-	"algorithm": "algorithm specifies the key generation algorithm. Valid values are \"RSA\" and \"ECDSA\".\n\nWhen set to RSA, the rsa field must be specified and the generated key will be an RSA key with the configured key size.\n\nWhen set to ECDSA, the ecdsa field must be specified and the generated key will be an ECDSA key using the configured elliptic curve.",
-	"rsa":       "rsa specifies RSA key parameters. Required when algorithm is RSA, and forbidden otherwise.",
-	"ecdsa":     "ecdsa specifies ECDSA key parameters. Required when algorithm is ECDSA, and forbidden otherwise.",
-}
-
-func (KeyConfig) SwaggerDoc() map[string]string {
-	return map_KeyConfig
-}
-
 var map_PKI = map[string]string{
 	"":         "PKI configures cryptographic parameters for certificates generated internally by OpenShift components.\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
 	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
@@ -1002,14 +918,64 @@ func (PKI) SwaggerDoc() map[string]string {
 	return map_PKI
 }
 
-var map_PKICertificateManagement = map[string]string{
-	"":       "PKICertificateManagement determines whether components use hardcoded defaults (Unmanaged), follow OpenShift best practices (Default), or use administrator-specified cryptographic parameters (Custom). This provides flexibility for organizations with specific compliance requirements or security policies while maintaining backwards compatibility for existing clusters.",
-	"mode":   "mode determines how PKI configuration is managed. Valid values are \"Unmanaged\", \"Default\", and \"Custom\".\n\nWhen set to Unmanaged, components use their existing hardcoded certificate generation behavior, exactly as if this feature did not exist. Each component generates certificates using whatever parameters it was using before this feature. While most components use RSA 2048, some may use different parameters. Use of this mode might prevent upgrading to the next major OpenShift release.\n\nWhen set to Default, OpenShift-recommended best practices for certificate generation are applied. The specific parameters may evolve across OpenShift releases to adopt improved cryptographic standards. In the initial release, this matches Unmanaged behavior for each component. In future releases, this may adopt ECDSA or larger RSA keys based on industry best practices. Recommended for most customers who want to benefit from security improvements automatically.\n\nWhen set to Custom, the certificate management parameters can be set explicitly. Use the custom field to specify certificate generation parameters.",
-	"custom": "custom contains administrator-specified cryptographic configuration. Use the defaults and category override fields to specify certificate generation parameters. Required when mode is Custom, and forbidden otherwise.",
+var map_PKICertificateConfig = map[string]string{
+	"":    "PKICertificateConfig specifies configuration parameters for certificates. At least one property must be specified.",
+	"key": "key specifies the cryptographic parameters for the certificate's key pair. Currently this is the only configurable parameter. When omitted in an overrides entry, the key configuration from defaults is used.",
 }
 
-func (PKICertificateManagement) SwaggerDoc() map[string]string {
-	return map_PKICertificateManagement
+func (PKICertificateConfig) SwaggerDoc() map[string]string {
+	return map_PKICertificateConfig
+}
+
+var map_PKICertificatePolicy = map[string]string{
+	"":                   "PKICertificatePolicy is the cluster's policy for internally-generated certificates: a required defaults, optional per-category overrides, and optional overrides for specific named certificates. The most-specific setting wins.",
+	"defaults":           "defaults specifies the default certificate configuration applied to any certificate that has no more-specific (category or named) override. This field is required so that every certificate has a well-defined configuration.",
+	"caCertificates":     "caCertificates optionally overrides certificate parameters for certificate authority (CA) certificates that sign other certificates. When set, these parameters take precedence over defaults for all CA certificates. When omitted, defaults are used for CA certificates.",
+	"serverCertificates": "serverCertificates optionally overrides certificate parameters for TLS server certificates. When set, these parameters take precedence over defaults for all server certificates. When omitted, defaults are used for server certificates.",
+	"clientCertificates": "clientCertificates optionally overrides certificate parameters for client authentication certificates. When set, these parameters take precedence over defaults for all client certificates. When omitted, defaults are used for client certificates.",
+	"namedCertificates":  "namedCertificates optionally overrides certificate parameters for specific certificates identified by their well-known name. These overrides have the highest precedence (named, then category, then defaults). Entries are keyed by name, so a given name may appear at most once. When omitted, no named overrides are applied. When present, the list must contain at least one entry. At most 32 named certificate overrides may be specified.",
+}
+
+func (PKICertificatePolicy) SwaggerDoc() map[string]string {
+	return map_PKICertificatePolicy
+}
+
+var map_PKIDefaultCertificateConfig = map[string]string{
+	"":    "PKIDefaultCertificateConfig specifies the default certificate configuration parameters. All fields are required to ensure that defaults are fully specified for all certificates.",
+	"key": "key specifies the cryptographic parameters for the certificate's key pair. This field is required in defaults to ensure all certificates have a well-defined key configuration.",
+}
+
+func (PKIDefaultCertificateConfig) SwaggerDoc() map[string]string {
+	return map_PKIDefaultCertificateConfig
+}
+
+var map_PKIECDSAKeyConfig = map[string]string{
+	"":      "PKIECDSAKeyConfig specifies parameters for ECDSA key generation.",
+	"curve": "curve specifies the NIST elliptic curve for ECDSA keys. Valid values are \"P256\", \"P384\", and \"P521\".\n\nWhen set to P256, the NIST P-256 curve (also known as secp256r1) is used, providing 128-bit security.\n\nWhen set to P384, the NIST P-384 curve (also known as secp384r1) is used, providing 192-bit security.\n\nWhen set to P521, the NIST P-521 curve (also known as secp521r1) is used, providing 256-bit security.",
+}
+
+func (PKIECDSAKeyConfig) SwaggerDoc() map[string]string {
+	return map_PKIECDSAKeyConfig
+}
+
+var map_PKIKeyConfig = map[string]string{
+	"":          "PKIKeyConfig specifies cryptographic parameters for key generation.",
+	"algorithm": "algorithm specifies the key generation algorithm. Valid values are \"RSA\" and \"ECDSA\".\n\nWhen set to RSA, the rsa field must be specified and the generated key will be an RSA key with the configured key size.\n\nWhen set to ECDSA, the ecdsa field must be specified and the generated key will be an ECDSA key using the configured elliptic curve.",
+	"rsa":       "rsa specifies RSA key parameters. Required when algorithm is RSA, and forbidden otherwise.",
+	"ecdsa":     "ecdsa specifies ECDSA key parameters. Required when algorithm is ECDSA, and forbidden otherwise.",
+}
+
+func (PKIKeyConfig) SwaggerDoc() map[string]string {
+	return map_PKIKeyConfig
+}
+
+var map_PKIKeyPolicy = map[string]string{
+	"":          "PKIKeyPolicy configures keys generated outside of any certificate, by well-known name. When set, at least one field must be specified; an empty object is rejected.",
+	"namedKeys": "namedKeys configures keys generated outside of any certificate, such as the bound service-account token signing key, identified by their well-known name. Entries are opt-in with no inherited default and are keyed by name, so a given name may appear at most once. When keys is set, at least one named key must be specified. At most 16 named keys may be specified.",
+}
+
+func (PKIKeyPolicy) SwaggerDoc() map[string]string {
+	return map_PKIKeyPolicy
 }
 
 var map_PKIList = map[string]string{
@@ -1022,34 +988,42 @@ func (PKIList) SwaggerDoc() map[string]string {
 	return map_PKIList
 }
 
-var map_PKIProfile = map[string]string{
-	"":                    "PKIProfile defines the certificate generation parameters that OpenShift components use to create certificates. Category overrides take precedence over defaults.",
-	"defaults":            "defaults specifies the default certificate configuration that applies to all certificates unless overridden by a category override.",
-	"signerCertificates":  "signerCertificates optionally overrides certificate parameters for certificate authority (CA) certificates that sign other certificates. When set, these parameters take precedence over defaults for all signer certificates. When omitted, the defaults are used for signer certificates.",
-	"servingCertificates": "servingCertificates optionally overrides certificate parameters for TLS server certificates used to serve HTTPS endpoints. When set, these parameters take precedence over defaults for all serving certificates. When omitted, the defaults are used for serving certificates.",
-	"clientCertificates":  "clientCertificates optionally overrides certificate parameters for client authentication certificates used to authenticate to servers. When set, these parameters take precedence over defaults for all client certificates. When omitted, the defaults are used for client certificates.",
+var map_PKINamedCertificateConfig = map[string]string{
+	"":     "PKINamedCertificateConfig overrides certificate parameters for a specific certificate identified by its well-known name.",
+	"name": "name is the well-known override name of the targeted certificate. It is a DNS subdomain prefix, a \"/\", then a name made of alphanumerics, \"-\", \"_\" and \".\" (for example \"openshift.io/service-ca.service-serving-signer\"). The prefix is at most 253 characters and the name after the \"/\" at most 63. The name is validated for format only; there is no registry of valid names, because certificates can be registered dynamically. Core-platform certificates use the bare \"openshift.io/\" prefix; names outside the core platform use an owner subdomain prefix (for example \"hypershift.openshift.io/\"). This field is required so that every named certificate override identifies the certificate it applies to.",
 }
 
-func (PKIProfile) SwaggerDoc() map[string]string {
-	return map_PKIProfile
+func (PKINamedCertificateConfig) SwaggerDoc() map[string]string {
+	return map_PKINamedCertificateConfig
+}
+
+var map_PKINamedKeyConfig = map[string]string{
+	"":     "PKINamedKeyConfig configures the cryptographic parameters for a single key generated outside of any certificate, identified by its well-known name.",
+	"name": "name is the well-known name of the key. It is a DNS subdomain prefix, a \"/\", then a name made of alphanumerics, \"-\", \"_\" and \".\" (for example \"openshift.io/kube-apiserver.bound-service-account-token-signer\"). The prefix is at most 253 characters and the name after the \"/\" at most 63. The name is validated for format only, using the same rules as a named certificate override. This field is required so that every named key entry identifies the key it configures.",
+	"key":  "key specifies the cryptographic parameters for this key. It is required because keys configured here have no inherited default.",
+}
+
+func (PKINamedKeyConfig) SwaggerDoc() map[string]string {
+	return map_PKINamedKeyConfig
+}
+
+var map_PKIRSAKeyConfig = map[string]string{
+	"":        "PKIRSAKeyConfig specifies parameters for RSA key generation.",
+	"keySize": "keySize specifies the size of RSA keys in bits. Valid values are multiples of 1024 from 2048 to 4096.",
+}
+
+func (PKIRSAKeyConfig) SwaggerDoc() map[string]string {
+	return map_PKIRSAKeyConfig
 }
 
 var map_PKISpec = map[string]string{
-	"":                      "PKISpec holds the specification for PKI configuration.",
-	"certificateManagement": "certificateManagement specifies how PKI configuration is managed for internally-generated certificates. This controls the certificate generation approach for all OpenShift components that create certificates internally, including certificate authorities, serving certificates, and client certificates.",
+	"":             "PKISpec holds the specification for PKI configuration.",
+	"certificates": "certificates specifies the cluster's certificate policy for internally-generated certificates, resolved most-specific-wins: a named certificate override, then a category override (CA, server, client), then the required defaults. This field is required so that every PKI resource specifies a certificate policy. This field names a configuration policy; it is unrelated to the X.509 certificate-policies extension.",
+	"keys":         "keys optionally configures keys generated outside of any certificate, such as the bound service-account token signing key. Entries are named and opt-in with no inherited default. When omitted, no keys are configured by this resource. When set, at least one field must be specified; an empty object is rejected.",
 }
 
 func (PKISpec) SwaggerDoc() map[string]string {
 	return map_PKISpec
-}
-
-var map_RSAKeyConfig = map[string]string{
-	"":        "RSAKeyConfig specifies parameters for RSA key generation.",
-	"keySize": "keySize specifies the size of RSA keys in bits. Valid values are multiples of 1024 from 2048 to 8192.",
-}
-
-func (RSAKeyConfig) SwaggerDoc() map[string]string {
-	return map_RSAKeyConfig
 }
 
 // AUTO-GENERATED FUNCTIONS END HERE
