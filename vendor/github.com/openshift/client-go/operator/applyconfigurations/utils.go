@@ -94,6 +94,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.ConfigStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Console"):
 		return &operatorv1.ConsoleApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ConsoleAuthProxyConfig"):
+		return &operatorv1.ConsoleAuthProxyConfigApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ConsoleAuthProxyTrustedCAConfigMapReference"):
+		return &operatorv1.ConsoleAuthProxyTrustedCAConfigMapReferenceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ConsoleConfigRoute"):
 		return &operatorv1.ConsoleConfigRouteApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ConsoleCustomization"):
@@ -160,6 +164,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.FileReferenceSourceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ForwardPlugin"):
 		return &operatorv1.ForwardPluginApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("GatewayAPIIngressConfig"):
+		return &operatorv1.GatewayAPIIngressConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("GatewayConfig"):
 		return &operatorv1.GatewayConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("GathererStatus"):
@@ -186,6 +192,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.IBMCloudCSIDriverConfigSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IBMLoadBalancerParameters"):
 		return &operatorv1.IBMLoadBalancerParametersApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Ingress"):
+		return &operatorv1.IngressApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressController"):
 		return &operatorv1.IngressControllerApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressControllerCaptureHTTPCookie"):
@@ -216,6 +224,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.IngressControllerStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressControllerTuningOptions"):
 		return &operatorv1.IngressControllerTuningOptionsApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("IngressSpec"):
+		return &operatorv1.IngressSpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("IngressStatus"):
+		return &operatorv1.IngressStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("InsightsOperator"):
 		return &operatorv1.InsightsOperatorApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("InsightsOperatorSpec"):
