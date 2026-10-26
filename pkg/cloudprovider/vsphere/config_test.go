@@ -191,7 +191,7 @@ func TestEmptyNodesOmittedInYAML(t *testing.T) {
 				Password: "testpass",
 			},
 		},
-		Nodes: Nodes{}, // Empty struct, should be omitted
+		// Nodes left nil, should be omitted
 	}
 
 	yamlOutput, err := MarshalConfig(config)
@@ -212,7 +212,7 @@ func TestNodesWithValuesIncludedInYAML(t *testing.T) {
 				Password: "testpass",
 			},
 		},
-		Nodes: Nodes{
+		Nodes: &Nodes{
 			InternalNetworkSubnetCIDR: "192.168.1.0/24",
 		},
 	}
