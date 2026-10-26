@@ -1,6 +1,8 @@
 package certrotation
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/x509"
 	"encoding/pem"
 	"strings"
@@ -11,7 +13,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -328,13 +332,15 @@ func verifyKeyPair(t testing.TB, certPEM, keyPEM []byte) {
 	}
 }
 
-func TestSetSigningCertKeyPairSecret_WithPKIProfile(t *testing.T) {
+func TestSetSigningCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
 	testCases := []struct {
-		name              string
-		configurePKI      bool
-		profileAlgorithm  string
-		profileECDSACurve string
-		wantAlg           x509.PublicKeyAlgorithm
+		name         string
+		configurePKI bool
+		caAlgorithm  string
+		caECDSACurve string
+		namedCurve   string
+		wantCurve    elliptic.Curve
+		wantAlg      x509.PublicKeyAlgorithm
 	}{
 		{
 			name:         "no PKI configured uses legacy RSA-2048",
@@ -342,18 +348,29 @@ func TestSetSigningCertKeyPairSecret_WithPKIProfile(t *testing.T) {
 			wantAlg:      x509.RSA,
 		},
 		{
-			name:              "ECDSA-P256 via profile",
-			configurePKI:      true,
-			profileAlgorithm:  "ECDSA",
-			profileECDSACurve: "P256",
-			wantAlg:           x509.ECDSA,
+			name:         "ECDSA-P256 via CA override",
+			configurePKI: true,
+			caAlgorithm:  "ECDSA",
+			caECDSACurve: "P256",
+			wantCurve:    elliptic.P256(),
+			wantAlg:      x509.ECDSA,
 		},
 		{
-			name:              "ECDSA-P384 via profile",
-			configurePKI:      true,
-			profileAlgorithm:  "ECDSA",
-			profileECDSACurve: "P384",
-			wantAlg:           x509.ECDSA,
+			name:         "ECDSA-P384 via CA override",
+			configurePKI: true,
+			caAlgorithm:  "ECDSA",
+			caECDSACurve: "P384",
+			wantCurve:    elliptic.P384(),
+			wantAlg:      x509.ECDSA,
+		},
+		{
+			name:         "named override keyed by certificate name wins over CA override",
+			configurePKI: true,
+			caAlgorithm:  "ECDSA",
+			caECDSACurve: "P384",
+			namedCurve:   "P521",
+			wantCurve:    elliptic.P521(),
+			wantAlg:      x509.ECDSA,
 		},
 	}
 	for _, tc := range testCases {
@@ -364,13 +381,26 @@ func TestSetSigningCertKeyPairSecret_WithPKIProfile(t *testing.T) {
 
 			c := RotatedSigningCASecret{
 				Validity:        24 * time.Hour,
-				CertificateName: "test.signer",
+				CertificateName: "openshift.io/test.signer",
 			}
 			if tc.configurePKI {
-				profile := pki.DefaultPKIProfile()
-				profile.SignerCertificates.Key.Algorithm = configv1alpha1.KeyAlgorithm(tc.profileAlgorithm)
-				profile.SignerCertificates.Key.ECDSA.Curve = configv1alpha1.ECDSACurve(tc.profileECDSACurve)
-				c.PKIProfileProvider = pki.NewStaticPKIProfileProvider(&profile)
+				policy := pki.DefaultCertificatePolicy()
+				policy.CACertificates.Key.Algorithm = configv1alpha1.PKIKeyAlgorithm(tc.caAlgorithm)
+				policy.CACertificates.Key.ECDSA.Curve = configv1alpha1.PKIECDSACurve(tc.caECDSACurve)
+				if tc.namedCurve != "" {
+					policy.NamedCertificates = append(policy.NamedCertificates, configv1alpha1.PKINamedCertificateConfig{
+						Name: "openshift.io/test.signer",
+						PKICertificateConfig: configv1alpha1.PKICertificateConfig{
+							Key: configv1alpha1.PKIKeyConfig{
+								Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
+								ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurve(tc.namedCurve)},
+							},
+						},
+					})
+				}
+				c.PKIConfigProvider = pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
+					Certificates: policy,
+				})
 			}
 
 			ca, err := c.setSigningCertKeyPairSecret(secret)
@@ -394,28 +424,133 @@ func TestSetSigningCertKeyPairSecret_WithPKIProfile(t *testing.T) {
 			if cert.PublicKeyAlgorithm != tc.wantAlg {
 				t.Errorf("expected %v public key, got %v", tc.wantAlg, cert.PublicKeyAlgorithm)
 			}
+			if tc.wantCurve != nil {
+				publicKey, ok := cert.PublicKey.(*ecdsa.PublicKey)
+				if !ok {
+					t.Fatalf("expected *ecdsa.PublicKey, got %T", cert.PublicKey)
+				}
+				if publicKey.Curve != tc.wantCurve {
+					t.Errorf("expected curve %v, got %v", tc.wantCurve, publicKey.Curve)
+				}
+			}
 		})
 	}
 }
 
+// errorConfigProvider is a pki.ConfigProvider that always returns an error.
+type errorConfigProvider struct {
+	err error
+}
+
+func (p *errorConfigProvider) Config() (configv1alpha1.PKISpec, error) {
+	return configv1alpha1.PKISpec{}, p.err
+}
+
+func TestSetSigningCertKeyPairSecret_MissingPKIResource(t *testing.T) {
+	t.Run("create path", func(t *testing.T) {
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		client := kubefake.NewClientset()
+		recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+
+		c := &RotatedSigningCASecret{
+			Namespace:       "ns",
+			Name:            "signer",
+			Validity:        24 * time.Hour,
+			Refresh:         12 * time.Hour,
+			Client:          client.CoreV1(),
+			Lister:          corev1listers.NewSecretLister(indexer),
+			EventRecorder:   recorder,
+			CertificateName: "openshift.io/test.signer",
+			// A wired provider whose resource is missing must fail the sync; it
+			// must not fall back to legacy generation.
+			PKIConfigProvider: &errorConfigProvider{
+				err: apierrors.NewNotFound(schema.GroupResource{Group: "config.openshift.io", Resource: "pkis"}, "cluster"),
+			},
+		}
+
+		_, _, err := c.EnsureSigningCertKeyPair(t.Context())
+		if err == nil {
+			t.Fatal("expected error for missing PKI resource")
+		}
+		if !apierrors.IsNotFound(err) {
+			t.Errorf("expected apierrors.IsNotFound to match, got %v", err)
+		}
+
+		// No secret may be written: a fallback to legacy generation would have
+		// created one.
+		actions := client.Actions()
+		if len(actions) != 0 {
+			t.Errorf("expected no client actions, got %v", actions)
+		}
+	})
+
+	t.Run("rotate path", func(t *testing.T) {
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		client := kubefake.NewClientset()
+		recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+
+		// Refresh of one nanosecond makes the freshly created secret
+		// immediately due for rotation on the next sync.
+		c := &RotatedSigningCASecret{
+			Namespace:       "ns",
+			Name:            "signer",
+			Validity:        24 * time.Hour,
+			Refresh:         time.Nanosecond,
+			Client:          client.CoreV1(),
+			Lister:          corev1listers.NewSecretLister(indexer),
+			EventRecorder:   recorder,
+			CertificateName: "openshift.io/test.signer",
+			PKIConfigProvider: pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
+				Certificates: pki.DefaultCertificatePolicy(),
+			}),
+		}
+
+		if _, _, err := c.EnsureSigningCertKeyPair(t.Context()); err != nil {
+			t.Fatalf("initial EnsureSigningCertKeyPair() error = %v", err)
+		}
+		createActions := len(client.Actions())
+		if createActions != 1 {
+			t.Fatalf("expected 1 create action after initial ensure, got %d", createActions)
+		}
+
+		// Swap in a provider whose resource is missing: the rotation due on
+		// this sync must fail without updating the existing valid secret.
+		c.PKIConfigProvider = &errorConfigProvider{
+			err: apierrors.NewNotFound(schema.GroupResource{Group: "config.openshift.io", Resource: "pkis"}, "cluster"),
+		}
+		_, _, err := c.EnsureSigningCertKeyPair(t.Context())
+		if err == nil {
+			t.Fatal("expected error for missing PKI resource during rotation")
+		}
+		if !apierrors.IsNotFound(err) {
+			t.Errorf("expected apierrors.IsNotFound to match, got %v", err)
+		}
+		if actions := client.Actions(); len(actions) != createActions {
+			t.Errorf("expected no additional client actions during failed rotation, got %v", actions)
+		}
+	})
+}
+
 func TestEnsureSigningCertKeyPair_WithKeyConfig(t *testing.T) {
-	profile := pki.DefaultPKIProfile()
+	policy := pki.DefaultCertificatePolicy()
 
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	client := kubefake.NewClientset()
 	recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 
 	c := &RotatedSigningCASecret{
-		Namespace:          "ns",
-		Name:               "signer",
-		Validity:           24 * time.Hour,
-		Refresh:            12 * time.Hour,
-		Client:             client.CoreV1(),
-		Lister:             corev1listers.NewSecretLister(indexer),
-		EventRecorder:      recorder,
-		CertificateName:    "test.signer",
-		PKIProfileProvider: pki.NewStaticPKIProfileProvider(&profile),
-		Owner:              &metav1.OwnerReference{Name: "operator"},
+		Namespace:       "ns",
+		Name:            "signer",
+		Validity:        24 * time.Hour,
+		Refresh:         12 * time.Hour,
+		Client:          client.CoreV1(),
+		Lister:          corev1listers.NewSecretLister(indexer),
+		EventRecorder:   recorder,
+		CertificateName: "openshift.io/test.signer",
+		PKIConfigProvider: pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
+			Certificates: policy,
+		}),
+		Owner: &metav1.OwnerReference{Name: "operator"},
 		AdditionalAnnotations: AdditionalAnnotations{
 			JiraComponent: "test",
 		},
@@ -435,6 +570,15 @@ func TestEnsureSigningCertKeyPair_WithKeyConfig(t *testing.T) {
 	cert := ca.Config.Certs[0]
 	if cert.PublicKeyAlgorithm != x509.ECDSA {
 		t.Errorf("expected ECDSA public key, got %v", cert.PublicKeyAlgorithm)
+	}
+	// DefaultCertificatePolicy overrides CA certificates to ECDSA P-384;
+	// assert the curve so the CA override is actually verified.
+	publicKey, ok := cert.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		t.Fatalf("expected *ecdsa.PublicKey, got %T", cert.PublicKey)
+	}
+	if publicKey.Curve != elliptic.P384() {
+		t.Errorf("expected curve P-384, got %v", publicKey.Curve)
 	}
 	if !cert.IsCA {
 		t.Error("expected IsCA to be true")
