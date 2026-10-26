@@ -39,13 +39,18 @@ func (e *etcdWrapper) Get(ctx context.Context, key string, opts ...clientv3.OpOp
 	err := onErrorWithTimeout(5*time.Minute, func(error) bool {
 		return ctx.Err() == nil
 	}, func() error {
+		// Bound each attempt so a broken tunnel cannot consume the entire retry
+		// budget while the etcd client waits for its endpoint to become ready.
+		attemptCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+
 		// we need to rebuild this port-forward based client every time so we can tolerate API server rollouts
-		clientInternal, done, err := e.newEtcdClientInternal(ctx)
+		clientInternal, done, err := e.newEtcdClientInternal(attemptCtx)
 		if err != nil {
 			return fmt.Errorf("failed to build port-forward based etcd client: %v", err)
 		}
 		defer done()
-		resp, err = clientInternal.Get(ctx, key, opts...)
+		resp, err = clientInternal.Get(attemptCtx, key, opts...)
 		return err
 	})
 	return resp, err
