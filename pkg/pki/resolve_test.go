@@ -1,6 +1,8 @@
 package pki
 
 import (
+	gocrypto "crypto"
+	"errors"
 	"testing"
 
 	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
@@ -19,13 +21,12 @@ func TestResolveCertificateConfig_Signer(t *testing.T) {
 		t.Fatal("expected non-nil config")
 	}
 
-	// Default profile has ECDSA P-384 for signers
-	g, ok := cfg.Key.(crypto.ECDSAKeyPairGenerator)
-	if !ok {
-		t.Fatalf("expected ECDSAKeyPairGenerator, got %T", cfg.Key)
+	pub, _, err := cfg.Key.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
-	if g.Curve != crypto.P384 {
-		t.Errorf("Curve = %v, want P384", g.Curve)
+	if err := (crypto.ECDSAKeyPairGenerator{Curve: crypto.P384}).Matches(pub); err != nil {
+		t.Errorf("expected ECDSA P-384 signer key: %v", err)
 	}
 }
 
@@ -38,13 +39,12 @@ func TestResolveCertificateConfig_Serving(t *testing.T) {
 		t.Fatalf("ResolveCertificateConfig() error = %v", err)
 	}
 
-	// Default profile has no serving override, falls back to ECDSA P-256
-	g, ok := cfg.Key.(crypto.ECDSAKeyPairGenerator)
-	if !ok {
-		t.Fatalf("expected ECDSAKeyPairGenerator, got %T", cfg.Key)
+	pub, _, err := cfg.Key.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
-	if g.Curve != crypto.P256 {
-		t.Errorf("Curve = %v, want P256", g.Curve)
+	if err := (crypto.ECDSAKeyPairGenerator{Curve: crypto.P256}).Matches(pub); err != nil {
+		t.Errorf("expected ECDSA P-256 serving key: %v", err)
 	}
 }
 
@@ -57,13 +57,12 @@ func TestResolveCertificateConfig_Client(t *testing.T) {
 		t.Fatalf("ResolveCertificateConfig() error = %v", err)
 	}
 
-	// Default profile has no client override, falls back to ECDSA P-256
-	g, ok := cfg.Key.(crypto.ECDSAKeyPairGenerator)
-	if !ok {
-		t.Fatalf("expected ECDSAKeyPairGenerator, got %T", cfg.Key)
+	pub, _, err := cfg.Key.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
-	if g.Curve != crypto.P256 {
-		t.Errorf("Curve = %v, want P256", g.Curve)
+	if err := (crypto.ECDSAKeyPairGenerator{Curve: crypto.P256}).Matches(pub); err != nil {
+		t.Errorf("expected ECDSA P-256 client key: %v", err)
 	}
 }
 
@@ -97,12 +96,12 @@ func TestResolveCertificateConfig_Peer(t *testing.T) {
 	}
 
 	// Peer should pick the stronger: ECDSA-P256 (128 bits) > RSA-2048 (112 bits)
-	g, ok := cfg.Key.(crypto.ECDSAKeyPairGenerator)
-	if !ok {
-		t.Fatalf("expected ECDSAKeyPairGenerator, got %T", cfg.Key)
+	pub, _, err := cfg.Key.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
-	if g.Curve != crypto.P256 {
-		t.Errorf("Curve = %v, want P256", g.Curve)
+	if err := (crypto.ECDSAKeyPairGenerator{Curve: crypto.P256}).Matches(pub); err != nil {
+		t.Errorf("expected ECDSA P-256 peer key: %v", err)
 	}
 }
 
@@ -129,13 +128,12 @@ func TestResolveCertificateConfig_CustomOverride(t *testing.T) {
 		t.Fatalf("ResolveCertificateConfig() error = %v", err)
 	}
 
-	// Serving should use the override, not defaults
-	g, ok := cfg.Key.(crypto.ECDSAKeyPairGenerator)
-	if !ok {
-		t.Fatalf("expected ECDSAKeyPairGenerator, got %T", cfg.Key)
+	pub, _, err := cfg.Key.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
-	if g.Curve != crypto.P384 {
-		t.Errorf("Curve = %v, want P384", g.Curve)
+	if err := (crypto.ECDSAKeyPairGenerator{Curve: crypto.P384}).Matches(pub); err != nil {
+		t.Errorf("expected ECDSA P-384 serving key: %v", err)
 	}
 }
 
@@ -158,5 +156,31 @@ func TestResolveCertificateConfig_UnknownType(t *testing.T) {
 	_, err := ResolveCertificateConfig(provider, "unknown", "test")
 	if err == nil {
 		t.Error("expected error for unknown certificate type")
+	}
+}
+
+// brokenKeyPairGenerator generates ECDSA P-256 keys but Matches expects P-384. This intentionally
+// violates the contract of KeyPairGenerator.
+type brokenKeyPairGenerator struct{}
+
+func (brokenKeyPairGenerator) GenerateKeyPair() (gocrypto.PublicKey, gocrypto.PrivateKey, error) {
+	return crypto.ECDSAKeyPairGenerator{Curve: crypto.P256}.GenerateKeyPair()
+}
+
+func (brokenKeyPairGenerator) Matches(pub gocrypto.PublicKey) error {
+	return errors.New("test error")
+}
+
+// TestSelfCheckingKeyPairGenerator demonstrates that selfCheckingKeyPairGenerator will return a
+// non-nil error from GenerateKeyPair if the Match method of the KeyPairGenerator it wraps does not
+// recognize a key that it has itself generated.
+func TestSelfCheckingKeyPairGenerator(t *testing.T) {
+	g := selfCheckingKeyPairGenerator{inner: brokenKeyPairGenerator{}}
+	_, _, err := g.GenerateKeyPair()
+	if err == nil {
+		t.Fatal("expected error from self-checking wrapper with broken generator")
+	}
+	if err.Error() != "test error" {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
