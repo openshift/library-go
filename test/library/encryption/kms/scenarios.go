@@ -101,7 +101,7 @@ func PreflightDeployScenario(ctx context.Context, t testing.TB) library.Prefligh
 				kubeAPIServerOperatorNamespace, "kube-apiserver-operator", "kube-apiserver-operator")
 			recorder := events.NewInMemoryRecorder("kms-preflight-e2e", clock.RealClock{})
 			return preflight.NewStaticPodPreflightDeployer(
-				kubeAPIServerComponent, cs.Kube.CoreV1(), cs.Kube.RbacV1(),
+				kubeAPIServerComponent, cs.Kube.CoreV1(), cs.Kube.RbacV1(), cs.Kube.BatchV1(),
 				recorder, image, []string{"cluster-kube-apiserver-operator", "kms-preflight"}, library.PreflightDeployCallTimeout,
 			)
 		},

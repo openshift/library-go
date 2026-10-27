@@ -852,12 +852,13 @@ func allTargetGRsMigrated(keyMeta EncryptionKeyMeta, targetGRs []schema.GroupRes
 func StartCapturingLatestPreflightPod(ctx context.Context, t testing.TB, clientSet ClientSet, namespace string) (*atomic.Pointer[corev1.Pod], func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(ctx)
-	w, err := clientSet.Kube.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{FieldSelector: "metadata.name=" + preflight.PodName})
+	preflightPodSelector := "app=" + preflight.PreflightAppLabel
+	w, err := clientSet.Kube.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{LabelSelector: preflightPodSelector})
 	if err != nil {
 		cancel()
 		require.NoError(t, err)
 	}
-	t.Logf("capturing preflight pod %s/%s", namespace, preflight.PodName)
+	t.Logf("capturing preflight pods in %s with %s", namespace, preflightPodSelector)
 
 	captured := &atomic.Pointer[corev1.Pod]{}
 	done := make(chan struct{})
@@ -875,7 +876,7 @@ func StartCapturingLatestPreflightPod(ctx context.Context, t testing.TB, clientS
 			case ev, ok := <-w.ResultChan():
 				if !ok {
 					for {
-						w, err = clientSet.Kube.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{FieldSelector: "metadata.name=" + preflight.PodName})
+						w, err = clientSet.Kube.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{LabelSelector: preflightPodSelector})
 						if err == nil {
 							break
 						}
