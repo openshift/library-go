@@ -40,7 +40,6 @@ spec:
         valueFrom: { fieldRef: { fieldPath: metadata.name } }
       - name: POD_NAMESPACE
         valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
-      # TODO: figure out good resource request values.
       resources:
         requests:
           memory: 50Mi
