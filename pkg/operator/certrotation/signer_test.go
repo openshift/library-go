@@ -512,25 +512,26 @@ func TestEnsureSigningCertKeyPair(t *testing.T) {
 			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 
 			c := &RotatedSigningCASecret{
-				Namespace:     "ns",
-				Name:          "signer",
-				Validity:      24 * time.Hour,
-				Refresh:       12 * time.Hour,
-				Client:        client.CoreV1(),
-				Lister:        corev1listers.NewSecretLister(indexer),
-				EventRecorder: recorder,
-				AdditionalAnnotations: AdditionalAnnotations{
+				namespace:     "ns",
+				name:          "signer",
+				validity:      24 * time.Hour,
+				refresh:       12 * time.Hour,
+				client:        client.CoreV1(),
+				lister:        corev1listers.NewSecretLister(indexer),
+				eventRecorder: recorder,
+				additionalAnnotations: AdditionalAnnotations{
 					JiraComponent: "test",
 				},
-				Owner: &metav1.OwnerReference{
+				owner: &metav1.OwnerReference{
 					Name: "operator",
 				},
-				RefreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
-				PKIProfileProvider:     test.PKIProfileProvider,
+				refreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
+				pkiProfileProvider:     test.PKIProfileProvider,
+				clock:                  clock.RealClock{},
 			}
 
 			if test.RefreshDuration != nil {
-				c.Refresh = *test.RefreshDuration
+				c.refresh = *test.RefreshDuration
 			}
 
 			_, updated, err := c.EnsureSigningCertKeyPair(t.Context())
@@ -650,17 +651,18 @@ func TestSetSigningCertKeyPairSecret_WithPKIProfile(t *testing.T) {
 			}
 
 			c := RotatedSigningCASecret{
-				Validity:        24 * time.Hour,
-				CertificateName: "test.signer",
+				validity:        24 * time.Hour,
+				certificateName: "test.signer",
+				clock:           clock.RealClock{},
 			}
 			if tc.configurePKI {
 				profile := pki.DefaultPKIProfile()
 				profile.SignerCertificates.Key.Algorithm = configv1alpha1.KeyAlgorithm(tc.profileAlgorithm)
 				profile.SignerCertificates.Key.ECDSA.Curve = configv1alpha1.ECDSACurve(tc.profileECDSACurve)
-				c.PKIProfileProvider = pki.NewStaticPKIProfileProvider(&profile)
+				c.pkiProfileProvider = pki.NewStaticPKIProfileProvider(&profile)
 			}
 
-			ca, err := c.setSigningCertKeyPairSecret(secret, nil, clock.RealClock{})
+			ca, err := c.setSigningCertKeyPairSecret(secret, nil)
 			if err != nil {
 				t.Fatalf("setSigningCertKeyPairSecret() error = %v", err)
 			}
@@ -693,19 +695,20 @@ func TestEnsureSigningCertKeyPair_WithKeyConfig(t *testing.T) {
 	recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 
 	c := &RotatedSigningCASecret{
-		Namespace:          "ns",
-		Name:               "signer",
-		Validity:           24 * time.Hour,
-		Refresh:            12 * time.Hour,
-		Client:             client.CoreV1(),
-		Lister:             corev1listers.NewSecretLister(indexer),
-		EventRecorder:      recorder,
-		CertificateName:    "test.signer",
-		PKIProfileProvider: pki.NewStaticPKIProfileProvider(&profile),
-		Owner:              &metav1.OwnerReference{Name: "operator"},
-		AdditionalAnnotations: AdditionalAnnotations{
+		namespace:          "ns",
+		name:               "signer",
+		validity:           24 * time.Hour,
+		refresh:            12 * time.Hour,
+		client:             client.CoreV1(),
+		lister:             corev1listers.NewSecretLister(indexer),
+		eventRecorder:      recorder,
+		certificateName:    "test.signer",
+		pkiProfileProvider: pki.NewStaticPKIProfileProvider(&profile),
+		owner:              &metav1.OwnerReference{Name: "operator"},
+		additionalAnnotations: AdditionalAnnotations{
 			JiraComponent: "test",
 		},
+		clock: clock.RealClock{},
 	}
 
 	ca, updated, err := c.EnsureSigningCertKeyPair(t.Context())
