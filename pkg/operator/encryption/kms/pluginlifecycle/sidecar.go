@@ -42,10 +42,10 @@ type sidecarProvider interface {
 
 // newSidecarProvider creates a provider-specific sidecarProvider for the given keyID and plugin configuration,
 // wiring in reference data (secrets, configmaps) via the referenceDataResolver.
-func newSidecarProvider(keyID string, udsPath string, pluginConfig kms.KMSPluginConfig, refData *referenceDataResolver) (sidecarProvider, error) {
+func newSidecarProvider(keyID string, udsPath string, pluginConfig kms.KMSPluginConfig, refData *referenceDataResolver, ports pluginPorts) (sidecarProvider, error) {
 	switch pluginConfig.Type {
 	case kms.VaultKMSProvider:
-		return newVaultSidecarProvider(vaultSidecarPrefix, keyID, udsPath, pluginConfig.Vault, refData)
+		return newVaultSidecarProvider(vaultSidecarPrefix, keyID, udsPath, pluginConfig.Vault, refData, ports)
 	default:
 		return nil, fmt.Errorf("unsupported KMS plugin configuration")
 	}

@@ -68,11 +68,40 @@ spec:
         - -vault-key-path=transit/keys/test-transit-key
         - -approle-role-id=test-role-id
         - -approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-secret_secret-id-1
+        - -health-port=8081
+        - -metrics-port=9090
         - -tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-1
-        - -metrics-port=0
       imagePullPolicy: IfNotPresent
       restartPolicy: Always
       terminationMessagePolicy: FallbackToLogsOnError
+      ports:
+      - name: health
+        containerPort: 8081
+        protocol: TCP
+      - name: metrics
+        containerPort: 9090
+        protocol: TCP
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8081
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /readyz
+          port: 8081
+        periodSeconds: 5
+        timeoutSeconds: 5
+        failureThreshold: 3
+      startupProbe:
+        httpGet:
+          path: /readyz
+          port: 8081
+        periodSeconds: 2
+        timeoutSeconds: 1
+        failureThreshold: 30
       resources:
         requests:
           memory: 64Mi
@@ -157,11 +186,42 @@ spec:
         - -vault-key-path=transit/keys/test-transit-key
         - -approle-role-id=test-role-id
         - -approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-secret_secret-id-1
+        - -health-port=17730
+        - -metrics-port=17740
         - -tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-1
-        - -metrics-port=0
       imagePullPolicy: IfNotPresent
       restartPolicy: Always
       terminationMessagePolicy: FallbackToLogsOnError
+      ports:
+      - name: health
+        containerPort: 17730
+        hostPort: 17730
+        protocol: TCP
+      - name: metrics
+        containerPort: 17740
+        hostPort: 17740
+        protocol: TCP
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 17730
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /readyz
+          port: 17730
+        periodSeconds: 5
+        timeoutSeconds: 5
+        failureThreshold: 3
+      startupProbe:
+        httpGet:
+          path: /readyz
+          port: 17730
+        periodSeconds: 2
+        timeoutSeconds: 1
+        failureThreshold: 30
       resources:
         requests:
           memory: 64Mi
@@ -245,11 +305,40 @@ spec:
         - -vault-key-path=transit/keys/test-transit-key
         - -approle-role-id=test-role-id
         - -approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-secret_secret-id-2
+        - -health-port=8081
+        - -metrics-port=9090
         - -tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-2
-        - -metrics-port=0
       imagePullPolicy: IfNotPresent
       restartPolicy: Always
       terminationMessagePolicy: FallbackToLogsOnError
+      ports:
+      - name: health
+        containerPort: 8081
+        protocol: TCP
+      - name: metrics
+        containerPort: 9090
+        protocol: TCP
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8081
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /readyz
+          port: 8081
+        periodSeconds: 5
+        timeoutSeconds: 5
+        failureThreshold: 3
+      startupProbe:
+        httpGet:
+          path: /readyz
+          port: 8081
+        periodSeconds: 2
+        timeoutSeconds: 1
+        failureThreshold: 30
       resources:
         requests:
           memory: 64Mi
@@ -276,11 +365,40 @@ spec:
         - -vault-key-path=transit/keys/test-transit-key
         - -approle-role-id=test-role-id
         - -approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-secret_secret-id-1
+        - -health-port=8082
+        - -metrics-port=9091
         - -tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-1
-        - -metrics-port=0
       imagePullPolicy: IfNotPresent
       restartPolicy: Always
       terminationMessagePolicy: FallbackToLogsOnError
+      ports:
+      - name: health
+        containerPort: 8082
+        protocol: TCP
+      - name: metrics
+        containerPort: 9091
+        protocol: TCP
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8082
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /readyz
+          port: 8082
+        periodSeconds: 5
+        timeoutSeconds: 5
+        failureThreshold: 3
+      startupProbe:
+        httpGet:
+          path: /readyz
+          port: 8082
+        periodSeconds: 2
+        timeoutSeconds: 1
+        failureThreshold: 30
       resources:
         requests:
           memory: 64Mi
