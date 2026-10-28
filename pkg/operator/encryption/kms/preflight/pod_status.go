@@ -3,14 +3,31 @@ package preflight
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/retry"
 	kmsservice "k8s.io/kms/pkg/service"
 )
+
+// podStatusUpdateBackoff governs how long the in-pod checker keeps retrying to
+// write its own result back to the apiserver. The apiserver this pod talks to is
+// frequently unavailable for a short window on single-node clusters while it is
+// rolling to a new revision, which is exactly when the preflight runs. The old
+// retry.DefaultRetry only spans ~50ms, so a normal rollout disruption exhausted
+// it and the checker exited non-zero even though the KMS check itself passed.
+// This backoff spans roughly two minutes to ride out that window.
+var podStatusUpdateBackoff = wait.Backoff{
+	Duration: 1 * time.Second,
+	Factor:   2.0,
+	Jitter:   0.1,
+	Steps:    8,
+	Cap:      30 * time.Second,
+}
 
 func setPodCheckCondition(ctx context.Context, podClient corev1client.PodInterface, podName string,
 	status *kmsservice.StatusResponse, checkErr error) error {
@@ -19,7 +36,7 @@ func setPodCheckCondition(ctx context.Context, podClient corev1client.PodInterfa
 }
 
 func updatePodCheckConditions(ctx context.Context, podClient corev1client.PodInterface, name string, conditions []corev1.PodCondition) error {
-	err := retry.OnError(retry.DefaultRetry, func(err error) bool { return true }, func() error {
+	err := retry.OnError(podStatusUpdateBackoff, func(err error) bool { return true }, func() error {
 		pod, err := podClient.Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return err
