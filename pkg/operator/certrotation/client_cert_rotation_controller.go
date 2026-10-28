@@ -18,9 +18,6 @@ import (
 const (
 	// RunOnceContextKey is a context value key that can be used to call the controller Sync() and make it only run the syncWorker once and report error.
 	RunOnceContextKey = "cert-rotation-controller.openshift.io/run-once"
-
-	// clockContextKey is a context value key that can be used to plumb a clock.PassiveClock through to the individual rotation objects.
-	clockContextKey = "cert-roation-controller.openshift.io/clock"
 )
 
 // StatusReporter knows how to report the status of cert rotation
@@ -56,16 +53,16 @@ func (s *StaticPodConditionStatusReporter) Report(ctx context.Context, controlle
 // 3) continuously create a target cert and key signed by the latest signing CA and store it in a secret.
 type CertRotationController struct {
 	// controller name
-	Name string
+	name string
 	// RotatedSigningCASecret rotates a self-signed signing CA stored in a secret.
-	RotatedSigningCASecret RotatedSigningCASecret
+	rotatedSigningCASecret RotatedSigningCASecret
 	// CABundleConfigMap maintains a CA bundle config map, by adding new CA certs coming from rotatedSigningCASecret, and by removing expired old ones.
-	CABundleConfigMap CABundleConfigMap
+	caBundleConfigMap CABundleConfigMap
 	// RotatedSelfSignedCertKeySecret rotates a key and cert signed by a signing CA and stores it in a secret.
-	RotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret
+	rotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret
 
 	// Plumbing:
-	StatusReporter StatusReporter
+	statusReporter StatusReporter
 
 	clock clock.PassiveClock
 }
@@ -79,11 +76,11 @@ func NewCertRotationController(
 	reporter StatusReporter,
 ) factory.Controller {
 	c := &CertRotationController{
-		Name:                           name,
-		RotatedSigningCASecret:         rotatedSigningCASecret,
-		CABundleConfigMap:              caBundleConfigMap,
-		RotatedSelfSignedCertKeySecret: rotatedSelfSignedCertKeySecret,
-		StatusReporter:                 reporter,
+		name:                           name,
+		rotatedSigningCASecret:         rotatedSigningCASecret,
+		caBundleConfigMap:              caBundleConfigMap,
+		rotatedSelfSignedCertKeySecret: rotatedSelfSignedCertKeySecret,
+		statusReporter:                 reporter,
 		clock:                          clock.RealClock{},
 	}
 
@@ -93,22 +90,22 @@ func NewCertRotationController(
 		WithFilteredEventsInformers(
 			func(obj interface{}) bool {
 				if cm, ok := obj.(*corev1.ConfigMap); ok {
-					return cm.Namespace == caBundleConfigMap.Namespace && cm.Name == caBundleConfigMap.Name
+					return cm.Namespace == caBundleConfigMap.namespace && cm.Name == caBundleConfigMap.name
 				}
 				if secret, ok := obj.(*corev1.Secret); ok {
-					if secret.Namespace == rotatedSigningCASecret.Namespace && secret.Name == rotatedSigningCASecret.Name {
+					if secret.Namespace == rotatedSigningCASecret.namespace && secret.Name == rotatedSigningCASecret.name {
 						return true
 					}
-					if secret.Namespace == rotatedSelfSignedCertKeySecret.Namespace && secret.Name == rotatedSelfSignedCertKeySecret.Name {
+					if secret.Namespace == rotatedSelfSignedCertKeySecret.namespace && secret.Name == rotatedSelfSignedCertKeySecret.name {
 						return true
 					}
 					return false
 				}
 				return true
 			},
-			rotatedSigningCASecret.Informer.Informer(),
-			caBundleConfigMap.Informer.Informer(),
-			rotatedSelfSignedCertKeySecret.Informer.Informer(),
+			rotatedSigningCASecret.informer.Informer(),
+			caBundleConfigMap.informer.Informer(),
+			rotatedSelfSignedCertKeySecret.informer.Informer(),
 		).
 		WithPostStartHooks(
 			c.targetCertRecheckerPostRunHook,
@@ -128,7 +125,7 @@ func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncCo
 		return syncErr
 	}
 
-	updated, updateErr := c.StatusReporter.Report(ctx, c.Name, syncErr)
+	updated, updateErr := c.statusReporter.Report(ctx, c.name, syncErr)
 	if updateErr != nil {
 		return updateErr
 	}
@@ -140,16 +137,11 @@ func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncCo
 }
 
 func (c CertRotationController) getSigningCertKeyPairLocation() string {
-	return fmt.Sprintf("%s/%s", c.RotatedSelfSignedCertKeySecret.Namespace, c.RotatedSelfSignedCertKeySecret.Name)
+	return fmt.Sprintf("%s/%s", c.rotatedSelfSignedCertKeySecret.namespace, c.rotatedSelfSignedCertKeySecret.name)
 }
 
 func (c CertRotationController) SyncWorker(ctx context.Context) error {
-	if c.clock == nil {
-		c.clock = clock.RealClock{}
-	}
-	ctxWithClock := context.WithValue(ctx, clockContextKey, c.clock)
-
-	signingCertKeyPair, _, err := c.RotatedSigningCASecret.EnsureSigningCertKeyPair(ctxWithClock)
+	signingCertKeyPair, _, err := c.rotatedSigningCASecret.EnsureSigningCertKeyPair(ctx)
 	if err != nil {
 		return fmt.Errorf("ensuring signing cert keypair: %w", err)
 	}
@@ -158,7 +150,7 @@ func (c CertRotationController) SyncWorker(ctx context.Context) error {
 		return fmt.Errorf("signingCertKeyPair is nil")
 	}
 
-	cabundleCerts, err := c.CABundleConfigMap.EnsureConfigMapCABundle(ctxWithClock, signingCertKeyPair, c.getSigningCertKeyPairLocation())
+	cabundleCerts, err := c.caBundleConfigMap.EnsureConfigMapCABundle(ctx, signingCertKeyPair, c.getSigningCertKeyPairLocation())
 	if err != nil {
 		return fmt.Errorf("ensuring configmap CA bundle: %w", err)
 	}
@@ -167,7 +159,7 @@ func (c CertRotationController) SyncWorker(ctx context.Context) error {
 		return fmt.Errorf("cabundleCerts is nil")
 	}
 
-	if _, err := c.RotatedSelfSignedCertKeySecret.EnsureTargetCertKeyPair(ctxWithClock, signingCertKeyPair, cabundleCerts); err != nil {
+	if _, err := c.rotatedSelfSignedCertKeySecret.EnsureTargetCertKeyPair(ctx, signingCertKeyPair, cabundleCerts); err != nil {
 		return fmt.Errorf("ensuring target cert keypair: %w", err)
 	}
 
@@ -176,7 +168,7 @@ func (c CertRotationController) SyncWorker(ctx context.Context) error {
 
 func (c CertRotationController) targetCertRecheckerPostRunHook(ctx context.Context, syncCtx factory.SyncContext) error {
 	// If we have a need to force rechecking the cert, use this channel to do it.
-	refresher, ok := c.RotatedSelfSignedCertKeySecret.CertCreator.(TargetCertRechecker)
+	refresher, ok := c.rotatedSelfSignedCertKeySecret.certCreator.(TargetCertRechecker)
 	if !ok {
 		return nil
 	}
