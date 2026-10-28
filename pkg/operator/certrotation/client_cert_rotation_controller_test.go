@@ -267,40 +267,43 @@ func TestCertRotationController_SyncWorker(t *testing.T) {
 
 			// Create the controller
 			controller := &CertRotationController{
-				Name: "test-controller",
-				RotatedSigningCASecret: RotatedSigningCASecret{
-					Namespace:     "test-namespace",
-					Name:          "test-signer-cert",
-					Validity:      24 * time.Hour,
-					Refresh:       12 * time.Hour,
-					Informer:      informerFactory.Core().V1().Secrets(),
-					Lister:        informerFactory.Core().V1().Secrets().Lister(),
-					Client:        fakeClient.CoreV1(),
-					EventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+				name: "test-controller",
+				rotatedSigningCASecret: RotatedSigningCASecret{
+					namespace:     "test-namespace",
+					name:          "test-signer-cert",
+					validity:      24 * time.Hour,
+					refresh:       12 * time.Hour,
+					informer:      informerFactory.Core().V1().Secrets(),
+					lister:        informerFactory.Core().V1().Secrets().Lister(),
+					client:        fakeClient.CoreV1(),
+					eventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+					clock:         clock.RealClock{},
 				},
-				CABundleConfigMap: CABundleConfigMap{
-					Namespace:     "test-namespace",
-					Name:          "test-ca-bundle",
-					Informer:      informerFactory.Core().V1().ConfigMaps(),
-					Lister:        informerFactory.Core().V1().ConfigMaps().Lister(),
-					Client:        fakeClient.CoreV1(),
-					EventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
-					AdditionalAnnotations: AdditionalAnnotations{
+				caBundleConfigMap: CABundleConfigMap{
+					namespace:     "test-namespace",
+					name:          "test-ca-bundle",
+					informer:      informerFactory.Core().V1().ConfigMaps(),
+					lister:        informerFactory.Core().V1().ConfigMaps().Lister(),
+					client:        fakeClient.CoreV1(),
+					eventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+					additionalAnnotations: AdditionalAnnotations{
 						JiraComponent: "test",
 					},
+					clock: clock.RealClock{},
 				},
-				RotatedSelfSignedCertKeySecret: RotatedSelfSignedCertKeySecret{
-					Namespace:     "test-namespace",
-					Name:          "test-target-cert",
-					Validity:      24 * time.Hour,
-					Refresh:       12 * time.Hour,
-					CertCreator:   &mockTargetCertCreator{},
-					Informer:      informerFactory.Core().V1().Secrets(),
-					Lister:        informerFactory.Core().V1().Secrets().Lister(),
-					Client:        fakeClient.CoreV1(),
-					EventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+				rotatedSelfSignedCertKeySecret: RotatedSelfSignedCertKeySecret{
+					namespace:     "test-namespace",
+					name:          "test-target-cert",
+					validity:      24 * time.Hour,
+					refresh:       12 * time.Hour,
+					certCreator:   &mockTargetCertCreator{},
+					informer:      informerFactory.Core().V1().Secrets(),
+					lister:        informerFactory.Core().V1().Secrets().Lister(),
+					client:        fakeClient.CoreV1(),
+					eventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+					clock:         clock.RealClock{},
 				},
-				StatusReporter: &testStatusReporter{},
+				statusReporter: &testStatusReporter{},
 			}
 
 			// Run SyncWorker
@@ -337,7 +340,7 @@ func (t *testStatusReporter) Report(ctx context.Context, controllerName string, 
 // mockTargetCertCreator is a mock implementation of TargetCertCreator for testing
 type mockTargetCertCreator struct{}
 
-func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.Duration, _ crypto.KeyPairGenerator, _ clock.PassiveClock) (*crypto.TLSCertificateConfig, error) {
+func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.Duration, _ crypto.KeyPairGenerator) (*crypto.TLSCertificateConfig, error) {
 	// Use the provided signer to create a real certificate with matching key
 	certConfig, err := signer.NewServerCertificate(sets.New("test-cert", "localhost"), crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithLifetime(validity))
 	if err != nil {
@@ -351,7 +354,7 @@ func (m *mockTargetCertCreator) CertificateType() pki.CertificateType {
 	return pki.CertificateTypeServing
 }
 
-func (m *mockTargetCertCreator) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool, _ clock.PassiveClock, _ crypto.KeyPairGenerator) string {
+func (m *mockTargetCertCreator) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired, creationRequired bool, _ crypto.KeyPairGenerator) string {
 	if creationRequired {
 		return "creation required"
 	}
@@ -506,7 +509,7 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 		signerPKIProfiles []*v1alpha1.PKIProfile
 		targetPKIProfile  *v1alpha1.PKIProfile
 
-		certCreator TargetCertCreator
+		certCreatorFn func(clock.PassiveClock) TargetCertCreator
 
 		rotationDurationStep time.Duration
 
@@ -546,12 +549,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 				ecdsaP256PKIProfile,
 			},
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -571,11 +577,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 				ecdsaP256PKIProfile,
 			},
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -594,15 +603,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 				ecdsaP256PKIProfile,
 			},
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -623,12 +635,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				ecdsaP256PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -649,11 +664,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				ecdsaP256PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -673,15 +691,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				ecdsaP256PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -702,12 +723,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				ecdsaP256PKIProfile,
 				rsa2048PKIProfile,
 			},
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -728,11 +752,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				ecdsaP256PKIProfile,
 				rsa2048PKIProfile,
 			},
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -752,15 +779,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				ecdsaP256PKIProfile,
 				rsa2048PKIProfile,
 			},
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -782,12 +812,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -809,11 +842,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -834,15 +870,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			// ensure that we have progressed by at least some amount of time
 			// greater than 1 second so that the unix time representation changes
@@ -862,12 +901,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			signerPKIProfiles: []*v1alpha1.PKIProfile{
 				rsa2048PKIProfile,
 			},
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -883,12 +925,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			signerPKIProfiles: []*v1alpha1.PKIProfile{
 				rsa2048PKIProfile,
 			},
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -904,11 +949,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			signerPKIProfiles: []*v1alpha1.PKIProfile{
 				rsa2048PKIProfile,
 			},
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -923,11 +971,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			signerPKIProfiles: []*v1alpha1.PKIProfile{
 				rsa2048PKIProfile,
 			},
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -942,15 +993,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			signerPKIProfiles: []*v1alpha1.PKIProfile{
 				rsa2048PKIProfile,
 			},
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -966,15 +1020,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			signerPKIProfiles: []*v1alpha1.PKIProfile{
 				rsa2048PKIProfile,
 			},
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -991,12 +1048,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1013,12 +1073,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1035,11 +1098,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1055,11 +1121,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1075,15 +1144,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1100,15 +1172,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 13 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1125,12 +1200,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			signerPKIProfiles: []*v1alpha1.PKIProfile{
 				rsa2048PKIProfile,
 			},
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1146,11 +1224,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			signerPKIProfiles: []*v1alpha1.PKIProfile{
 				rsa2048PKIProfile,
 			},
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1165,15 +1246,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 			signerPKIProfiles: []*v1alpha1.PKIProfile{
 				rsa2048PKIProfile,
 			},
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1190,12 +1274,15 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ServingRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ServingRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1212,11 +1299,14 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "hsimpson",
-					Groups: []string{"donut-lovers"},
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &ClientRotation{
+					userInfo: &user.DefaultInfo{
+						Name:   "hsimpson",
+						Groups: []string{"donut-lovers"},
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1232,15 +1322,18 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 				rsa2048PKIProfile,
 			},
 			targetPKIProfile: rsa2048PKIProfile,
-			certCreator: &PeerRotation{
-				Hostnames: func() []string {
-					return []string{
-						"certrotation.test.openshift.io",
-					}
-				},
-				UserInfo: &user.DefaultInfo{
-					Name: "certrotation.test.openshift.io",
-				},
+			certCreatorFn: func(clock clock.PassiveClock) TargetCertCreator {
+				return &PeerRotation{
+					hostnames: func() []string {
+						return []string{
+							"certrotation.test.openshift.io",
+						}
+					},
+					userInfo: &user.DefaultInfo{
+						Name: "certrotation.test.openshift.io",
+					},
+					clock: clock,
+				}
 			},
 			rotationDurationStep: 25 * time.Hour,
 			verifyOptionFn: func(vo *x509.VerifyOptions) {
@@ -1282,43 +1375,46 @@ func TestCertRotationController_SyncWorker_AlgorithmRotationWithCrossSigning(t *
 
 			// Create the controller
 			controller := &CertRotationController{
-				Name:  "test-controller",
+				name:  "test-controller",
 				clock: clockTime,
-				RotatedSigningCASecret: RotatedSigningCASecret{
-					Namespace:          "test-namespace",
-					Name:               "test-signer-cert",
-					Validity:           24 * time.Hour,
-					Refresh:            12 * time.Hour,
-					Informer:           secretInformer,
-					Lister:             secretInformer.Lister(),
-					Client:             fakeClient.CoreV1(),
-					EventRecorder:      events.NewInMemoryRecorder("test", clock.RealClock{}),
-					PKIProfileProvider: signerPKIProvider,
+				rotatedSigningCASecret: RotatedSigningCASecret{
+					namespace:          "test-namespace",
+					name:               "test-signer-cert",
+					validity:           24 * time.Hour,
+					refresh:            12 * time.Hour,
+					informer:           secretInformer,
+					lister:             secretInformer.Lister(),
+					client:             fakeClient.CoreV1(),
+					eventRecorder:      events.NewInMemoryRecorder("test", clock.RealClock{}),
+					pkiProfileProvider: signerPKIProvider,
+					clock:              clockTime,
 				},
-				CABundleConfigMap: CABundleConfigMap{
-					Namespace:     "test-namespace",
-					Name:          "test-ca-bundle",
-					Informer:      configMapInformer,
-					Lister:        configMapInformer.Lister(),
-					Client:        fakeClient.CoreV1(),
-					EventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
-					AdditionalAnnotations: AdditionalAnnotations{
+				caBundleConfigMap: CABundleConfigMap{
+					namespace:     "test-namespace",
+					name:          "test-ca-bundle",
+					informer:      configMapInformer,
+					lister:        configMapInformer.Lister(),
+					client:        fakeClient.CoreV1(),
+					eventRecorder: events.NewInMemoryRecorder("test", clock.RealClock{}),
+					additionalAnnotations: AdditionalAnnotations{
 						JiraComponent: "test",
 					},
+					clock: clockTime,
 				},
-				RotatedSelfSignedCertKeySecret: RotatedSelfSignedCertKeySecret{
-					Namespace:          "test-namespace",
-					Name:               "test-target-cert",
-					Validity:           24 * time.Hour,
-					Refresh:            12 * time.Hour,
-					CertCreator:        tc.certCreator,
-					Informer:           secretInformer,
-					Lister:             secretInformer.Lister(),
-					Client:             fakeClient.CoreV1(),
-					EventRecorder:      events.NewInMemoryRecorder("test", clock.RealClock{}),
-					PKIProfileProvider: targetPKIProvider,
+				rotatedSelfSignedCertKeySecret: RotatedSelfSignedCertKeySecret{
+					namespace:          "test-namespace",
+					name:               "test-target-cert",
+					validity:           24 * time.Hour,
+					refresh:            12 * time.Hour,
+					certCreator:        tc.certCreatorFn(clockTime),
+					informer:           secretInformer,
+					lister:             secretInformer.Lister(),
+					client:             fakeClient.CoreV1(),
+					eventRecorder:      events.NewInMemoryRecorder("test", clock.RealClock{}),
+					pkiProfileProvider: targetPKIProvider,
+					clock:              clockTime,
 				},
-				StatusReporter: &testStatusReporter{},
+				statusReporter: &testStatusReporter{},
 			}
 
 			// Run SyncWorker

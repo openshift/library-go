@@ -387,24 +387,22 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 			}
 
 			c := &RotatedSelfSignedCertKeySecret{
-				Namespace: "ns",
-				Validity:  24 * time.Hour,
-				Refresh:   12 * time.Hour,
-				Name:      "target-secret",
-				CertCreator: &ServingRotation{
-					Hostnames: func() []string { return []string{"foo", "bar"} },
-				},
-
-				Client:        client.CoreV1(),
-				Lister:        corev1listers.NewSecretLister(indexer),
-				EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
-				AdditionalAnnotations: AdditionalAnnotations{
+				namespace:     "ns",
+				validity:      24 * time.Hour,
+				refresh:       12 * time.Hour,
+				name:          "target-secret",
+				certCreator:   NewServingRotation(func() []string { return []string{"foo", "bar"} }, nil, nil),
+				client:        client.CoreV1(),
+				lister:        corev1listers.NewSecretLister(indexer),
+				eventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+				additionalAnnotations: AdditionalAnnotations{
 					JiraComponent: "test",
 				},
-				Owner: &metav1.OwnerReference{
+				owner: &metav1.OwnerReference{
 					Name: "operator",
 				},
-				RefreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
+				refreshOnlyWhenExpired: test.RefreshOnlyWhenExpired,
+				clock:                  clock.RealClock{},
 			}
 
 			newCA, err := test.caFn()
@@ -469,9 +467,7 @@ func TestServerHostnameCheck(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r := &ServingRotation{
-				Hostnames: func() []string { return test.requiredHostnames },
-			}
+			r := NewServingRotation(func() []string { return test.requiredHostnames }, nil, nil)
 			actual := r.missingHostnames(map[string]string{CertificateHostnames: test.existingHostnames})
 			if actual != test.expected {
 				t.Fatal(actual)
@@ -583,17 +579,15 @@ func TestEnsureTargetSignerCertKeyPair(t *testing.T) {
 			}
 
 			c := &RotatedSelfSignedCertKeySecret{
-				Namespace: "ns",
-				Validity:  24 * time.Hour,
-				Refresh:   12 * time.Hour,
-				Name:      "target-secret",
-				CertCreator: &SignerRotation{
-					SignerName: "lower-signer",
-				},
-
-				Client:        client.CoreV1(),
-				Lister:        corev1listers.NewSecretLister(indexer),
-				EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+				namespace:     "ns",
+				validity:      24 * time.Hour,
+				refresh:       12 * time.Hour,
+				name:          "target-secret",
+				certCreator:   NewSignerRotation("lower-signer"),
+				client:        client.CoreV1(),
+				lister:        corev1listers.NewSecretLister(indexer),
+				eventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+				clock:         clock.RealClock{},
 			}
 
 			newCA, err := test.caFn()
@@ -869,10 +863,8 @@ func TestClientRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			r := &ClientRotation{
-				UserInfo: &user.DefaultInfo{Name: "test-user", Groups: []string{"test-group"}},
-			}
-			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen, clock.RealClock{})
+			r := NewClientRotation(&user.DefaultInfo{Name: "test-user", Groups: []string{"test-group"}})
+			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen)
 			if err != nil {
 				t.Fatalf("NewCertificate() error = %v", err)
 			}
@@ -922,10 +914,8 @@ func TestServingRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			r := &ServingRotation{
-				Hostnames: func() []string { return []string{"localhost", "127.0.0.1"} },
-			}
-			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen, clock.RealClock{})
+			r := NewServingRotation(func() []string { return []string{"localhost", "127.0.0.1"} }, nil, nil)
+			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen)
 			if err != nil {
 				t.Fatalf("NewCertificate() error = %v", err)
 			}
@@ -993,11 +983,8 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			r := &PeerRotation{
-				Hostnames: func() []string { return tc.hostnames },
-				UserInfo:  tc.userInfo,
-			}
-			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen, clock.RealClock{})
+			r := NewPeerRotation(func() []string { return tc.hostnames }, nil, nil, tc.userInfo)
+			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen)
 			if tc.wantErr != "" {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tc.wantErr)
@@ -1082,10 +1069,8 @@ func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			r := &SignerRotation{
-				SignerName: "test-intermediate",
-			}
-			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen, clock.RealClock{})
+			r := NewSignerRotation("test-intermediate")
+			certConfig, err := r.NewCertificate(ca, time.Hour, tc.keyGen)
 			if err != nil {
 				t.Fatalf("NewCertificate() error = %v", err)
 			}
