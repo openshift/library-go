@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	corev1 "k8s.io/api/core/v1"
@@ -11,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	kmsservice "k8s.io/kms/pkg/service"
@@ -90,6 +92,11 @@ func TestUpdatePodCheckConditions_retriesOnConflict(t *testing.T) {
 	}
 	kubeClient := fake.NewSimpleClientset(pod)
 	podClient := kubeClient.CoreV1().Pods(pod.Namespace)
+
+	// Keep the test fast; production uses a longer statusUpdateBackoff.
+	originalBackoff := statusUpdateBackoff
+	statusUpdateBackoff = wait.Backoff{Steps: 5, Duration: time.Millisecond, Factor: 1.0}
+	t.Cleanup(func() { statusUpdateBackoff = originalBackoff })
 
 	attempts := 0
 	kubeClient.PrependReactor("update", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
