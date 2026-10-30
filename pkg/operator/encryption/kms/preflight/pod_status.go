@@ -3,14 +3,23 @@ package preflight
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/retry"
 	kmsservice "k8s.io/kms/pkg/service"
 )
+
+// statusUpdateBackoff covers transient kube-apiserver unavailability when writing the preflight result.
+var statusUpdateBackoff = wait.Backoff{
+	Steps:    10,
+	Duration: time.Second,
+	Factor:   2.0,
+}
 
 func setPodCheckCondition(ctx context.Context, podClient corev1client.PodInterface, podName string,
 	status *kmsservice.StatusResponse, checkErr error) error {
@@ -19,7 +28,7 @@ func setPodCheckCondition(ctx context.Context, podClient corev1client.PodInterfa
 }
 
 func updatePodCheckConditions(ctx context.Context, podClient corev1client.PodInterface, name string, conditions []corev1.PodCondition) error {
-	err := retry.OnError(retry.DefaultRetry, func(err error) bool { return true }, func() error {
+	err := retry.OnError(statusUpdateBackoff, func(err error) bool { return true }, func() error {
 		pod, err := podClient.Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return err
