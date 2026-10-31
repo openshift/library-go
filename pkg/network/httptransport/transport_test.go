@@ -49,21 +49,49 @@ func TestNewRoundTripperTrustSources(t *testing.T) {
 		WithCAContentProvider(provider),
 	)
 	require.NoError(t, err)
-	t.Cleanup(roundTripper.(interface{ CloseIdleConnections() }).CloseIdleConnections)
 
-	for name, ca := range map[string]*testCA{
-		"cert pool": poolCA,
-		"CA data":   dataCA,
-		"CA file":   fileCA,
-		"provider":  providerCA,
-	} {
-		t.Run(name, func(t *testing.T) {
-			server := startTLSServer(t, ca.serverCertificate, nil)
-			assertGetSucceeds(t, roundTripper, server.URL)
-		})
+	want := x509.NewCertPool()
+	for _, ca := range []*testCA{poolCA, dataCA, fileCA, providerCA} {
+		want.AddCert(ca.certificate)
 	}
 
+	rootCAs := underlyingTransport(t, roundTripper).TLSClientConfig.RootCAs
+	assert.True(t, rootCAs.Equal(want), "expected all trust sources to be merged into the root pool")
 	assert.True(t, pool.Equal(originalPool), "caller-owned cert pool was mutated")
+}
+
+func TestNewRoundTripperCertPoolOptions(t *testing.T) {
+	t.Run("last pool wins", func(t *testing.T) {
+		firstCA := newTestCA(t, "first-pool-ca")
+		secondCA := newTestCA(t, "second-pool-ca")
+
+		firstPool := x509.NewCertPool()
+		firstPool.AddCert(firstCA.certificate)
+		secondPool := x509.NewCertPool()
+		secondPool.AddCert(secondCA.certificate)
+
+		roundTripper, err := NewRoundTripper(WithCertPool(firstPool), WithCertPool(secondPool))
+		require.NoError(t, err)
+
+		rootCAs := underlyingTransport(t, roundTripper).TLSClientConfig.RootCAs
+		assert.True(t, rootCAs.Equal(secondPool), "expected the last WithCertPool call to win")
+		assert.False(t, rootCAs.Equal(firstPool), "first pool should have been discarded")
+	})
+
+	t.Run("nil resets to the system cert pool", func(t *testing.T) {
+		ca := newTestCA(t, "discarded-pool-ca")
+		pool := x509.NewCertPool()
+		pool.AddCert(ca.certificate)
+
+		roundTripper, err := NewRoundTripper(WithCertPool(pool), WithCertPool(nil))
+		require.NoError(t, err)
+
+		systemPool, err := x509.SystemCertPool()
+		require.NoError(t, err)
+
+		rootCAs := underlyingTransport(t, roundTripper).TLSClientConfig.RootCAs
+		assert.True(t, rootCAs.Equal(systemPool), "expected WithCertPool(nil) to reset to the system cert pool")
+	})
 }
 
 func TestNewRoundTripperValidation(t *testing.T) {
@@ -91,11 +119,6 @@ func TestNewRoundTripperValidation(t *testing.T) {
 			name:    "key without certificate",
 			opts:    []Option{WithClientCertificateFile("", "key.pem")},
 			wantErr: "certFile and keyFile must be specified together",
-		},
-		{
-			name:    "duplicate cert pool",
-			opts:    []Option{WithCertPool(nil), WithCertPool(nil)},
-			wantErr: "WithCertPool may only be specified once",
 		},
 		{
 			name:    "zero TLS min version",
@@ -135,7 +158,10 @@ func TestTransportReloadsCAProviders(t *testing.T) {
 	require.NoError(t, err)
 
 	assertGetSucceeds(t, roundTripper, firstServer.URL)
+	oldTransport := underlyingTransport(t, roundTripper)
 	provider.setContent(secondCA.pem)
+	waitForTransportRebuild(t, roundTripper, oldTransport)
+
 	assertGetSucceeds(t, roundTripper, secondServer.URL)
 	assertGetFails(t, roundTripper, firstServer.URL)
 }
@@ -149,8 +175,11 @@ func TestTransportRetainsLastKnownGoodConfiguration(t *testing.T) {
 	require.NoError(t, err)
 	assertGetSucceeds(t, roundTripper, server.URL)
 
+	oldTransport := underlyingTransport(t, roundTripper)
 	provider.setContent([]byte("not a certificate"))
-	assertGetSucceeds(t, roundTripper, server.URL)
+	forceTransportRebuild(t, roundTripper)
+
+	assert.Same(t, oldTransport, underlyingTransport(t, roundTripper), "a failed rebuild must not replace the transport")
 }
 
 func TestTransportAllowsEmptyCAContentProvider(t *testing.T) {
@@ -163,15 +192,18 @@ func TestTransportSupportsMultipleCAProviders(t *testing.T) {
 	secondCA := newTestCA(t, "second-provider")
 
 	roundTripper, err := NewRoundTripper(
+		WithCertPool(x509.NewCertPool()),
 		WithCAContentProvider(newTestCAProvider("first", firstCA.pem)),
 		WithCAContentProvider(newTestCAProvider("second", secondCA.pem)),
 	)
 	require.NoError(t, err)
 
-	for _, ca := range []*testCA{firstCA, secondCA} {
-		server := startTLSServer(t, ca.serverCertificate, nil)
-		assertGetSucceeds(t, roundTripper, server.URL)
-	}
+	want := x509.NewCertPool()
+	want.AddCert(firstCA.certificate)
+	want.AddCert(secondCA.certificate)
+
+	rootCAs := underlyingTransport(t, roundTripper).TLSClientConfig.RootCAs
+	assert.True(t, rootCAs.Equal(want), "expected both CA content providers' certificates to be trusted")
 }
 
 func TestTransportClientCertificate(t *testing.T) {
@@ -294,9 +326,11 @@ func TestTransportTLSProfile(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		oldTransport := underlyingTransport(t, roundTripper)
 		provider.setContent(newTestCA(t, "second-ca").pem)
+		rebuilt := waitForTransportRebuild(t, roundTripper, oldTransport)
 
-		tlsConfig := underlyingTransport(t, roundTripper).TLSClientConfig
+		tlsConfig := rebuilt.TLSClientConfig
 		assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
 		assert.Equal(t, cipherSuites, tlsConfig.CipherSuites)
 	})
@@ -485,4 +519,38 @@ func underlyingTransport(t *testing.T, roundTripper http.RoundTripper) *http.Tra
 	}
 	t.Fatalf("got transport type %T, want *http.Transport or *dynamicTransport", roundTripper)
 	return nil
+}
+
+// waitForTransportRebuild blocks until roundTripper's underlying transport is
+// no longer oldTransport. Enqueue rebuilds asynchronously, so tests that
+// trigger a CA content change must synchronize on the swap before asserting
+// on its effect instead of racing the rebuild goroutine.
+func waitForTransportRebuild(t *testing.T, roundTripper http.RoundTripper, oldTransport *http.Transport) *http.Transport {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		current := underlyingTransport(t, roundTripper)
+		if current != oldTransport {
+			return current
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for transport rebuild")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// forceTransportRebuild drives a dynamicTransport's rebuild synchronously, under the
+// same lock Enqueue's async rebuild uses. Tests use it to assert on a rebuild
+// attempt that is expected to fail, since a failed rebuild never swaps
+// transport and so can't be waited on with waitForTransportRebuild.
+func forceTransportRebuild(t *testing.T, roundTripper http.RoundTripper) {
+	t.Helper()
+	dynamic, ok := roundTripper.(*dynamicTransport)
+	require.True(t, ok, "got transport type %T, want *dynamicTransport", roundTripper)
+
+	dynamic.rebuildMu.Lock()
+	defer dynamic.rebuildMu.Unlock()
+	dynamic.rebuild()
 }
