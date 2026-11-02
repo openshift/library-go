@@ -371,7 +371,24 @@ func (c *kmsPreflightController) sync(ctx context.Context, syncCtx factory.SyncC
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	requeue, progressReason, progressMessage, preflightErr := c.runPreflightChecks(ctx)
+	disabled, preflightErr := kmsPreflightDisabled(c.operatorClient)
+	if preflightErr == nil && disabled {
+		const reason = "KMSPreflightDisabled"
+		const message = "KMS preflight checks are disabled by unsupportedConfigOverrides; KMS changes will not be validated before deployment"
+		degradedCondition = degradedCondition.WithReason(reason).WithMessage(message)
+		progressingCondition = progressingCondition.WithReason(reason).WithMessage(message)
+		syncCtx.Recorder().Warning(reason, message)
+		if err := c.cleanupAndResetPreflight(ctx); err != nil {
+			degradedCondition = degradedCondition.WithStatus(operatorv1.ConditionTrue).WithReason("CleanupFailed").WithMessage(message + "; cleanup failed: " + err.Error())
+			return err
+		}
+		return nil
+	}
+	var requeue bool
+	var progressReason, progressMessage string
+	if preflightErr == nil {
+		requeue, progressReason, progressMessage, preflightErr = c.runPreflightChecks(ctx)
+	}
 	if requeue {
 		syncCtx.Queue().AddAfter(syncCtx.QueueKey(), 30*time.Second)
 	}
@@ -617,6 +634,28 @@ func (c *kmsPreflightController) cleanupDeployer(ctx context.Context) error {
 	}
 	c.dirtyDeployer = false
 	return nil
+}
+
+// cleanupAndResetPreflight removes any preflight workload and clears recorded preflight
+// status so re-enabling preflight after a bypass does not resurface a stale failure or
+// re-run preflight for an already-created key.
+func (c *kmsPreflightController) cleanupAndResetPreflight(ctx context.Context) error {
+	if err := c.cleanupDeployer(ctx); err != nil {
+		return err
+	}
+	if c.encryptionStatusProvider == nil {
+		return nil
+	}
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get KMS encryption status: %w", err)
+	}
+	if encryptionStatus == nil || encryptionStatus.Preflight == (operatorv1.KMSPreflightCheck{}) {
+		return nil
+	}
+	return c.encryptionStatusProvider.UpdateKMSEncryptionStatus(ctx, func(s *operatorv1.KMSEncryptionStatus) {
+		s.Preflight = operatorv1.KMSPreflightCheck{}
+	})
 }
 
 // ensurePreflightResult writes result to KMSEncryptionStatus.Preflight.Result
