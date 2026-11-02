@@ -3,6 +3,7 @@ package pluginlifecycle
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -121,11 +122,12 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 		"-vault-key-path=transit/keys/my-key",
 		"-approle-role-id=test-role-id",
 		"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
+		"-health-port=8081",
+		"-metrics-port=9090",
 		"-tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
 		"-tls-sni=vault.internal.example.com",
 		"-vault-namespace=my-namespace",
 		"-vault-auth-namespace=my-auth-namespace",
-		"-metrics-port=0",
 	}
 
 	expectedHealthReporter := func(sockets string) corev1.Container {
@@ -261,9 +263,10 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 							"-vault-key-path=transit2/keys/other-key",
 							"-approle-role-id=test-role-id-777",
 							"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle-2_secret-id-777",
+							"-health-port=8081",
+							"-metrics-port=9090",
 							"-tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle-2_ca-bundle.crt-777",
 							"-vault-namespace=other-namespace",
-							"-metrics-port=0",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
 						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
@@ -291,11 +294,12 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 							"-vault-key-path=transit/keys/my-key",
 							"-approle-role-id=test-role-id",
 							"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-555",
+							"-health-port=8082",
+							"-metrics-port=9091",
 							"-tls-ca-file=/var/run/secrets/kms-plugin/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
 							"-tls-sni=vault.internal.example.com",
 							"-vault-namespace=my-namespace",
 							"-vault-auth-namespace=my-auth-namespace",
-							"-metrics-port=0",
 						},
 						ImagePullPolicy:          corev1.PullIfNotPresent,
 						RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
@@ -732,6 +736,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			enrichExpectedVaultSidecars(tt.expectedPodSpec)
 			require.Equal(t, tt.expectedPodSpec, tt.actualPodSpec)
 		})
 	}
@@ -795,11 +800,12 @@ func TestEnsureKMSPluginSidecarInStaticPodSpec(t *testing.T) {
 			"-vault-key-path=transit/keys/my-key",
 			"-approle-role-id=test-role-id",
 			fmt.Sprintf("-approle-secret-id-path=/etc/kubernetes/static-pod-resources/secrets/%s/kms-plugin-secret-vault-approle_secret-id-555", secretName),
+			"-health-port=17700",
+			"-metrics-port=17720",
 			fmt.Sprintf("-tls-ca-file=/etc/kubernetes/static-pod-resources/secrets/%s/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555", secretName),
 			"-tls-sni=vault.internal.example.com",
 			"-vault-namespace=my-namespace",
 			"-vault-auth-namespace=my-auth-namespace",
-			"-metrics-port=0",
 		}
 	}
 
@@ -1027,12 +1033,20 @@ func TestEnsureKMSPluginSidecarInStaticPodSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Match production kube-apiserver static pods (hostNetwork).
+			if tt.actualPodSpec != nil {
+				tt.actualPodSpec.HostNetwork = true
+			}
+			if tt.expectedPodSpec != nil {
+				tt.expectedPodSpec.HostNetwork = true
+			}
 			err := EnsureKMSPluginSidecarInStaticPodSpec(context.Background(), tt.actualPodSpec, "kube-apiserver", "openshift-kube-apiserver", "encryption-config", tt.diskSecretName, "cluster-kube-apiserver-operator", "quay.io/test/operator:latest", tt.secretClient, tt.featureGateAccessor)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
+			enrichExpectedVaultSidecars(tt.expectedPodSpec)
 			require.Equal(t, tt.expectedPodSpec, tt.actualPodSpec)
 		})
 	}
@@ -1113,5 +1127,25 @@ func TestRemoveAllKMSManagedResourcesDrift(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// enrichExpectedVaultSidecars fills Ports and probes on vault-kms-plugin-* init containers
+// so test fixtures only need to assert the health/metrics args.
+func enrichExpectedVaultSidecars(podSpec *corev1.PodSpec) {
+	if podSpec == nil {
+		return
+	}
+	idx := 0
+	for i := range podSpec.InitContainers {
+		if !strings.HasPrefix(podSpec.InitContainers[i].Name, vaultSidecarPrefix+"-") {
+			continue
+		}
+		ports, err := portsForPodSpecAtIndex(idx, podSpec, false)
+		if err != nil {
+			panic(err)
+		}
+		podSpec.InitContainers[i] = withVaultLifecycle(podSpec.InitContainers[i], ports)
+		idx++
 	}
 }

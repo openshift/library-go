@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
 
@@ -76,11 +77,12 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						"-vault-key-path=transit/keys/my-key",
 						"-approle-role-id=test-role-id",
 						"-approle-secret-id-path=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-secret-vault-approle_secret-id-555",
+						"-health-port=8081",
+						"-metrics-port=9090",
 						"-tls-ca-file=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
 						"-tls-sni=vault.internal.example.com",
 						"-vault-namespace=my-namespace",
 						"-vault-auth-namespace=my-auth-namespace",
-						"-metrics-port=0",
 					},
 					ImagePullPolicy:          corev1.PullIfNotPresent,
 					RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
@@ -142,9 +144,10 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						"-vault-key-path=transit/keys/my-key",
 						"-approle-role-id=test-role-id",
 						"-approle-secret-id-path=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-secret-vault-approle_secret-id-555",
+						"-health-port=8081",
+						"-metrics-port=9090",
 						"-tls-ca-file=/etc/kubernetes/static-pod-resources/secrets/encryption-config/kms-plugin-configmap-vault-ca-bundle_ca-bundle.crt-555",
 						"-vault-namespace=my-namespace",
-						"-metrics-port=0",
 					},
 					ImagePullPolicy:          corev1.PullIfNotPresent,
 					RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
@@ -193,7 +196,8 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 						"-vault-key-path=transit/keys/my-key",
 						"-approle-role-id=test-role-id-999",
 						"-approle-secret-id-path=/var/run/secrets/kms-plugin/kms-plugin-secret-vault-approle_secret-id-999",
-						"-metrics-port=0",
+						"-health-port=8081",
+						"-metrics-port=9090",
 					},
 					ImagePullPolicy:          corev1.PullIfNotPresent,
 					RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
@@ -250,7 +254,8 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 				keyID:                tt.keyID,
 			}
 
-			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, refData)
+			ports := pluginPorts{health: defaultHealthPort, metrics: defaultMetricsPort}
+			provider, err := newVaultSidecarProvider(tt.containerName, tt.keyID, tt.udsPath, tt.vaultConfig, refData, ports)
 			if tt.expectErr != "" {
 				require.EqualError(t, err, tt.expectErr)
 				return
@@ -260,8 +265,78 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 			container, err := provider.BuildSidecarContainer()
 			require.NoError(t, err)
 
+			for i := range tt.expectedContainers {
+				if tt.expectedContainers[i].Name == provider.Name() {
+					tt.expectedContainers[i] = withVaultLifecycle(tt.expectedContainers[i], ports)
+				}
+			}
 			tt.inputContainers = append(tt.inputContainers, container)
 			require.Equal(t, tt.expectedContainers, tt.inputContainers)
 		})
 	}
+}
+
+func expectedVaultPorts(ports pluginPorts) []corev1.ContainerPort {
+	var out []corev1.ContainerPort
+	if ports.healthEnabled() {
+		health := corev1.ContainerPort{Name: "health", ContainerPort: ports.health, Protocol: corev1.ProtocolTCP}
+		if ports.hostPort {
+			health.HostPort = ports.health
+		}
+		out = append(out, health)
+	}
+	if ports.metricsEnabled() {
+		metrics := corev1.ContainerPort{Name: "metrics", ContainerPort: ports.metrics, Protocol: corev1.ProtocolTCP}
+		if ports.hostPort {
+			metrics.HostPort = ports.metrics
+		}
+		out = append(out, metrics)
+	}
+	return out
+}
+
+func expectedStartupProbe(port int32) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{Path: "/readyz", Port: intstr.FromInt32(port)},
+		},
+		PeriodSeconds:    2,
+		TimeoutSeconds:   1,
+		FailureThreshold: 30,
+	}
+}
+
+func expectedLivenessProbe(port int32) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{Path: "/healthz", Port: intstr.FromInt32(port)},
+		},
+		PeriodSeconds:    10,
+		TimeoutSeconds:   5,
+		FailureThreshold: 3,
+	}
+}
+
+func expectedReadinessProbe(port int32) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{Path: "/readyz", Port: intstr.FromInt32(port)},
+		},
+		PeriodSeconds:    5,
+		TimeoutSeconds:   5,
+		FailureThreshold: 3,
+	}
+}
+
+func withVaultLifecycle(c corev1.Container, ports pluginPorts) corev1.Container {
+	if !ports.healthEnabled() && !ports.metricsEnabled() {
+		return c
+	}
+	c.Ports = expectedVaultPorts(ports)
+	if ports.healthEnabled() {
+		c.StartupProbe = expectedStartupProbe(ports.health)
+		c.LivenessProbe = expectedLivenessProbe(ports.health)
+		c.ReadinessProbe = expectedReadinessProbe(ports.health)
+	}
+	return c
 }
