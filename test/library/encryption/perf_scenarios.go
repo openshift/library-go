@@ -26,10 +26,15 @@ type PerfScenario struct {
 	// DBLoaderWorkers is the number of workers that will execute DBLoaderFunc
 	DBLoaderWorkers    int
 	EncryptionProvider EncryptionProvider
+
+	// APIWorkload optionally measures secret create/get/list latency before and after encryption.
+	// Set with AssertAPIPerformance on at most one scenario.
+	APIWorkload          *APIWorkloadConfig
+	AssertAPIPerformance func(t testing.TB, baseline, encrypted *APIWorkloadResult)
 }
 
 // TestPerfEncryption populates the database, enables encryption, and asserts migration time
-// per scenario. At most one scenario may set EncryptionProvider (cluster-wide).
+// per scenario. At most one scenario may set EncryptionProvider / APIWorkload (cluster-wide).
 func TestPerfEncryption(ctx context.Context, t testing.TB, scenarios ...PerfScenario) {
 	inputs, err := resolvePerfScenarioInputs(scenarios)
 	if err != nil {
@@ -40,6 +45,11 @@ func TestPerfEncryption(ctx context.Context, t testing.TB, scenarios ...PerfScen
 
 	if inputs.dbLoader != nil {
 		populateDatabase(e, inputs.dbWorkers, inputs.dbLoader, inputs.dbAssert)
+	}
+
+	var baseline *APIWorkloadResult
+	if inputs.apiWorkload != nil {
+		baseline = RunAPIWorkload(ctx, e, *inputs.apiWorkload)
 	}
 
 	migrationStartedChs := make([]chan time.Time, len(scenarios))
@@ -88,13 +98,24 @@ func TestPerfEncryption(ctx context.Context, t testing.TB, scenarios ...PerfScen
 			e.Error("unable to calculate the migration time, failed to observe when the migration has started")
 		}
 	}
+
+	if inputs.apiWorkload != nil {
+		if t.Failed() {
+			t.Errorf("skipping the API workload as earlier phases failed")
+			return
+		}
+		encrypted := RunAPIWorkload(ctx, e, *inputs.apiWorkload)
+		inputs.assertAPIPerformance(e, baseline, encrypted)
+	}
 }
 
 type perfInputs struct {
-	provider  EncryptionProvider
-	dbLoader  DBLoaderFuncType
-	dbAssert  func(t testing.TB, errorStore map[string]int, statStore map[string]int)
-	dbWorkers int
+	provider             EncryptionProvider
+	dbLoader             DBLoaderFuncType
+	dbAssert             func(t testing.TB, errorStore map[string]int, statStore map[string]int)
+	dbWorkers            int
+	apiWorkload          *APIWorkloadConfig
+	assertAPIPerformance func(t testing.TB, baseline, encrypted *APIWorkloadResult)
 }
 
 func resolvePerfScenarioInputs(scenarios []PerfScenario) (perfInputs, error) {
@@ -103,10 +124,11 @@ func resolvePerfScenarioInputs(scenarios []PerfScenario) (perfInputs, error) {
 	}
 
 	var (
-		providers []EncryptionProvider
-		loaders   []DBLoaderFuncType
-		dbAsserts []func(t testing.TB, errorStore map[string]int, statStore map[string]int)
-		workers   int
+		providers    []EncryptionProvider
+		loaders      []DBLoaderFuncType
+		dbAsserts    []func(t testing.TB, errorStore map[string]int, statStore map[string]int)
+		workers      int
+		apiWorkloads int
 	)
 	var inputs perfInputs
 	for _, scenario := range scenarios {
@@ -119,6 +141,9 @@ func resolvePerfScenarioInputs(scenarios []PerfScenario) (perfInputs, error) {
 		if (scenario.GetOperatorConditionsFunc != nil) != (scenario.AssertMigrationTime != nil) {
 			return perfInputs{}, fmt.Errorf("scenario for %q must set both GetOperatorConditionsFunc and AssertMigrationTime, or neither", scenario.OperatorNamespace)
 		}
+		if (scenario.APIWorkload != nil) != (scenario.AssertAPIPerformance != nil) {
+			return perfInputs{}, fmt.Errorf("scenario for %q must set both APIWorkload and AssertAPIPerformance, or neither", scenario.OperatorNamespace)
+		}
 		if scenario.DBLoaderFunc != nil {
 			loaders = append(loaders, scenario.DBLoaderFunc)
 			workers = max(workers, scenario.DBLoaderWorkers)
@@ -126,9 +151,17 @@ func resolvePerfScenarioInputs(scenarios []PerfScenario) (perfInputs, error) {
 		if scenario.AssertDBPopulatedFunc != nil {
 			dbAsserts = append(dbAsserts, scenario.AssertDBPopulatedFunc)
 		}
+		if scenario.APIWorkload != nil {
+			apiWorkloads++
+			inputs.apiWorkload = scenario.APIWorkload
+			inputs.assertAPIPerformance = scenario.AssertAPIPerformance
+		}
 	}
 	if len(providers) > 1 {
 		return perfInputs{}, fmt.Errorf("expected at most one EncryptionProvider, got %d", len(providers))
+	}
+	if apiWorkloads > 1 {
+		return perfInputs{}, fmt.Errorf("expected at most one APIWorkload, got %d", apiWorkloads)
 	}
 	if len(providers) == 1 {
 		inputs.provider = providers[0]

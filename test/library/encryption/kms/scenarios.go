@@ -208,11 +208,13 @@ type EncryptionPerfConfig struct {
 	DBLoaderWorkers       int
 	AssertDBPopulatedFunc func(t testing.TB, errorStore map[string]int, statStore map[string]int)
 	AssertMigrationTime   func(t testing.TB, migrationTime time.Duration)
+	APIWorkload           *library.APIWorkloadConfig
+	AssertAPIPerformance  func(t testing.TB, baseline, encrypted *library.APIWorkloadResult)
 }
 
 // EncryptionPerfScenarios returns KAS/Auth/OAS perf scenarios with the default Vault KMS provider.
-// Only KAS sets EncryptionProvider and DBLoader (cluster-wide); every operator measures its own
-// migration time via AssertMigrationTime.
+// Only KAS sets EncryptionProvider, DBLoader, and APIWorkload (cluster-wide); every operator
+// measures its own migration time via AssertMigrationTime.
 func EncryptionPerfScenarios(ctx context.Context, t testing.TB, config EncryptionPerfConfig) []library.PerfScenario {
 	kas := kasOnOffScenario(DefaultVaultEncryptionProvider(ctx, t))
 	auth := authOnOffScenario(ctx)
@@ -234,6 +236,8 @@ func EncryptionPerfScenarios(ctx context.Context, t testing.TB, config Encryptio
 			DBLoaderWorkers:           config.DBLoaderWorkers,
 			AssertDBPopulatedFunc:     config.AssertDBPopulatedFunc,
 			AssertMigrationTime:       config.AssertMigrationTime,
+			APIWorkload:               config.APIWorkload,
+			AssertAPIPerformance:      config.AssertAPIPerformance,
 		},
 		{
 			BasicScenario:             auth.BasicScenario,
