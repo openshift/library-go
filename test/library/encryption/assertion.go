@@ -704,21 +704,16 @@ func AssertKMSHealthReports(ctx context.Context, t testing.TB, clientSet ClientS
 // fail the assertion. Success verifies a matching snapshot, not sustained health.
 func AssertOperatorConditions(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, expected ...operatorv1.OperatorCondition) {
 	t.Helper()
-	cr := operatorCRForNamespace(t, operatorNamespace)
 	var conditions []operatorv1.OperatorCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
-		obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
+		got, err := GetOperatorConditions(ctx, t, clientSet, operatorNamespace)
 		if err != nil {
 			if transientAPIError(err) {
 				return false, nil
 			}
 			return false, err
 		}
-		status, err := cr.decodeKMSOperatorStatus(obj.Object)
-		if err != nil {
-			return false, err
-		}
-		conditions = status.Conditions
+		conditions = got
 		for _, want := range expected {
 			condition := v1helpers.FindOperatorCondition(conditions, want.Type)
 			if condition == nil {
