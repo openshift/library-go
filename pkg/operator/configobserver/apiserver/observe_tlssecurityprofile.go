@@ -27,6 +27,12 @@ func ObserveTLSSecurityProfileWithPaths(genericListers configobserver.Listers, r
 	return innerTLSSecurityProfileObservations(genericListers, recorder, existingConfig, minTLSVersionPath, cipherSuitesPath, nil)
 }
 
+// ObserveTLSSecurityProfileWithGroups observes APIServer.Spec.TLSSecurityProfile field and sets
+// the ServingInfo.MinTLSVersion, ServingInfo.CipherSuites fields, ServingInfo.Groups of observed config
+func ObserveTLSSecurityProfileWithGroups(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	return innerTLSSecurityProfileObservations(genericListers, recorder, existingConfig, []string{"servingInfo", "minTLSVersion"}, []string{"servingInfo", "cipherSuites"}, []string{"servingInfo", "groups"})
+}
+
 // ObserveTLSSecurityProfileWithGroupPaths is like ObserveTLSSecurityProfileWithPaths but also
 // observes the TLS group (curve) preferences at groupsPath. Group names are stored as []string
 // matching the TLSGroup constants from openshift/api and can be passed directly to operands
