@@ -1,11 +1,19 @@
 package encryption
 
 import (
+	"context"
 	"fmt"
+	"math"
+	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -173,6 +181,220 @@ func DBLoaderRepeatParallel(times int, workers int, genNamespaceName bool, workT
 		wg.Wait()
 		return nil
 	}
+}
+
+const apiWorkloadPayloadSize = 1024
+
+func apiWorkloadPayload(seed int) []byte {
+	payload := make([]byte, apiWorkloadPayloadSize)
+	for i := range payload {
+		payload[i] = byte(seed + i)
+	}
+	return payload
+}
+
+// APIWorkloadConfig configures a secret create/get/list latency workload.
+type APIWorkloadConfig struct {
+	Workers int
+	Creates int
+	Gets    int // requires Creates > 0
+	Lists   int // requires Creates > 0
+}
+
+// APIWorkloadResult holds latency samples from one RunAPIWorkload call.
+type APIWorkloadResult struct {
+	Latencies map[string][]time.Duration
+	Errors    map[string]int
+	Duration  time.Duration
+	Workers   int
+}
+
+func (r *APIWorkloadResult) Count(op string) int {
+	return len(r.Latencies[op])
+}
+
+func (r *APIWorkloadResult) Percentile(op string, p float64) time.Duration {
+	samples := r.Latencies[op]
+	if len(samples) == 0 {
+		return 0
+	}
+	sorted := append([]time.Duration(nil), samples...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	idx := int(math.Ceil(p/100*float64(len(sorted)))) - 1
+	if idx < 0 {
+		idx = 0
+	}
+	if idx > len(sorted)-1 {
+		idx = len(sorted) - 1
+	}
+	return sorted[idx]
+}
+
+func (r *APIWorkloadResult) Throughput() float64 {
+	if r.Duration == 0 {
+		return 0
+	}
+	var ops int
+	for _, samples := range r.Latencies {
+		ops += len(samples)
+	}
+	return float64(ops) / r.Duration.Seconds()
+}
+
+func (r *APIWorkloadResult) Summary() string {
+	ops := make([]string, 0, len(r.Latencies))
+	for op := range r.Latencies {
+		ops = append(ops, op)
+	}
+	sort.Strings(ops)
+
+	var b strings.Builder
+	for _, op := range ops {
+		fmt.Fprintf(&b, "%s: n=%d p50=%s p95=%s p99=%s\n", op,
+			r.Count(op), r.Percentile(op, 50), r.Percentile(op, 95), r.Percentile(op, 99))
+	}
+	fmt.Fprintf(&b, "throughput: %.1f ops/s over %s with %d workers\n", r.Throughput(), r.Duration, r.Workers)
+	return b.String()
+}
+
+// RunAPIWorkload runs a secret create/get/list workload and returns latency samples.
+// Workload namespaces are deleted before return so baseline secrets do not inflate
+// a following encryption migration.
+func RunAPIWorkload(ctx context.Context, t testing.TB, config APIWorkloadConfig) *APIWorkloadResult {
+	t.Helper()
+	require.Greater(t, config.Workers, 0, "APIWorkloadConfig.Workers must be > 0")
+	require.GreaterOrEqual(t, config.Creates, 0, "APIWorkloadConfig.Creates must be >= 0")
+	require.GreaterOrEqual(t, config.Gets, 0, "APIWorkloadConfig.Gets must be >= 0")
+	require.GreaterOrEqual(t, config.Lists, 0, "APIWorkloadConfig.Lists must be >= 0")
+	require.Greater(t, config.Creates+config.Gets+config.Lists, 0,
+		"APIWorkloadConfig requires at least one operation per worker")
+	require.False(t, config.Gets > 0 && config.Creates == 0,
+		"APIWorkloadConfig.Gets requires Creates > 0: gets read back the secrets the workload creates")
+	require.False(t, config.Lists > 0 && config.Creates == 0,
+		"APIWorkloadConfig.Lists requires Creates > 0: lists must read namespaces that contain secrets")
+
+	result := &APIWorkloadResult{
+		Latencies: map[string][]time.Duration{},
+		Errors:    map[string]int{},
+		Workers:   config.Workers,
+	}
+	var mu sync.Mutex
+	record := func(op string, latency time.Duration) {
+		mu.Lock()
+		defer mu.Unlock()
+		result.Latencies[op] = append(result.Latencies[op], latency)
+	}
+	recordError := func(op string, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		result.Errors[fmt.Sprintf("%s: %v", op, err)]++
+	}
+
+	var (
+		namespaces []string
+		nsMu       sync.Mutex
+	)
+	trackNamespace := func(namespace string) {
+		nsMu.Lock()
+		defer nsMu.Unlock()
+		namespaces = append(namespaces, namespace)
+	}
+
+	start := time.Now()
+	var wg sync.WaitGroup
+	for i := 0; i < config.Workers; i++ {
+		wg.Go(func() {
+			kubeClient, err := newKubeClient(300, 600)
+			if err != nil {
+				recordError("client", err)
+				return
+			}
+			runAPIWorkloadWorker(ctx, kubeClient, config, record, recordError, trackNamespace)
+		})
+	}
+	wg.Wait()
+	result.Duration = time.Since(start)
+
+	cleanupAPIWorkloadNamespaces(ctx, t, namespaces)
+
+	require.Empty(t, result.Errors, "API workload operations failed")
+	t.Logf("API workload summary (workers=%d, duration=%s):\n%s", config.Workers, result.Duration, result.Summary())
+	return result
+}
+
+func runAPIWorkloadWorker(ctx context.Context, kubeClient kubernetes.Interface, config APIWorkloadConfig, record func(string, time.Duration), recordError func(string, error), trackNamespace func(string)) {
+	namespace := createNamespaceName()
+	if _, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+	}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+		recordError("create-namespace", err)
+		return
+	}
+	trackNamespace(namespace)
+
+	for i := 0; i < config.Creates; i++ {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("workload-secret-%d", i)},
+			Data:       map[string][]byte{"payload": apiWorkloadPayload(i)},
+		}
+		start := time.Now()
+		_, err := kubeClient.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
+		record("create", time.Since(start))
+		if err != nil && !errors.IsAlreadyExists(err) {
+			recordError("create", err)
+		}
+	}
+
+	for i := 0; i < config.Gets; i++ {
+		name := fmt.Sprintf("workload-secret-%d", i%config.Creates)
+		start := time.Now()
+		_, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+		record("get", time.Since(start))
+		if err != nil {
+			recordError("get", err)
+		}
+	}
+
+	for i := 0; i < config.Lists; i++ {
+		start := time.Now()
+		_, err := kubeClient.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
+		record("list", time.Since(start))
+		if err != nil {
+			recordError("list", err)
+		}
+	}
+}
+
+func cleanupAPIWorkloadNamespaces(ctx context.Context, t testing.TB, namespaces []string) {
+	t.Helper()
+	if len(namespaces) == 0 {
+		return
+	}
+	kubeClient, err := newKubeClient(50, 100)
+	if err != nil {
+		t.Errorf("unable to create kube client for API workload cleanup: %v", err)
+		return
+	}
+	var wg sync.WaitGroup
+	for _, namespace := range namespaces {
+		wg.Go(func() {
+			if err := kubeClient.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+				t.Errorf("failed to delete API workload namespace %q: %v", namespace, err)
+				return
+			}
+			err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+				_, err := kubeClient.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true, nil
+				}
+				return false, nil
+			})
+			if err != nil {
+				t.Errorf("timed out waiting for API workload namespace %q to be deleted: %v", namespace, err)
+			}
+		})
+	}
+	wg.Wait()
 }
 
 func createNamespaceName() string {
