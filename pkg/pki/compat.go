@@ -23,8 +23,12 @@ import (
 //   - Custom maps custom.PKIProfile field by field.
 //
 // The file is deletable as a unit: when the deprecated certificateManagement
-// shape is removed from openshift/api, this file stops compiling and the
-// providers revert to returning the resource's spec verbatim.
+// shape is removed from openshift/api, this file stops compiling. Removing it
+// also requires reverting the two effectiveSpec call sites in provider.go
+// (back to returning the resource's spec verbatim) and deleting the old-shape
+// tests: the customSpec helper here, the old-shape cases in provider_test.go,
+// and TestSetTargetCertKeyPairSecret_OldShapeUnmanagedResource in
+// pkg/operator/certrotation/target_test.go.
 
 // effectiveSpec returns spec with the deprecated certificateManagement shape
 // translated into certificates, and certificateManagement cleared. The new
@@ -76,7 +80,7 @@ func certificatePolicyFromCertificateManagement(cm configv1alpha1.PKICertificate
 	case configv1alpha1.PKICertificateManagementModeCustom:
 		return certificatePolicyFromProfile(cm.Custom.PKIProfile), nil
 	default:
-		return configv1alpha1.PKICertificatePolicy{}, fmt.Errorf("invalid PKI resource: spec.certificateManagement.mode %q is not a valid mode (Unmanaged, Default, or Custom)", cm.Mode)
+		return configv1alpha1.PKICertificatePolicy{}, fmt.Errorf("spec.certificateManagement.mode %q is not a valid mode (Unmanaged, Default, or Custom)", cm.Mode)
 	}
 }
 
@@ -93,31 +97,21 @@ func certificatePolicyFromProfile(p configv1alpha1.PKIProfile) configv1alpha1.PK
 }
 
 // isZeroCertificatePolicy reports whether policy is the zero value.
-// PKICertificatePolicy contains slices, so it cannot be compared with ==.
+// PKICertificatePolicy contains a slice, so it cannot be compared with ==;
+// its members are all comparable and use ==, so a future field that is not
+// comparable stops compiling here rather than being silently ignored.
 func isZeroCertificatePolicy(policy configv1alpha1.PKICertificatePolicy) bool {
-	return isZeroKeyConfig(policy.Defaults.Key) &&
-		isZeroCertificateConfig(policy.CACertificates) &&
-		isZeroCertificateConfig(policy.ServerCertificates) &&
-		isZeroCertificateConfig(policy.ClientCertificates) &&
+	return policy.Defaults == configv1alpha1.PKIDefaultCertificateConfig{} &&
+		policy.CACertificates == configv1alpha1.PKICertificateConfig{} &&
+		policy.ServerCertificates == configv1alpha1.PKICertificateConfig{} &&
+		policy.ClientCertificates == configv1alpha1.PKICertificateConfig{} &&
 		len(policy.NamedCertificates) == 0
 }
 
-func isZeroCertificateConfig(cc configv1alpha1.PKICertificateConfig) bool {
-	return isZeroKeyConfig(cc.Key)
-}
-
 func isZeroCustomPolicy(custom configv1alpha1.CustomPKIPolicy) bool {
-	profile := custom.PKIProfile
-	return isZeroKeyConfig(profile.Defaults.Key) &&
-		isZeroCertificateConfig(profile.SignerCertificates) &&
-		isZeroCertificateConfig(profile.ServingCertificates) &&
-		isZeroCertificateConfig(profile.ClientCertificates)
+	return custom == configv1alpha1.CustomPKIPolicy{}
 }
 
 func isZeroCertificateManagement(cm configv1alpha1.PKICertificateManagement) bool {
-	return cm.Mode == "" && isZeroCustomPolicy(cm.Custom)
-}
-
-func isZeroKeyConfig(kc configv1alpha1.PKIKeyConfig) bool {
-	return kc.Algorithm == "" && kc.RSA.KeySize == 0 && kc.ECDSA.Curve == ""
+	return cm == configv1alpha1.PKICertificateManagement{}
 }

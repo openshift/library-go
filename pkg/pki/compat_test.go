@@ -82,6 +82,32 @@ func TestEffectiveSpec(t *testing.T) {
 			want: newShapeSpec.Certificates,
 		},
 		{
+			// A new shape with only namedCertificates set still counts as
+			// set: partial new shapes must win over a stale old shape.
+			name: "new shape with only named certificates preferred when both shapes set",
+			spec: configv1alpha1.PKISpec{
+				Certificates: configv1alpha1.PKICertificatePolicy{
+					NamedCertificates: []configv1alpha1.PKINamedCertificateConfig{
+						{
+							Name:                 "openshift.io/test.server",
+							PKICertificateConfig: configv1alpha1.PKICertificateConfig{Key: keyRSA(2048)},
+						},
+					},
+				},
+				CertificateManagement: configv1alpha1.PKICertificateManagement{
+					Mode: configv1alpha1.PKICertificateManagementModeDefault,
+				},
+			},
+			want: configv1alpha1.PKICertificatePolicy{
+				NamedCertificates: []configv1alpha1.PKINamedCertificateConfig{
+					{
+						Name:                 "openshift.io/test.server",
+						PKICertificateConfig: configv1alpha1.PKICertificateConfig{Key: keyRSA(2048)},
+					},
+				},
+			},
+		},
+		{
 			name: "neither shape set passes through unchanged",
 			spec: configv1alpha1.PKISpec{},
 			want: configv1alpha1.PKICertificatePolicy{},
@@ -227,10 +253,22 @@ func TestEffectiveSpecModesResolveAllCertificateTypes(t *testing.T) {
 		name     string
 		certType CertificateType
 	}{
-		{name: "ca", certType: CertificateTypeCA},
-		{name: "server", certType: CertificateTypeServer},
-		{name: "client", certType: CertificateTypeClient},
-		{name: "peer", certType: CertificateTypePeer},
+		{
+			name:     "ca",
+			certType: CertificateTypeCA,
+		},
+		{
+			name:     "server",
+			certType: CertificateTypeServer,
+		},
+		{
+			name:     "client",
+			certType: CertificateTypeClient,
+		},
+		{
+			name:     "peer",
+			certType: CertificateTypePeer,
+		},
 	}
 	for _, mode := range modes {
 		for _, ct := range certTypes {
@@ -283,12 +321,28 @@ func TestEffectiveSpecCustomModeResolvesAllCertificateTypes(t *testing.T) {
 		certType CertificateType
 		want     crypto.KeyPairGenerator
 	}{
-		{name: "ca uses signer override", certType: CertificateTypeCA, want: crypto.ECDSAKeyPairGenerator{Curve: crypto.P521}},
-		{name: "server uses serving override", certType: CertificateTypeServer, want: crypto.RSAKeyPairGenerator{Bits: 4096}},
-		{name: "client uses client override", certType: CertificateTypeClient, want: crypto.ECDSAKeyPairGenerator{Curve: crypto.P384}},
+		{
+			name:     "ca uses signer override",
+			certType: CertificateTypeCA,
+			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P521},
+		},
+		{
+			name:     "server uses serving override",
+			certType: CertificateTypeServer,
+			want:     crypto.RSAKeyPairGenerator{Bits: 4096},
+		},
+		{
+			name:     "client uses client override",
+			certType: CertificateTypeClient,
+			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+		},
 		// Peer is the stronger of server (RSA 4096) and client (P-384):
 		// RSA 4096 has 128 security bits, P-384 has 192, so P-384 wins.
-		{name: "peer resolves stronger of mapped server and client", certType: CertificateTypePeer, want: crypto.ECDSAKeyPairGenerator{Curve: crypto.P384}},
+		{
+			name:     "peer resolves stronger of mapped server and client",
+			certType: CertificateTypePeer,
+			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
