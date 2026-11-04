@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"testing"
+	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 
@@ -204,6 +205,59 @@ func oasRotationScenario(ctx context.Context) library.RotationScenario {
 		},
 		GetRawResourceFunc:          library.GetRawWellKnownRouteOfLife,
 		WaitForRotationCompleteFunc: library.WaitForKMSRemoteKeyRotationComplete(),
+	}
+}
+
+// EncryptionPerfConfig is the caller-supplied performance policy for EncryptionPerfScenarios.
+type EncryptionPerfConfig struct {
+	DBLoaderFunc          library.DBLoaderFuncType
+	DBLoaderWorkers       int
+	AssertDBPopulatedFunc func(t testing.TB, errorStore map[string]int, statStore map[string]int)
+	AssertMigrationTime   func(t testing.TB, migrationTime time.Duration)
+}
+
+// EncryptionPerfScenarios returns KAS/Auth/OAS perf scenarios with the default Vault KMS provider.
+// Only KAS sets EncryptionProvider and DBLoader (cluster-wide); every operator measures its own
+// migration time via AssertMigrationTime. Pass the result to library.TestKMSPerfEncryption.
+func EncryptionPerfScenarios(ctx context.Context, t testing.TB, config EncryptionPerfConfig) []library.PerfScenario {
+	kas := kasOnOffScenario(DefaultVaultEncryptionProvider(ctx, t))
+	auth := authOnOffScenario(ctx)
+	oas := oasOnOffScenario(ctx)
+
+	var kasConditions, authConditions, oasConditions library.GetOperatorConditionsFuncType
+	if config.AssertMigrationTime != nil {
+		kasConditions = operatorConditionsFunc(ctx, t, kas.OperatorNamespace)
+		authConditions = operatorConditionsFunc(ctx, t, auth.OperatorNamespace)
+		oasConditions = operatorConditionsFunc(ctx, t, oas.OperatorNamespace)
+	}
+
+	return []library.PerfScenario{
+		{
+			BasicScenario:             kas.BasicScenario,
+			EncryptionProvider:        kas.EncryptionProvider,
+			GetOperatorConditionsFunc: kasConditions,
+			DBLoaderFunc:              config.DBLoaderFunc,
+			DBLoaderWorkers:           config.DBLoaderWorkers,
+			AssertDBPopulatedFunc:     config.AssertDBPopulatedFunc,
+			AssertMigrationTime:       config.AssertMigrationTime,
+		},
+		{
+			BasicScenario:             auth.BasicScenario,
+			GetOperatorConditionsFunc: authConditions,
+			AssertMigrationTime:       config.AssertMigrationTime,
+		},
+		{
+			BasicScenario:             oas.BasicScenario,
+			GetOperatorConditionsFunc: oasConditions,
+			AssertMigrationTime:       config.AssertMigrationTime,
+		},
+	}
+}
+
+func operatorConditionsFunc(ctx context.Context, t testing.TB, operatorNamespace string) library.GetOperatorConditionsFuncType {
+	clientSet := library.GetClients(t)
+	return func(t testing.TB) ([]operatorv1.OperatorCondition, error) {
+		return library.GetOperatorConditions(ctx, t, clientSet, operatorNamespace)
 	}
 }
 

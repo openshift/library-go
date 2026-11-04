@@ -327,6 +327,23 @@ func ReadKMSPreflightForOperator(ctx context.Context, t testing.TB, clientSet Cl
 	return status.EncryptionStatus.Preflight, nil
 }
 
+// GetOperatorConditions returns a one-shot snapshot of status.conditions from the
+// operator CR. Callers that need retries (e.g. AssertOperatorConditions, or the
+// migration-progress watcher via GetOperatorConditionsFunc) own the poll loop.
+func GetOperatorConditions(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string) ([]operatorv1.OperatorCondition, error) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	status, err := cr.decodeKMSOperatorStatus(obj.Object)
+	if err != nil {
+		return nil, err
+	}
+	return status.Conditions, nil
+}
+
 func WaitForEncryptionKeyBasedOn(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, encryptionType configv1.EncryptionType, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) {
 	encryptionMode := string(encryptionType)
 	if encryptionMode == "" {
