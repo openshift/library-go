@@ -624,6 +624,57 @@ func TestKMSPreflightController(t *testing.T) {
 			},
 		},
 		{
+			// Scenario 3b via podFailureError: append init lastState (e.g. Exec format error).
+			name: "pod failed appends init container lastState message",
+			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
+				Phase:   corev1.PodFailed,
+				Message: "sidecar failed",
+				InitContainerStatuses: []corev1.ContainerStatus{
+					{
+						Name: "vault-kms-plugin-1",
+						State: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{
+								ExitCode: 137,
+								Reason:   "ContainerStatusUnknown",
+								Message:  "The container could not be located when the pod was terminated",
+							},
+						},
+						LastTerminationState: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{
+								ExitCode: 1,
+								Reason:   "Error",
+								Message:  "exec container process `/vault-kube-kms`: Exec format error\n",
+							},
+						},
+					},
+				},
+			}},
+			encryptionStatusProvider: &fakeEncryptionStatusProvider{observedConfigHash: wellKnownMatchingHashForBaseVaultConfig},
+			apiServerObjects:         []runtime.Object{apiServerWithKMS},
+			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
+			initialDirtyDeployer:     true,
+			preconditionsMet:         true,
+			expectedError: "preflight pod failed for hash I2-fBw==: sidecar failed; " +
+				"init container vault-kms-plugin-1 exited with 137 (ContainerStatusUnknown): The container could not be located when the pod was terminated; " +
+				"init container vault-kms-plugin-1: exec container process `/vault-kube-kms`: Exec format error",
+			expectedEncryptionStatusProviderUpdateCalls: 1,
+			expectedConditions: []operatorv1.OperatorCondition{
+				{
+					Type:   "EncryptionKMSPreflightControllerDegraded",
+					Status: "True",
+					Reason: "Error",
+					Message: "preflight pod failed for hash I2-fBw==: sidecar failed; " +
+						"init container vault-kms-plugin-1 exited with 137 (ContainerStatusUnknown): The container could not be located when the pod was terminated; " +
+						"init container vault-kms-plugin-1: exec container process `/vault-kube-kms`: Exec format error",
+				},
+				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
+			},
+			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{
+				Status:     operatorv1.KMSPreflightResultFailed,
+				ConfigHash: wellKnownMatchingHashForBaseVaultConfig,
+			},
+		},
+		{
 			// Scenario 1a via shortcut: existingResult=Succeeded → cleanup, no pod work.
 			name: "result already written for this hash (succeeded), ensurePreflightResult is a no-op",
 			deployer: &fakeDeployer{podStatus: corev1.PodStatus{
@@ -897,9 +948,9 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod has not reported result after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image",
+			expectedError:            "preflight pod has not reported result after 3m0s: container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "ImagePullBackOff", Message: "preflight pod has not reported result after 3m0s: at least one container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "ImagePullBackOff", Message: "preflight pod has not reported result after 3m0s: container kms-preflight-check is waiting: ImagePullBackOff: back-off pulling image"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
@@ -924,9 +975,9 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod has not reported result after 3m0s: at least one container kms-plugin is waiting: CrashLoopBackOff: back-off restarting failed container",
+			expectedError:            "preflight pod has not reported result after 3m0s: init container kms-plugin is waiting: CrashLoopBackOff: back-off restarting failed container",
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "CrashLoopBackOff", Message: "preflight pod has not reported result after 3m0s: at least one container kms-plugin is waiting: CrashLoopBackOff: back-off restarting failed container"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "CrashLoopBackOff", Message: "preflight pod has not reported result after 3m0s: init container kms-plugin is waiting: CrashLoopBackOff: back-off restarting failed container"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 		},
@@ -1066,10 +1117,10 @@ func TestKMSPreflightController(t *testing.T) {
 			coreObjects:              []runtime.Object{&wellKnownBaseSecret, &wellKnownBaseConfigMap},
 			initialDirtyDeployer:     true,
 			preconditionsMet:         true,
-			expectedError:            "preflight pod failed for hash I2-fBw==: at least one container kms-preflight-check exited with 137 (Unknown)",
+			expectedError:            "preflight pod failed for hash I2-fBw==: container kms-preflight-check exited with 137 (Unknown)",
 			expectedEncryptionStatusProviderUpdateCalls: 1,
 			expectedConditions: []operatorv1.OperatorCondition{
-				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash I2-fBw==: at least one container kms-preflight-check exited with 137 (Unknown)"},
+				{Type: "EncryptionKMSPreflightControllerDegraded", Status: "True", Reason: "Unknown", Message: "preflight pod failed for hash I2-fBw==: container kms-preflight-check exited with 137 (Unknown)"},
 				{Type: "EncryptionKMSPreflightControllerProgressing", Status: "False"},
 			},
 			expectedKMSPreflightResult: &operatorv1.KMSPreflightResult{

@@ -8,6 +8,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"sort"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -658,27 +659,8 @@ type preflightError struct {
 func (e *preflightError) Error() string { return e.message }
 
 func podFailureError(podStatus corev1.PodStatus) *preflightError {
-	for _, cs := range podStatus.ContainerStatuses {
-		if cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
-			reason := cs.State.Terminated.Reason
-			if reason == "" {
-				reason = "Unknown"
-			}
-			msg := fmt.Sprintf("at least one container %s exited with %d (%s)", cs.Name, cs.State.Terminated.ExitCode, reason)
-			if cs.State.Terminated.Message != "" {
-				msg = fmt.Sprintf("%s: %s", msg, cs.State.Terminated.Message)
-			}
-			return &preflightError{reason: reason, message: msg}
-		}
-	}
-	reason := "Unknown"
-	if podStatus.Reason != "" {
-		reason = podStatus.Reason
-	}
-	if podStatus.Message != "" {
-		return &preflightError{reason: reason, message: podStatus.Message}
-	}
-	return &preflightError{reason: reason, message: "unknown"}
+	reason, msg := gatherFailureReasons(podStatus)
+	return &preflightError{reason: reason, message: msg}
 }
 
 func podStartupTimeoutError(podStatus corev1.PodStatus, msgPrefix string) *preflightError {
@@ -686,7 +668,7 @@ func podStartupTimeoutError(podStatus corev1.PodStatus, msgPrefix string) *prefl
 	if startTime == nil || time.Since(startTime.Time) <= preflightPodStartupTimeout {
 		return nil
 	}
-	reason, detail := podStuckReasonAndMessage(podStatus)
+	reason, detail := gatherFailureReasons(podStatus)
 	return &preflightError{
 		reason:  reason,
 		message: fmt.Sprintf("%s after %s: %s", msgPrefix, preflightPodStartupTimeout, detail),
@@ -707,44 +689,95 @@ func podStartupTimestamp(podStatus corev1.PodStatus) *metav1.Time {
 	return nil
 }
 
-func podStuckReasonAndMessage(podStatus corev1.PodStatus) (string, string) {
-	for _, cs := range podStatus.InitContainerStatuses {
-		if cs.State.Waiting != nil && cs.State.Waiting.Reason != "" {
-			return waitingContainerReasonAndMessage(cs)
-		}
-		if terminated := cs.State.Terminated; terminated != nil && terminated.ExitCode != 0 {
-			reason := terminated.Reason
-			if reason == "" {
-				reason = "Unknown"
-			}
-			msg := fmt.Sprintf("init container %s exited with %d (%s)", cs.Name, terminated.ExitCode, reason)
-			if terminated.Message != "" {
-				msg = fmt.Sprintf("%s: %s", msg, terminated.Message)
-			}
-			return reason, msg
-		}
-	}
-	for _, cs := range podStatus.ContainerStatuses {
-		if cs.State.Waiting != nil && cs.State.Waiting.Reason != "" {
-			return waitingContainerReasonAndMessage(cs)
-		}
-	}
-	reason := "Unknown"
+// gatherFailureReasons collects must-gather-style failure details from a
+// preflight pod: pod message, then init containers (KMS plugin sidecars), then
+// regular containers. Waiting, terminated, and lastState terminations are all
+// included so degraded status surfaces as much diagnostic context as possible.
+func gatherFailureReasons(podStatus corev1.PodStatus) (reason, message string) {
+	reason = "Unknown"
 	if podStatus.Reason != "" {
 		reason = podStatus.Reason
 	}
+
+	var parts []string
 	if podStatus.Message != "" {
-		return reason, podStatus.Message
+		parts = append(parts, podStatus.Message)
 	}
-	return reason, fmt.Sprintf("pod is in %s phase", podStatus.Phase)
+
+	// Init containers first: the KMS plugin runs as a restartable init/sidecar.
+	for _, cs := range podStatus.InitContainerStatuses {
+		r, details := containerFailureDetails("init container", cs)
+		if r != "" && reason == "Unknown" {
+			reason = r
+		}
+		parts = append(parts, details...)
+	}
+	for _, cs := range podStatus.ContainerStatuses {
+		r, details := containerFailureDetails("container", cs)
+		if r != "" && reason == "Unknown" {
+			reason = r
+		}
+		parts = append(parts, details...)
+	}
+
+	message = strings.Join(parts, "; ")
+	if message == "" {
+		message = fmt.Sprintf("pod is in %s phase", podStatus.Phase)
+	}
+	return reason, message
 }
 
-func waitingContainerReasonAndMessage(cs corev1.ContainerStatus) (string, string) {
-	msg := fmt.Sprintf("at least one container %s is waiting: %s", cs.Name, cs.State.Waiting.Reason)
-	if cs.State.Waiting.Message != "" {
-		msg = fmt.Sprintf("%s: %s", msg, cs.State.Waiting.Message)
+// containerFailureDetails returns a reason (if any) and zero or more detail
+// strings for a single container's waiting/terminated/lastState failures.
+func containerFailureDetails(kind string, cs corev1.ContainerStatus) (reason string, details []string) {
+	if cs.State.Waiting != nil && cs.State.Waiting.Reason != "" {
+		reason = cs.State.Waiting.Reason
+		msg := fmt.Sprintf("%s %s is waiting: %s", kind, cs.Name, cs.State.Waiting.Reason)
+		if cs.State.Waiting.Message != "" {
+			msg = fmt.Sprintf("%s: %s", msg, cs.State.Waiting.Message)
+		}
+		details = append(details, msg)
 	}
-	return cs.State.Waiting.Reason, msg
+
+	if t := cs.State.Terminated; t != nil && t.ExitCode != 0 {
+		r := t.Reason
+		if r == "" {
+			r = "Unknown"
+		}
+		// ContainerStatusUnknown is the kubelet teardown marker; keep it only until
+		// a more specific waiting/lastState reason is found.
+		if reason == "" {
+			reason = r
+		}
+		msg := fmt.Sprintf("%s %s exited with %d (%s)", kind, cs.Name, t.ExitCode, r)
+		if m := strings.TrimSpace(t.Message); m != "" {
+			msg = fmt.Sprintf("%s: %s", msg, m)
+		}
+		details = append(details, msg)
+	}
+
+	// lastState often still holds the real failure (e.g. Exec format error) after
+	// CrashLoopBackOff / sandbox teardown replaces State with ContainerStatusUnknown.
+	if t := cs.LastTerminationState.Terminated; t != nil && t.ExitCode != 0 {
+		if m := strings.TrimSpace(t.Message); m != "" {
+			already := false
+			for _, d := range details {
+				if strings.Contains(d, m) {
+					already = true
+					break
+				}
+			}
+			if !already {
+				if t.Reason != "" && (reason == "" || reason == "ContainerStatusUnknown") {
+					reason = t.Reason
+				} else if reason == "" {
+					reason = "Unknown"
+				}
+				details = append(details, fmt.Sprintf("%s %s: %s", kind, cs.Name, m))
+			}
+		}
+	}
+	return reason, details
 }
 
 func FindPodCondition(conditions []corev1.PodCondition, condType corev1.PodConditionType) *corev1.PodCondition {
