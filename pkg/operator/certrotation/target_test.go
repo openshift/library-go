@@ -1198,6 +1198,65 @@ func TestSetTargetCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
 	}
 }
 
+// TestSetTargetCertKeyPairSecret_OldShapeUnmanagedResource pins the
+// dual-shape fallback end to end: a provider backed by an old-shape
+// certificateManagement resource with mode Unmanaged must resolve through
+// the default policy (ECDSA P-256) and issue a target certificate under an
+// ECDSA CA. The legacy per-component path is not used for old-shape
+// resources because it cannot issue under ECDSA CAs.
+func TestSetTargetCertKeyPairSecret_OldShapeUnmanagedResource(t *testing.T) {
+	caConfig, err := crypto.NewSigningCertificate("test-ca", crypto.ECDSAKeyPairGenerator{Curve: crypto.P384})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca := &crypto.CA{
+		Config:          caConfig,
+		SerialGenerator: &crypto.RandomSerialGenerator{},
+	}
+
+	testCases := []struct {
+		name      string
+		mode      configv1alpha1.PKICertificateManagementMode
+		wantCurve elliptic.Curve
+	}{
+		{
+			name:      "unmanaged mode resolves through the default policy",
+			mode:      configv1alpha1.PKICertificateManagementModeUnmanaged,
+			wantCurve: elliptic.P256(),
+		},
+		{
+			name:      "default mode resolves through the default policy",
+			mode:      configv1alpha1.PKICertificateManagementModeDefault,
+			wantCurve: elliptic.P256(),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &RotatedSelfSignedCertKeySecret{
+				Validity:        24 * time.Hour,
+				CertificateName: "openshift.io/test.target",
+				CertCreator: &ServingRotation{
+					Hostnames: func() []string { return []string{"localhost"} },
+				},
+				PKIConfigProvider: pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
+					CertificateManagement: configv1alpha1.PKICertificateManagement{
+						Mode: tc.mode,
+					},
+				}),
+			}
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret"},
+			}
+			certKeyPair, err := c.setTargetCertKeyPairSecret(secret, ca)
+			if err != nil {
+				t.Fatalf("setTargetCertKeyPairSecret() error = %v", err)
+			}
+			assertCertKey(t, certKeyPair.Certs[0], false, 0, tc.wantCurve)
+		})
+	}
+}
+
 // TestEnsureTargetCertKeyPair_MissingPKIResource pins the controller path:
 // a wired provider whose resource is missing fails the sync without writing
 // a secret (no fallback to legacy generation).
