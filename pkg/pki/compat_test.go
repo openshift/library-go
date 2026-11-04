@@ -46,10 +46,10 @@ func TestEffectiveSpec(t *testing.T) {
 		},
 	}
 	fullCustomProfile := configv1alpha1.PKIProfile{
-		Defaults:             configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
-		SignerCertificates:   configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP521)},
-		ServingCertificates:  configv1alpha1.PKICertificateConfig{Key: keyRSA(4096)},
-		ClientCertificates:   configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP384)},
+		Defaults:            configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
+		SignerCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP521)},
+		ServingCertificates: configv1alpha1.PKICertificateConfig{Key: keyRSA(4096)},
+		ClientCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP384)},
 	}
 	testCases := []struct {
 		name    string
