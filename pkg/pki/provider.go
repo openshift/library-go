@@ -18,9 +18,11 @@ import (
 type ConfigProvider interface {
 	// Config returns the current effective PKI configuration: the PKI
 	// resource's spec with the deprecated certificateManagement shape, when
-	// set, translated into certificates and cleared. The returned spec may
-	// alias the provider's storage, for example the shared informer cache;
-	// callers must treat it as read-only.
+	// set, translated into certificates and cleared. Implementations outside
+	// this package must apply the same translation; the easiest way is to
+	// delegate to NewStaticConfigProvider(spec).Config(). The returned spec
+	// may alias the provider's storage, for example the shared informer
+	// cache; callers must treat it as read-only.
 	Config() (configv1alpha1.PKISpec, error)
 }
 

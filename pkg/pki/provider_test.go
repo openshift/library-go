@@ -262,6 +262,9 @@ func TestListerConfigProvider_InvalidModeIsError(t *testing.T) {
 	if !strings.Contains(err.Error(), "spec.certificateManagement.mode") {
 		t.Errorf("error = %q, want it to name spec.certificateManagement.mode", err.Error())
 	}
+	if !strings.Contains(err.Error(), `"cluster"`) {
+		t.Errorf("error = %q, want it to name the resource %q", err.Error(), "cluster")
+	}
 }
 
 // The lister provider's output may alias the informer cache: normalization
@@ -288,19 +291,36 @@ func TestListerConfigProvider_DoesNotMutateCachedObject(t *testing.T) {
 	}
 }
 
+// The static provider must not normalize its stored spec in place: doing so
+// would permanently lose the old shape after the first Config() call, so
+// repeated calls could not keep translating it.
 func TestStaticConfigProvider_DoesNotMutateStoredSpec(t *testing.T) {
 	provider := NewStaticConfigProvider(customSpec(configv1alpha1.PKIProfile{
 		Defaults: configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
 	}))
-	spec := customSpec(configv1alpha1.PKIProfile{
-		Defaults: configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
-	})
 
-	if _, err := provider.Config(); err != nil {
+	got, err := provider.Config()
+	if err != nil {
 		t.Fatalf("Config() error = %v", err)
 	}
-	if !reflect.DeepEqual(spec.Certificates, configv1alpha1.PKICertificatePolicy{}) {
-		t.Errorf("Certificates = %+v, want zero value: Config() must not leak normalization into the caller's spec", spec.Certificates)
+	if !reflect.DeepEqual(got.Certificates.Defaults.Key, keyRSA(3072)) {
+		t.Errorf("Certificates.Defaults.Key = %+v, want the translated RSA 3072 default", got.Certificates.Defaults.Key)
+	}
+	stored := provider.(*staticConfigProvider).spec
+	if stored.CertificateManagement.Mode != configv1alpha1.PKICertificateManagementModeCustom {
+		t.Errorf("stored spec CertificateManagement.Mode = %q, want %q: Config() must not normalize the stored spec in place", stored.CertificateManagement.Mode, configv1alpha1.PKICertificateManagementModeCustom)
+	}
+	if !reflect.DeepEqual(stored.Certificates, configv1alpha1.PKICertificatePolicy{}) {
+		t.Errorf("stored spec Certificates = %+v, want zero value: Config() must not normalize the stored spec in place", stored.Certificates)
+	}
+
+	// A second call must translate again, from the still-old-shape stored spec.
+	got2, err := provider.Config()
+	if err != nil {
+		t.Fatalf("second Config() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, got2) {
+		t.Errorf("second Config() = %+v, want the same translation as the first: %+v", got2, got)
 	}
 }
 
