@@ -16,10 +16,11 @@ import (
 // providers expect the PKI resource to exist: a missing resource is an error,
 // never a signal to fall back to defaults.
 type ConfigProvider interface {
-	// Config returns the current PKI configuration (the PKI resource's
-	// spec). The returned spec may alias the provider's storage, for
-	// example the shared informer cache; callers must treat it as
-	// read-only.
+	// Config returns the current effective PKI configuration: the PKI
+	// resource's spec with the deprecated certificateManagement shape, when
+	// set, translated into certificates and cleared. The returned spec may
+	// alias the provider's storage, for example the shared informer cache;
+	// callers must treat it as read-only.
 	Config() (configv1alpha1.PKISpec, error)
 }
 
@@ -34,9 +35,10 @@ type staticConfigProvider struct {
 	spec configv1alpha1.PKISpec
 }
 
-// Config returns the static PKI configuration.
+// Config returns the static PKI configuration, with any deprecated
+// certificateManagement shape translated into certificates.
 func (s *staticConfigProvider) Config() (configv1alpha1.PKISpec, error) {
-	return s.spec, nil
+	return effectiveSpec(s.spec)
 }
 
 // NewClusterConfigProvider creates a ConfigProvider that resolves the PKI
@@ -59,9 +61,10 @@ type listerConfigProvider struct {
 	resourceName string
 }
 
-// Config reads the PKI resource and returns its spec. The returned error
-// wraps the lister error, so apierrors.IsNotFound keeps matching for callers
-// that need to distinguish a missing resource.
+// Config reads the PKI resource and returns its effective spec: any
+// deprecated certificateManagement shape is translated into certificates.
+// The returned error wraps the lister error, so apierrors.IsNotFound keeps
+// matching for callers that need to distinguish a missing resource.
 func (l *listerConfigProvider) Config() (configv1alpha1.PKISpec, error) {
 	pki, err := l.lister.Get(l.resourceName)
 	if err != nil {
@@ -70,5 +73,9 @@ func (l *listerConfigProvider) Config() (configv1alpha1.PKISpec, error) {
 	if pki == nil {
 		return configv1alpha1.PKISpec{}, fmt.Errorf("lister returned a nil PKI resource %q", l.resourceName)
 	}
-	return pki.Spec, nil
+	spec, err := effectiveSpec(pki.Spec)
+	if err != nil {
+		return configv1alpha1.PKISpec{}, fmt.Errorf("invalid PKI resource %q: %w", l.resourceName, err)
+	}
+	return spec, nil
 }

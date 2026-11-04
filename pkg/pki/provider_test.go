@@ -195,6 +195,115 @@ func TestDeprecatedConstructorShims(t *testing.T) {
 	_ = certificateConfig.Key
 }
 
+func TestListerConfigProvider_NormalizesOldShape(t *testing.T) {
+	resource := &configv1alpha1.PKI{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: customSpec(configv1alpha1.PKIProfile{
+			Defaults:            configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
+			SignerCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP521)},
+			ServingCertificates: configv1alpha1.PKICertificateConfig{Key: keyRSA(4096)},
+			ClientCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP384)},
+		}),
+	}
+	lister := &fakePKILister{pki: resource}
+	provider := NewClusterConfigProvider(lister)
+
+	got, err := provider.Config()
+	if err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	want := configv1alpha1.PKICertificatePolicy{
+		Defaults:           resource.Spec.CertificateManagement.Custom.Defaults,
+		CACertificates:     resource.Spec.CertificateManagement.Custom.SignerCertificates,
+		ServerCertificates: resource.Spec.CertificateManagement.Custom.ServingCertificates,
+		ClientCertificates: resource.Spec.CertificateManagement.Custom.ClientCertificates,
+	}
+	if !reflect.DeepEqual(got.Certificates, want) {
+		t.Errorf("Certificates = %+v, want the translated old-shape policy %+v", got.Certificates, want)
+	}
+	if !reflect.DeepEqual(got.CertificateManagement, configv1alpha1.PKICertificateManagement{}) {
+		t.Errorf("CertificateManagement = %+v, want zero value", got.CertificateManagement)
+	}
+}
+
+func TestStaticConfigProvider_NormalizesOldShape(t *testing.T) {
+	spec := configv1alpha1.PKISpec{
+		CertificateManagement: configv1alpha1.PKICertificateManagement{
+			Mode: configv1alpha1.PKICertificateManagementModeDefault,
+		},
+	}
+	provider := NewStaticConfigProvider(spec)
+
+	got, err := provider.Config()
+	if err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	if !reflect.DeepEqual(got.Certificates, DefaultCertificatePolicy()) {
+		t.Errorf("Certificates = %+v, want DefaultCertificatePolicy()", got.Certificates)
+	}
+}
+
+func TestListerConfigProvider_InvalidModeIsError(t *testing.T) {
+	resource := &configv1alpha1.PKI{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1alpha1.PKISpec{
+			CertificateManagement: configv1alpha1.PKICertificateManagement{
+				Mode: configv1alpha1.PKICertificateManagementMode("Bogus"),
+			},
+		},
+	}
+	lister := &fakePKILister{pki: resource}
+	provider := NewClusterConfigProvider(lister)
+
+	_, err := provider.Config()
+	if err == nil {
+		t.Fatal("expected error for invalid certificateManagement mode")
+	}
+	if !strings.Contains(err.Error(), "spec.certificateManagement.mode") {
+		t.Errorf("error = %q, want it to name spec.certificateManagement.mode", err.Error())
+	}
+}
+
+// The lister provider's output may alias the informer cache: normalization
+// must translate into a copy, never mutate the cached object.
+func TestListerConfigProvider_DoesNotMutateCachedObject(t *testing.T) {
+	resource := &configv1alpha1.PKI{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: customSpec(configv1alpha1.PKIProfile{
+			Defaults:            configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
+			SignerCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP521)},
+			ServingCertificates: configv1alpha1.PKICertificateConfig{Key: keyRSA(4096)},
+			ClientCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP384)},
+		}),
+	}
+	before := resource.DeepCopy()
+	lister := &fakePKILister{pki: resource}
+	provider := NewClusterConfigProvider(lister)
+
+	if _, err := provider.Config(); err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	if !reflect.DeepEqual(resource, before) {
+		t.Errorf("cached object was mutated:\n got %+v\nwant %+v", resource.Spec, before.Spec)
+	}
+}
+
+func TestStaticConfigProvider_DoesNotMutateStoredSpec(t *testing.T) {
+	provider := NewStaticConfigProvider(customSpec(configv1alpha1.PKIProfile{
+		Defaults: configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
+	}))
+	spec := customSpec(configv1alpha1.PKIProfile{
+		Defaults: configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
+	})
+
+	if _, err := provider.Config(); err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	if !reflect.DeepEqual(spec.Certificates, configv1alpha1.PKICertificatePolicy{}) {
+		t.Errorf("Certificates = %+v, want zero value: Config() must not leak normalization into the caller's spec", spec.Certificates)
+	}
+}
+
 func TestResolveCertificateConfig_DefaultCertificatePolicy_AllTypes(t *testing.T) {
 	policy := DefaultCertificatePolicy()
 
