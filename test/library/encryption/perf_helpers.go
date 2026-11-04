@@ -19,11 +19,16 @@ func watchForMigrationControllerProgressingConditionAsync(t testing.TB, getOpera
 	go watchForMigrationControllerProgressingCondition(t, getOperatorCondFn, migrationStartedCh)
 }
 
+// migrationProgressingPollInterval is intentionally tighter than waitPollInterval.
+// Auth/OAS migrations with few objects can flip Progressing True→False in well under
+// 15s; a coarse poll misses the window and leaves migration timing unobservable.
+const migrationProgressingPollInterval = time.Second
+
 func watchForMigrationControllerProgressingCondition(t testing.TB, getOperatorConditionsFn GetOperatorConditionsFuncType, migrationStartedCh chan time.Time) {
 	t.Helper()
 
 	t.Logf("Waiting up to %s for the condition %q with the reason %q to be set to true", waitPollTimeout.String(), "EncryptionMigrationControllerProgressing", "Migrating")
-	err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
+	err := wait.Poll(migrationProgressingPollInterval, waitPollTimeout, func() (bool, error) {
 		conditions, err := getOperatorConditionsFn(t)
 		if err != nil {
 			if transientAPIError(err) {
