@@ -30,6 +30,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 
 	oauthapiv1 "github.com/openshift/api/oauth/v1"
@@ -52,6 +53,10 @@ var (
 		{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeAESGCM}},
 		{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeAESCBC}},
 	}
+
+	// kubeAPIServerReadyTimeout bounds how long serial KMS scenario factories wait for a
+	// prior test's SNO kube-apiserver rollout to finish before issuing fixture reads.
+	kubeAPIServerReadyTimeout = 15 * time.Minute
 )
 
 type ClientSet struct {
@@ -249,6 +254,60 @@ func GetClients(t testing.TB) ClientSet {
 	require.NoError(t, err)
 
 	return ClientSet{Etcd: etcdClient, ApiServerConfig: apiServerConfigClient, Kube: kubeClient, DynamicClient: dynamicClient}
+}
+
+// WaitForKubeAPIServerReady blocks on single-node clusters until the API answers and
+// clusteroperator/kube-apiserver is not Progressing. Call it at the start of scenario
+// factories that eagerly talk to the API (e.g. resolving the Vault Service) so a serial
+// test does not start mid-rollout from the previous test. On HA clusters it returns as
+// soon as the control-plane topology is confirmed.
+func WaitForKubeAPIServerReady(ctx context.Context, t testing.TB) {
+	t.Helper()
+
+	kubeConfig, err := library.NewClientConfigForTest()
+	require.NoError(t, err)
+	configClient := configv1client.NewForConfigOrDie(kubeConfig)
+
+	t.Logf("Waiting up to %s for kube-apiserver to be reachable and not Progressing", kubeAPIServerReadyTimeout)
+
+	var (
+		checkedTopology bool
+		lastErr         error
+	)
+	pollErr := wait.PollUntilContextTimeout(ctx, waitPollInterval, kubeAPIServerReadyTimeout, true, func(ctx context.Context) (bool, error) {
+		if !checkedTopology {
+			infra, err := configClient.Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
+			if err != nil {
+				lastErr = err
+				return false, nil
+			}
+			if infra.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode {
+				return true, nil
+			}
+			checkedTopology = true
+		}
+		// Fetch the CO
+		co, err := configClient.ClusterOperators().Get(ctx, "kube-apiserver", metav1.GetOptions{})
+		if err != nil {
+			lastErr = err
+			return false, nil
+		}
+		// Check if CO is Progressing (only in SNO)
+		if !configv1helpers.IsStatusConditionFalse(co.Status.Conditions, configv1.OperatorProgressing) {
+			lastErr = fmt.Errorf("clusteroperator/kube-apiserver is still Progressing")
+			return false, nil
+		}
+		// Not Progressing, we should be good to go
+		return true, nil
+	})
+
+	// If we reached timeout, grab the last error we saw
+	if wait.Interrupted(pollErr) && lastErr != nil {
+		pollErr = lastErr
+	}
+
+	require.NoError(t, pollErr, "kube-apiserver did not become ready within %s", kubeAPIServerReadyTimeout)
+	t.Logf("kube-apiserver is reachable and not Progressing")
 }
 
 // ReadKMSPreflightForOperator returns the operator's current preflight snapshot (zero when unset).
