@@ -27,11 +27,15 @@ type ResolvedCertificateConfig struct {
 // "openshift.io/service-ca.service-serving-signer") and is matched exactly
 // against namedCertificates entries.
 //
-// policy must come from a PKI resource: callers that make PKI configuration
-// conditional (for example on a feature gate) must not call this function at
-// all when the feature is disabled. ResolveCertificateConfig never returns a
-// partial configuration: every error means no configuration could be
-// resolved.
+// policy must come from ConfigProvider.Config(): reading the PKI object
+// directly and passing obj.Spec.Certificates yields a zero policy (and an
+// error) for resources that still use the deprecated certificateManagement
+// shape, because only the provider translates it. Holders of a raw spec can
+// normalize it with NewStaticConfigProvider(spec).Config(). Callers that make
+// PKI configuration conditional (for example on a feature gate) must not call
+// this function at all when the feature is disabled. ResolveCertificateConfig
+// never returns a partial configuration: every error means no configuration
+// could be resolved.
 //
 // For CertificateTypePeer with no matching named entry, the resolved key is
 // the stronger of the server and client resolutions.
