@@ -23,9 +23,11 @@ type ResolvedKeyConfig struct {
 // "openshift.io/kube-apiserver.bound-service-account-token-signer") and is
 // matched exactly against namedKeys entries.
 //
-// keys must come from a PKI resource: callers that make PKI configuration
-// conditional (for example on a feature gate) must not call this function at
-// all when the feature is disabled.
+// keys must come from ConfigProvider.Config(): reading the PKI object
+// directly and passing obj.Spec.Keys bypasses the provider; holders of a raw
+// spec can normalize it with NewStaticConfigProvider(spec).Config(). Callers
+// that make PKI configuration conditional (for example on a feature gate)
+// must not call this function at all when the feature is disabled.
 func ResolveKeyConfig(keys configv1alpha1.PKIKeyPolicy, name string) (cfg ResolvedKeyConfig, ok bool, err error) {
 	if name == "" {
 		return ResolvedKeyConfig{}, false, nil
