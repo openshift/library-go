@@ -320,21 +320,7 @@ func (c *keyController) reconcileInPlaceFieldUpdate(ctx context.Context, syncCon
 		return inPlaceUpdateNoChange, nil
 	}
 
-	hasher, err := newKMSConfigHasher(snap.desiredProviderCfg, &prefetchedKMSConfigHasherResourceProvider{secret: refSecret, configMap: refCM}, openshiftConfigNS)
-	if err != nil {
-		return inPlaceUpdateNoChange, fmt.Errorf("failed to create KMS config hasher: %w", err)
-	}
-	configHash, err := hasher.hash(ctx)
-	if err != nil {
-		return inPlaceUpdateNoChange, fmt.Errorf("failed to compute KMS config hash: %w", err)
-	}
-
-	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
-	if err != nil {
-		return inPlaceUpdateNoChange, fmt.Errorf("failed to get KMS encryption status: %w", err)
-	}
-
-	preflightPassed, err := c.ensureKMSPreflightPassed(ctx, configHash, encryptionStatus)
+	_, preflightPassed, err := c.kmsPreflightResult(ctx, snap.desiredProviderCfg, refSecret, refCM)
 	if err != nil {
 		return inPlaceUpdateNoChange, err
 	}
@@ -423,10 +409,11 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 // generateKeySecret builds the key secret for the given key ID and mode.
 //
 // For KMS mode it also computes the config hash (from the referenced Secret and
-// ConfigMap buildEncryptionKeyState already reads) and gates on the KMS preflight check.
+// ConfigMap buildEncryptionKeyState already reads) and gates on the KMS preflight check,
+// unless explicitly bypassed through unsupported config overrides.
 // The boolean return value signals the outcome:
 //
-//   - (secret, true,  nil) — preflight passed; caller should persist the key.
+//   - (secret, true,  nil) — preflight passed or was bypassed; caller should persist the key.
 //   - (nil,   false, nil) — preflight still in progress; caller should back off.
 //   - (nil,   false, err) — preflight failed or transient error; caller should surface it.
 func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, pluginConfig kms.KMSPluginConfig, desiredProviderCfg kmsProviderConfig, internalReason, externalReason string) (*corev1.Secret, bool, error) {
@@ -435,22 +422,7 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		return nil, false, err
 	}
 	if currentMode == state.KMS {
-		resources := &prefetchedKMSConfigHasherResourceProvider{secret: refSecret, configMap: refCM}
-		hasher, err := newKMSConfigHasher(desiredProviderCfg, resources, openshiftConfigNS)
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to create KMS config hasher: %w", err)
-		}
-		configHash, err := hasher.hash(ctx)
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to compute KMS config hash: %w", err)
-		}
-
-		encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to get KMS encryption status: %w", err)
-		}
-
-		preflightPassed, err := c.ensureKMSPreflightPassed(ctx, configHash, encryptionStatus)
+		result, preflightPassed, err := c.kmsPreflightResult(ctx, desiredProviderCfg, refSecret, refCM)
 		if err != nil {
 			return nil, false, err
 		}
@@ -458,7 +430,9 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 			return nil, false, nil
 		}
 
-		ks.KMS.RemoteKey.TargetRemoteKeyID = encryptionStatus.Preflight.Result.RemoteKeyID
+		if result != nil {
+			ks.KMS.RemoteKey.TargetRemoteKeyID = result.RemoteKeyID
+		}
 	}
 	secret, err := secrets.FromKeyState(c.instanceName, ks)
 	if err != nil {
@@ -619,6 +593,32 @@ func (p *prefetchedKMSConfigHasherResourceProvider) getConfigMap(_ context.Conte
 		return nil, fmt.Errorf("prefetched configmap does not match requested %s/%s", namespace, name)
 	}
 	return p.configMap, nil
+}
+
+// kmsPreflightResult returns nil, true when explicitly bypassed, without reading
+// preflight status or hashing configuration. Both protected write paths use it.
+func (c *keyController) kmsPreflightResult(ctx context.Context, provider kmsProviderConfig, refSecret *corev1.Secret, refCM *corev1.ConfigMap) (*operatorv1.KMSPreflightResult, bool, error) {
+	disabled, err := kmsPreflightDisabled(c.operatorClient)
+	if err != nil {
+		return nil, false, err
+	}
+	if disabled {
+		return nil, true, nil
+	}
+	hasher, err := newKMSConfigHasher(provider, &prefetchedKMSConfigHasherResourceProvider{secret: refSecret, configMap: refCM}, openshiftConfigNS)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to create KMS config hasher: %w", err)
+	}
+	configHash, err := hasher.hash(ctx)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to compute KMS config hash: %w", err)
+	}
+	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to get KMS encryption status: %w", err)
+	}
+	passed, err := c.ensureKMSPreflightPassed(ctx, configHash, encryptionStatus)
+	return &encryptionStatus.Preflight.Result, passed, err
 }
 
 // ensureKMSPreflightPassed checks whether the KMS preflight has passed for the
@@ -898,11 +898,25 @@ func (v *vaultProviderConfig) sameProviderInstance(stored kms.KMSPluginConfig) (
 // ex: we could require the tech preview no upgrade flag to be set before we will honor this field
 type unsupportedEncryptionConfig struct {
 	Encryption struct {
-		Reason string `json:"reason"`
+		Reason              string `json:"reason"`
+		DisableKMSPreflight bool   `json:"disableKMSPreflight"`
 	} `json:"encryption"`
 }
 
-// structuredUnsupportedConfigFrom returns unsupportedEncryptionConfig from the operator's observedConfig
+// kmsPreflightDisabled is operator-wide, independent of the rotation-reason prefix.
+func kmsPreflightDisabled(operatorClient operatorv1helpers.OperatorClient) (bool, error) {
+	if operatorClient == nil {
+		return false, nil
+	}
+	spec, _, _, err := operatorClient.GetOperatorState()
+	if err != nil {
+		return false, err
+	}
+	config, err := structuredUnsupportedConfigFrom(spec.UnsupportedConfigOverrides.Raw, nil)
+	return config.Encryption.DisableKMSPreflight, err
+}
+
+// structuredUnsupportedConfigFrom returns unsupportedEncryptionConfig from the operator's unsupportedConfigOverrides
 func structuredUnsupportedConfigFrom(rawConfig []byte, prefix []string) (unsupportedEncryptionConfig, error) {
 	if len(rawConfig) == 0 {
 		return unsupportedEncryptionConfig{}, nil
@@ -943,8 +957,10 @@ func unstructuredUnsupportedConfigFromWithPrefix(rawConfig []byte, prefix []stri
 
 // reconcileRemoteKeyRotation maintains remote-key annotations on the write-key secret.
 //
-// TargetRemoteKeyID is written in two places:
+// TargetRemoteKeyID is written in three places:
 //   - key mint (generateKeySecret): stamped from successful preflight.Result.RemoteKeyID
+//   - bootstrap below: when preflight was bypassed (TargetRemoteKeyID unset), set from
+//     converged healthy operand reports once initial GR migration has completed
 //   - rotation promote (advanceRemoteKeyConvergence): after 5m of unanimous health reports
 //
 // MigratedRemoteKeyID is written in two places:
@@ -954,11 +970,10 @@ func unstructuredUnsupportedConfigFromWithPrefix(rawConfig []byte, prefix []stri
 //   - migration controller (follow-up): after a remote-key re-encryption finishes, stamp
 //     migrated to the promoted target
 func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretClient corev1client.SecretsGetter, secretName string, currentKey state.KeyState) error {
-	rk := currentKey.RemoteKey()
-	if rk.TargetRemoteKeyID == "" {
-		// Not stamped yet at key mint from preflight; nothing to bootstrap or promote.
+	if c.encryptionStatusProvider == nil {
 		return nil
 	}
+	rk := currentKey.RemoteKey()
 
 	encryptionStatus, err := c.encryptionStatusProvider.GetKMSEncryptionStatus(ctx)
 	if err != nil {
@@ -971,11 +986,18 @@ func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretCl
 	// During KMS-to-KMS migration multiple plugin key IDs can report at once; scope
 	// convergence to the current write key's keyID so backup/read-only plugins are ignored.
 	// TODO(thomas): we need to ensure the amount of reports match the number of operand pods
-	convergedRemoteKeyID := health.ConvergedRemoteKeyID(health.ReportsForKeyID(encryptionStatus.HealthReports, currentKey.Key.Name))
+	reports := health.ReportsForKeyID(encryptionStatus.HealthReports, currentKey.Key.Name)
+	if rk.TargetRemoteKeyID == "" {
+		reports = health.PruneStaleReports(reports, time.Now(), health.DefaultReportPruneTTL)
+		if len(health.FailedProbes(reports)) > 0 {
+			reports = nil
+		}
+	}
+	convergedRemoteKeyID := health.ConvergedRemoteKeyID(reports)
 	managedSecrets := secretClient.Secrets("openshift-config-managed")
 
 	if convergedRemoteKeyID == "" {
-		if rk.MigratedRemoteKeyID == "" {
+		if rk.TargetRemoteKeyID == "" || rk.MigratedRemoteKeyID == "" {
 			// Bootstrap waits for health before copying target→migrated.
 			return nil
 		}
@@ -983,10 +1005,14 @@ func (c *keyController) reconcileRemoteKeyRotation(ctx context.Context, secretCl
 		return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, clearRemoteKeyConvergence)
 	}
 
-	if rk.MigratedRemoteKeyID == "" {
-		// Bootstrap: target was set at key mint from preflight; establish the steady
-		// baseline so later health-driven promotions can detect target != migrated.
+	if rk.TargetRemoteKeyID == "" || rk.MigratedRemoteKeyID == "" {
+		// Bootstrap: target was set at key mint from preflight (or from converged health
+		// when preflight was bypassed); establish the steady baseline so later
+		// health-driven promotions can detect target != migrated.
 		return secrets.PatchRemoteKeyState(ctx, managedSecrets, secretName, func(rk *state.RemoteKeyState) (bool, error) {
+			if rk.TargetRemoteKeyID == "" {
+				rk.TargetRemoteKeyID = convergedRemoteKeyID
+			}
 			rk.MigratedRemoteKeyID = rk.TargetRemoteKeyID
 			return true, nil
 		})
