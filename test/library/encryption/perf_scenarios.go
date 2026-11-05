@@ -18,16 +18,31 @@ type PerfScenario struct {
 	DBLoaderFunc          DBLoaderFuncType
 	AssertDBPopulatedFunc func(t testing.TB, errorStore map[string]int, statStore map[string]int)
 	AssertMigrationTime   func(t testing.TB, migrationTime time.Duration)
-	// DBLoaderWorker is the number of workers that will execute DBLoaderFunc
+	// DBLoaderWorkers is the number of workers that will execute DBLoaderFunc
 	DBLoaderWorkers    int
 	EncryptionProvider EncryptionProvider
+
+	// APIWorkload optionally measures secret create/get/list latency before and after encryption.
+	// Set together with AssertAPIPerformance.
+	APIWorkload          *APIWorkloadConfig
+	AssertAPIPerformance func(t testing.TB, baseline, encrypted *APIWorkloadResult)
 }
 
 func TestPerfEncryption(ctx context.Context, t testing.TB, scenario PerfScenario) {
+	if (scenario.APIWorkload != nil) != (scenario.AssertAPIPerformance != nil) {
+		t.Fatalf("APIWorkload and AssertAPIPerformance must both be set, or neither")
+	}
+
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	migrationStartedCh := make(chan time.Time, 1)
 
 	populateDatabase(e, scenario.DBLoaderWorkers, scenario.DBLoaderFunc, scenario.AssertDBPopulatedFunc)
+
+	var baseline *APIWorkloadResult
+	if scenario.APIWorkload != nil {
+		baseline = RunAPIWorkload(ctx, e, *scenario.APIWorkload)
+	}
+
 	watchForMigrationControllerProgressingConditionAsync(e, scenario.GetOperatorConditionsFunc, migrationStartedCh)
 	endTimeStamp := runTestEncryption(ctx, t, scenario)
 
@@ -36,6 +51,15 @@ func TestPerfEncryption(ctx context.Context, t testing.TB, scenario PerfScenario
 		scenario.AssertMigrationTime(e, endTimeStamp.Sub(migrationStarted))
 	default:
 		e.Error("unable to calculate the migration time, failed to observe when the migration has started")
+	}
+
+	if scenario.APIWorkload != nil {
+		if t.Failed() {
+			t.Errorf("skipping the API workload as earlier phases failed")
+			return
+		}
+		encrypted := RunAPIWorkload(ctx, e, *scenario.APIWorkload)
+		scenario.AssertAPIPerformance(e, baseline, encrypted)
 	}
 }
 
