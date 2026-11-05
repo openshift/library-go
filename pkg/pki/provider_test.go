@@ -2,176 +2,330 @@ package pki
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
 	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/openshift/library-go/pkg/crypto"
 )
 
 // fakePKILister implements configv1alpha1listers.PKILister for testing.
 type fakePKILister struct {
-	pki *configv1alpha1.PKI
-	err error
+	pki           *configv1alpha1.PKI
+	err           error
+	requestedName string
 }
 
 func (f *fakePKILister) List(_ labels.Selector) ([]*configv1alpha1.PKI, error) {
 	panic("not implemented")
 }
 
-func (f *fakePKILister) Get(_ string) (*configv1alpha1.PKI, error) {
+func (f *fakePKILister) Get(name string) (*configv1alpha1.PKI, error) {
+	f.requestedName = name
 	return f.pki, f.err
 }
 
-func TestListerPKIProfileProvider_Unmanaged(t *testing.T) {
-	lister := &fakePKILister{
-		pki: &configv1alpha1.PKI{
-			ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-			Spec: configv1alpha1.PKISpec{
-				CertificateManagement: configv1alpha1.PKICertificateManagement{
-					Mode: configv1alpha1.PKICertificateManagementModeUnmanaged,
-				},
-			},
-		},
+func TestStaticConfigProvider_ReturnsSpec(t *testing.T) {
+	spec := configv1alpha1.PKISpec{
+		Certificates: DefaultCertificatePolicy(),
 	}
-	provider := NewClusterPKIProfileProvider(lister)
+	provider := NewStaticConfigProvider(spec)
 
-	profile, err := provider.PKIProfile()
+	got, err := provider.Config()
 	if err != nil {
-		t.Fatalf("PKIProfile() error = %v", err)
+		t.Fatalf("Config() error = %v", err)
 	}
-	if profile != nil {
-		t.Errorf("expected nil profile for Unmanaged mode, got %+v", profile)
+	if !reflect.DeepEqual(got, spec) {
+		t.Errorf("Config() = %+v, want %+v", got, spec)
 	}
 }
 
-func TestListerPKIProfileProvider_Default(t *testing.T) {
-	lister := &fakePKILister{
-		pki: &configv1alpha1.PKI{
-			ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-			Spec: configv1alpha1.PKISpec{
-				CertificateManagement: configv1alpha1.PKICertificateManagement{
-					Mode: configv1alpha1.PKICertificateManagementModeDefault,
+func TestStaticConfigProvider_DeepCopiesSpec(t *testing.T) {
+	spec := configv1alpha1.PKISpec{
+		Certificates: configv1alpha1.PKICertificatePolicy{
+			Defaults: configv1alpha1.PKIDefaultCertificateConfig{
+				Key: configv1alpha1.PKIKeyConfig{
+					Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
+					ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurveP256},
 				},
+			},
+			NamedCertificates: []configv1alpha1.PKINamedCertificateConfig{
+				{Name: "openshift.io/test.ca"},
 			},
 		},
 	}
-	provider := NewClusterPKIProfileProvider(lister)
+	provider := NewStaticConfigProvider(spec)
 
-	profile, err := provider.PKIProfile()
+	// Mutating the caller's value after construction must not affect the
+	// provider.
+	spec.Certificates.NamedCertificates[0].Name = "mutated"
+
+	got, err := provider.Config()
 	if err != nil {
-		t.Fatalf("PKIProfile() error = %v", err)
+		t.Fatalf("Config() error = %v", err)
 	}
-	if profile == nil {
-		t.Fatal("expected non-nil profile for Default mode")
-	}
-
-	// Should match DefaultPKIProfile()
-	want := DefaultPKIProfile()
-	if profile.Defaults.Key.Algorithm != want.Defaults.Key.Algorithm {
-		t.Errorf("defaults algorithm = %v, want %v", profile.Defaults.Key.Algorithm, want.Defaults.Key.Algorithm)
+	if got.Certificates.NamedCertificates[0].Name != "openshift.io/test.ca" {
+		t.Errorf("NamedCertificates[0].Name = %q, want %q", got.Certificates.NamedCertificates[0].Name, "openshift.io/test.ca")
 	}
 }
 
-func TestListerPKIProfileProvider_Custom(t *testing.T) {
-	customProfile := configv1alpha1.PKIProfile{
-		Defaults: configv1alpha1.DefaultCertificateConfig{
-			Key: configv1alpha1.KeyConfig{
-				Algorithm: configv1alpha1.KeyAlgorithmRSA,
-				RSA:       configv1alpha1.RSAKeyConfig{KeySize: 4096},
-			},
+func TestListerConfigProvider_ReturnsSpec(t *testing.T) {
+	resource := &configv1alpha1.PKI{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1alpha1.PKISpec{
+			Certificates: DefaultCertificatePolicy(),
 		},
 	}
-	lister := &fakePKILister{
-		pki: &configv1alpha1.PKI{
-			ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-			Spec: configv1alpha1.PKISpec{
-				CertificateManagement: configv1alpha1.PKICertificateManagement{
-					Mode: configv1alpha1.PKICertificateManagementModeCustom,
-					Custom: configv1alpha1.CustomPKIPolicy{
-						PKIProfile: customProfile,
-					},
-				},
-			},
-		},
-	}
-	provider := NewClusterPKIProfileProvider(lister)
+	lister := &fakePKILister{pki: resource}
+	provider := NewClusterConfigProvider(lister)
 
-	profile, err := provider.PKIProfile()
+	got, err := provider.Config()
 	if err != nil {
-		t.Fatalf("PKIProfile() error = %v", err)
+		t.Fatalf("Config() error = %v", err)
 	}
-	if profile == nil {
-		t.Fatal("expected non-nil profile for Custom mode")
-	}
-	if profile.Defaults.Key.Algorithm != configv1alpha1.KeyAlgorithmRSA {
-		t.Errorf("defaults algorithm = %v, want RSA", profile.Defaults.Key.Algorithm)
-	}
-	if profile.Defaults.Key.RSA.KeySize != 4096 {
-		t.Errorf("defaults RSA key size = %d, want 4096", profile.Defaults.Key.RSA.KeySize)
+	if !reflect.DeepEqual(got, resource.Spec) {
+		t.Errorf("Config() = %+v, want the spec from the lister resource", got)
 	}
 }
 
-func TestListerPKIProfileProvider_UnknownMode(t *testing.T) {
+func TestListerConfigProvider_MissingResourceIsError(t *testing.T) {
 	lister := &fakePKILister{
-		pki: &configv1alpha1.PKI{
-			ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-			Spec: configv1alpha1.PKISpec{
-				CertificateManagement: configv1alpha1.PKICertificateManagement{
-					Mode: "SomeFutureMode",
-				},
-			},
-		},
+		err: apierrors.NewNotFound(schema.GroupResource{Group: "config.openshift.io", Resource: "pkis"}, "cluster"),
 	}
-	provider := NewClusterPKIProfileProvider(lister)
+	provider := NewClusterConfigProvider(lister)
 
-	_, err := provider.PKIProfile()
+	_, err := provider.Config()
 	if err == nil {
-		t.Error("expected error for unknown mode")
+		t.Fatal("expected error for missing PKI resource")
+	}
+	// The wrap must preserve apierrors.IsNotFound for callers that
+	// distinguish a missing resource.
+	if !apierrors.IsNotFound(err) {
+		t.Errorf("expected apierrors.IsNotFound to match, got %v", err)
 	}
 }
 
-func TestListerPKIProfileProvider_ListerError(t *testing.T) {
+func TestListerConfigProvider_NilObjectIsError(t *testing.T) {
+	lister := &fakePKILister{}
+	provider := NewClusterConfigProvider(lister)
+
+	_, err := provider.Config()
+	if err == nil {
+		t.Error("expected error when the lister returns a nil object")
+	}
+}
+
+func TestListerConfigProvider_ListerErrorPropagates(t *testing.T) {
 	lister := &fakePKILister{
 		err: fmt.Errorf("connection refused"),
 	}
-	provider := NewClusterPKIProfileProvider(lister)
+	provider := NewClusterConfigProvider(lister)
 
-	_, err := provider.PKIProfile()
+	_, err := provider.Config()
 	if err == nil {
-		t.Error("expected error when lister fails")
+		t.Fatal("expected error when lister fails")
 	}
-}
-
-// errorProvider is a PKIProfileProvider that always returns an error.
-type errorProvider struct {
-	err error
-}
-
-func (e *errorProvider) PKIProfile() (*configv1alpha1.PKIProfile, error) {
-	return nil, e.err
-}
-
-func TestResolveCertificateConfig_ProviderError(t *testing.T) {
-	provider := &errorProvider{err: fmt.Errorf("connection refused")}
-
-	_, err := ResolveCertificateConfig(provider, CertificateTypeSigner, "test")
-	if err == nil {
-		t.Fatal("expected error to propagate from provider")
-	}
-
-	// Verify the original error is wrapped
 	if !strings.Contains(err.Error(), "connection refused") {
 		t.Errorf("error = %q, want it to contain %q", err.Error(), "connection refused")
 	}
 }
 
-func TestResolveCertificateConfig_DefaultProfile_AllTypes(t *testing.T) {
-	profile := DefaultPKIProfile()
-	provider := NewStaticPKIProfileProvider(&profile)
+func TestNewClusterConfigProvider_UsesClusterResourceName(t *testing.T) {
+	lister := &fakePKILister{
+		pki: &configv1alpha1.PKI{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},
+	}
+	provider := NewClusterConfigProvider(lister)
+
+	if _, err := provider.Config(); err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	if lister.requestedName != "cluster" {
+		t.Errorf("requested resource name = %q, want %q", lister.requestedName, "cluster")
+	}
+}
+
+func TestNewListerConfigProvider_UsesGivenResourceName(t *testing.T) {
+	lister := &fakePKILister{
+		pki: &configv1alpha1.PKI{ObjectMeta: metav1.ObjectMeta{Name: "other"}},
+	}
+	provider := NewListerConfigProvider(lister, "other")
+
+	if _, err := provider.Config(); err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	if lister.requestedName != "other" {
+		t.Errorf("requested resource name = %q, want %q", lister.requestedName, "other")
+	}
+}
+
+func TestDeprecatedConstructorShims(t *testing.T) {
+	lister := &fakePKILister{
+		pki: &configv1alpha1.PKI{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},
+	}
+
+	// Call the shims through variables so that running `go fix ./...` inside
+	// this repo does not rewrite this test to call the new constructors
+	// directly, which would stop it from exercising the shims.
+	newClusterPKIProfileProvider := NewClusterPKIProfileProvider
+	newListerPKIProfileProvider := NewListerPKIProfileProvider
+	certificateConfig := CertificateConfig{}
+
+	if _, err := newClusterPKIProfileProvider(lister).Config(); err != nil {
+		t.Errorf("NewClusterPKIProfileProvider().Config() error = %v", err)
+	}
+	if lister.requestedName != "cluster" {
+		t.Errorf("NewClusterPKIProfileProvider requested %q, want %q", lister.requestedName, "cluster")
+	}
+
+	if _, err := newListerPKIProfileProvider(lister, "other").Config(); err != nil {
+		t.Errorf("NewListerPKIProfileProvider().Config() error = %v", err)
+	}
+	if lister.requestedName != "other" {
+		t.Errorf("NewListerPKIProfileProvider requested %q, want %q", lister.requestedName, "other")
+	}
+
+	// The deprecated type alias must keep compiling and carry the resolved
+	// key field.
+	_ = certificateConfig.Key
+}
+
+func TestListerConfigProvider_NormalizesOldShape(t *testing.T) {
+	resource := &configv1alpha1.PKI{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: customSpec(configv1alpha1.PKIProfile{
+			Defaults:            configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
+			SignerCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP521)},
+			ServingCertificates: configv1alpha1.PKICertificateConfig{Key: keyRSA(4096)},
+			ClientCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP384)},
+		}),
+	}
+	lister := &fakePKILister{pki: resource}
+	provider := NewClusterConfigProvider(lister)
+
+	got, err := provider.Config()
+	if err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	want := configv1alpha1.PKICertificatePolicy{
+		Defaults:           resource.Spec.CertificateManagement.Custom.Defaults,
+		CACertificates:     resource.Spec.CertificateManagement.Custom.SignerCertificates,
+		ServerCertificates: resource.Spec.CertificateManagement.Custom.ServingCertificates,
+		ClientCertificates: resource.Spec.CertificateManagement.Custom.ClientCertificates,
+	}
+	if !reflect.DeepEqual(got.Certificates, want) {
+		t.Errorf("Certificates = %+v, want the translated old-shape policy %+v", got.Certificates, want)
+	}
+	if !reflect.DeepEqual(got.CertificateManagement, configv1alpha1.PKICertificateManagement{}) {
+		t.Errorf("CertificateManagement = %+v, want zero value", got.CertificateManagement)
+	}
+}
+
+func TestStaticConfigProvider_NormalizesOldShape(t *testing.T) {
+	spec := configv1alpha1.PKISpec{
+		CertificateManagement: configv1alpha1.PKICertificateManagement{
+			Mode: configv1alpha1.PKICertificateManagementModeDefault,
+		},
+	}
+	provider := NewStaticConfigProvider(spec)
+
+	got, err := provider.Config()
+	if err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	if !reflect.DeepEqual(got.Certificates, DefaultCertificatePolicy()) {
+		t.Errorf("Certificates = %+v, want DefaultCertificatePolicy()", got.Certificates)
+	}
+}
+
+func TestListerConfigProvider_InvalidModeIsError(t *testing.T) {
+	resource := &configv1alpha1.PKI{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1alpha1.PKISpec{
+			CertificateManagement: configv1alpha1.PKICertificateManagement{
+				Mode: configv1alpha1.PKICertificateManagementMode("Bogus"),
+			},
+		},
+	}
+	lister := &fakePKILister{pki: resource}
+	provider := NewClusterConfigProvider(lister)
+
+	_, err := provider.Config()
+	if err == nil {
+		t.Fatal("expected error for invalid certificateManagement mode")
+	}
+	if !strings.Contains(err.Error(), "spec.certificateManagement.mode") {
+		t.Errorf("error = %q, want it to name spec.certificateManagement.mode", err.Error())
+	}
+	if !strings.Contains(err.Error(), `"cluster"`) {
+		t.Errorf("error = %q, want it to name the resource %q", err.Error(), "cluster")
+	}
+}
+
+// The lister provider's output may alias the informer cache: normalization
+// must translate into a copy, never mutate the cached object.
+func TestListerConfigProvider_DoesNotMutateCachedObject(t *testing.T) {
+	resource := &configv1alpha1.PKI{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: customSpec(configv1alpha1.PKIProfile{
+			Defaults:            configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
+			SignerCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP521)},
+			ServingCertificates: configv1alpha1.PKICertificateConfig{Key: keyRSA(4096)},
+			ClientCertificates:  configv1alpha1.PKICertificateConfig{Key: keyECDSA(configv1alpha1.PKIECDSACurveP384)},
+		}),
+	}
+	before := resource.DeepCopy()
+	lister := &fakePKILister{pki: resource}
+	provider := NewClusterConfigProvider(lister)
+
+	if _, err := provider.Config(); err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	if !reflect.DeepEqual(resource, before) {
+		t.Errorf("cached object was mutated:\n got %+v\nwant %+v", resource.Spec, before.Spec)
+	}
+}
+
+// The static provider must not normalize its stored spec in place: doing so
+// would permanently lose the old shape after the first Config() call, so
+// repeated calls could not keep translating it.
+func TestStaticConfigProvider_DoesNotMutateStoredSpec(t *testing.T) {
+	provider := NewStaticConfigProvider(customSpec(configv1alpha1.PKIProfile{
+		Defaults: configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(3072)},
+	}))
+
+	got, err := provider.Config()
+	if err != nil {
+		t.Fatalf("Config() error = %v", err)
+	}
+	if !reflect.DeepEqual(got.Certificates.Defaults.Key, keyRSA(3072)) {
+		t.Errorf("Certificates.Defaults.Key = %+v, want the translated RSA 3072 default", got.Certificates.Defaults.Key)
+	}
+	stored := provider.(*staticConfigProvider).spec
+	if stored.CertificateManagement.Mode != configv1alpha1.PKICertificateManagementModeCustom {
+		t.Errorf("stored spec CertificateManagement.Mode = %q, want %q: Config() must not normalize the stored spec in place", stored.CertificateManagement.Mode, configv1alpha1.PKICertificateManagementModeCustom)
+	}
+	if !reflect.DeepEqual(stored.Certificates, configv1alpha1.PKICertificatePolicy{}) {
+		t.Errorf("stored spec Certificates = %+v, want zero value: Config() must not normalize the stored spec in place", stored.Certificates)
+	}
+
+	// A second call must translate again, from the still-old-shape stored spec.
+	got2, err := provider.Config()
+	if err != nil {
+		t.Fatalf("second Config() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, got2) {
+		t.Errorf("second Config() = %+v, want the same translation as the first: %+v", got2, got)
+	}
+}
+
+func TestResolveCertificateConfig_DefaultCertificatePolicy_AllTypes(t *testing.T) {
+	policy := DefaultCertificatePolicy()
 
 	testCases := []struct {
 		name     string
@@ -179,13 +333,13 @@ func TestResolveCertificateConfig_DefaultProfile_AllTypes(t *testing.T) {
 		want     crypto.KeyPairGenerator
 	}{
 		{
-			name:     "signer uses ECDSA P-384",
-			certType: CertificateTypeSigner,
+			name:     "ca uses ECDSA P-384",
+			certType: CertificateTypeCA,
 			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
 		},
 		{
-			name:     "serving falls back to ECDSA P-256",
-			certType: CertificateTypeServing,
+			name:     "server falls back to ECDSA P-256",
+			certType: CertificateTypeServer,
 			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
 		},
 		{
@@ -194,19 +348,16 @@ func TestResolveCertificateConfig_DefaultProfile_AllTypes(t *testing.T) {
 			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
 		},
 		{
-			name:     "peer picks stronger of serving and client",
+			name:     "peer picks stronger of server and client",
 			certType: CertificateTypePeer,
 			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := ResolveCertificateConfig(provider, tc.certType, "test")
+			cfg, err := ResolveCertificateConfig(policy, tc.certType, "openshift.io/test")
 			if err != nil {
 				t.Fatalf("ResolveCertificateConfig() error = %v", err)
-			}
-			if cfg == nil {
-				t.Fatal("expected non-nil config")
 			}
 			if cfg.Key != tc.want {
 				t.Errorf("Key = %+v, want %+v", cfg.Key, tc.want)
