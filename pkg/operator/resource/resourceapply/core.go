@@ -262,7 +262,8 @@ func ApplyServiceAccountImproved(ctx context.Context, client coreclientv1.Servic
 	return actual, true, err
 }
 
-// ApplyConfigMap merges objectmeta, requires data
+// ApplyConfigMapImproved merges objectmeta, requires data.
+// The applied diff is logged on V(2) using the logger from the context.
 func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, required *corev1.ConfigMap, cache ResourceCache) (*corev1.ConfigMap, bool, error) {
 	existing, err := client.ConfigMaps(required.Namespace).Get(ctx, required.Name, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -348,8 +349,8 @@ func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsG
 		sort.Sort(sort.StringSlice(modifiedKeys))
 		details = fmt.Sprintf("cause by changes in %v", strings.Join(modifiedKeys, ","))
 	}
-	if klog.V(2).Enabled() {
-		klog.Infof("ConfigMap %q changes: %v", required.Namespace+"/"+required.Name, JSONPatchNoError(existing, required))
+	if logger := klog.FromContext(ctx); logger.V(2).Enabled() {
+		logger.V(2).Info(fmt.Sprintf("ConfigMap %q changes: %v", required.Namespace+"/"+required.Name, JSONPatchNoError(existing, required)))
 	}
 	resourcehelper.ReportUpdateEvent(recorder, required, err, details)
 	cache.UpdateCachedResourceMetadata(required, actual)
