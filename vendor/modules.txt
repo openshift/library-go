@@ -1163,6 +1163,7 @@ k8s.io/apiserver/pkg/server/options/encryptionconfig/metrics
 k8s.io/apiserver/pkg/server/resourceconfig
 k8s.io/apiserver/pkg/server/routes
 k8s.io/apiserver/pkg/server/routine
+k8s.io/apiserver/pkg/server/signals
 k8s.io/apiserver/pkg/server/statusz
 k8s.io/apiserver/pkg/server/statusz/api/v1alpha1
 k8s.io/apiserver/pkg/server/statusz/api/v1beta1
