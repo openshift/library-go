@@ -31,6 +31,7 @@ var goTLSGroups = map[string]tls.CurveID{
 	"CurveP256":          tls.CurveP256,          // IANA 23
 	"CurveP384":          tls.CurveP384,          // IANA 24
 	"CurveP521":          tls.CurveP521,          // IANA 25
+	"MLKEM1024":          tls.MLKEM1024,          // IANA 514
 	"X25519":             tls.X25519,             // IANA 29
 	"X25519MLKEM768":     tls.X25519MLKEM768,     // IANA 4588
 	"SecP256r1MLKEM768":  tls.SecP256r1MLKEM768,  // IANA 4587
@@ -74,6 +75,9 @@ var ignoredTLSConstants = sets.New[string](
 	"ECDSAWithP384AndSHA384",
 	"ECDSAWithP521AndSHA512",
 	"Ed25519",
+	"MLDSA44",
+	"MLDSA65",
+	"MLDSA87",
 	// QUIC events and encryption levels
 	"QUICEncryptionLevelInitial",
 	"QUICEncryptionLevelEarly",
@@ -110,7 +114,7 @@ func TestConstantMaps(t *testing.T) {
 			discoveredVersions[declName] = true
 		case strings.HasPrefix(declName, "TLS_RSA_") || strings.HasPrefix(declName, "TLS_ECDHE_") || strings.HasPrefix(declName, "TLS_AES_") || strings.HasPrefix(declName, "TLS_CHACHA20_"):
 			discoveredCiphers[declName] = true
-		case strings.HasPrefix(declName, "CurveP") || strings.HasPrefix(declName, "X25519") || strings.HasPrefix(declName, "SecP"):
+		case strings.HasPrefix(declName, "CurveP") || strings.HasPrefix(declName, "X25519") || strings.HasPrefix(declName, "SecP") || strings.HasPrefix(declName, "MLKEM"):
 			discoveredGroups[declName] = true
 		case ignoredTLSConstants.Has(declName):
 			// known unrelated constant
@@ -157,7 +161,6 @@ func TestConstantMaps(t *testing.T) {
 			t.Errorf("goTLSGroups map has %s not in tls package", k)
 		}
 	}
-
 }
 
 func TestCrypto(t *testing.T) {

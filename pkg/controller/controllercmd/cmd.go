@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/signals"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/component-base/logs"
 
@@ -142,7 +142,7 @@ func (c *ControllerCommandConfig) NewCommandWithContext(ctx context.Context) *co
 
 			// handle SIGTERM and SIGINT by cancelling the context.
 			shutdownCtx, cancel := context.WithCancel(ctx)
-			shutdownHandler := server.SetupSignalHandler()
+			shutdownHandler := signals.SetupSignalHandler()
 			go func() {
 				defer cancel()
 				<-shutdownHandler
