@@ -1,10 +1,12 @@
 package resourceapply
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	clocktesting "k8s.io/utils/clock/testing"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/textlogger"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 )
@@ -1725,6 +1729,48 @@ func TestApplyService(t *testing.T) {
 				t.Errorf("expected %v, got %v", test.expectedModified, actualModified)
 			}
 			test.verifyActions(client.Actions(), t)
+		})
+	}
+}
+
+func TestApplyConfigMapImprovedDiffLogging(t *testing.T) {
+	const logMarker = `changes: {`
+
+	tests := []struct {
+		name      string
+		verbosity int
+		wantLog   bool
+	}{
+		{name: "diff is logged when V(2) is enabled on the context logger", verbosity: 2, wantLog: true},
+		{name: "diff is not logged when V(2) is muted on the context logger", verbosity: 1, wantLog: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "foo"},
+				Data:       map[string]string{"key": "old"},
+			})
+			required := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "foo"},
+				Data:       map[string]string{"key": "new"},
+			}
+
+			var buf bytes.Buffer
+			logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Output(&buf), textlogger.Verbosity(tc.verbosity)))
+			ctx := klog.NewContext(context.Background(), logger)
+
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+			actual, modified, err := ApplyConfigMapImproved(ctx, client.CoreV1(), recorder, required, NewResourceCache())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !modified || actual.Data["key"] != "new" {
+				t.Errorf("expected ConfigMap to be updated, modified=%v data=%v", modified, actual.Data)
+			}
+			if got := strings.Contains(buf.String(), logMarker); got != tc.wantLog {
+				t.Errorf("diff logged = %v, want %v; output:\n%s", got, tc.wantLog, buf.String())
+			}
 		})
 	}
 }
