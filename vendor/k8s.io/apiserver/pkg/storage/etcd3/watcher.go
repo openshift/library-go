@@ -91,6 +91,7 @@ type watcher struct {
 	client                   *clientv3.Client
 	codec                    runtime.Codec
 	newFunc                  func() runtime.Object
+	reverseKeyFunc           storageKeyReverseFunc
 	objectType               string
 	groupResource            schema.GroupResource
 	versioner                storage.Versioner
@@ -99,13 +100,23 @@ type watcher struct {
 	getResourceSizeEstimator func() *resourceSizeEstimator
 }
 
+// storageKey keeps backend-prefixed keys distinct from the resource-relative
+// keys accepted by storage.ReverseKeyFunc.
+type storageKey string
+
+// storageKeyReverseFunc recovers object identity from an etcd key that still
+// contains the backend-specific prefix.
+type storageKeyReverseFunc func(key storageKey) (name string, namespace string, err error)
+
 // watchChan implements watch.Interface.
 type watchChan struct {
-	watcher                  *watcher
-	key                      string
-	initialRev               int64
-	recursive                bool
-	progressNotify           bool
+	watcher        *watcher
+	key            string
+	initialRev     int64
+	recursive      bool
+	progressNotify bool
+	// recordTimestamps enables wrapping watch events with decode timestamps and
+	// etcd client-side watch response buffer logging.
 	recordTimestamps         bool
 	internalPred             storage.SelectionPredicate
 	ctx                      context.Context
@@ -474,6 +485,11 @@ func (wc *watchChan) startWatching(watchClosedCh chan struct{}, initialEventsEnd
 	if wc.progressNotify {
 		opts = append(opts, clientv3.WithProgressNotify())
 	}
+
+	if wc.recordTimestamps && klog.V(3).Enabled() {
+		opts = append(opts, clientv3.WithWatchBufLog())
+	}
+
 	wch := wc.watcher.client.Watch(wc.ctx, wc.key, opts...)
 	estimator := wc.getResourceSizeEstimator()
 	for wres := range wch {
