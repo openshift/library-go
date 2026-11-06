@@ -147,7 +147,7 @@ func newDeployedKMSEncryptionConfig(t *testing.T, instanceName string, encrypted
 
 var defaultKMSConfigReference = configv1.KMSPluginConfig{
 	PluginConfig: configv1.KMSPluginConfigReference{
-		APIVersion: "kms.openshift.io/v1alpha1",
+		APIVersion: "kms.hashicorp.com/v1",
 		Resource:   "vaultkmsconfigs",
 		Name:       "cluster",
 	},
@@ -161,7 +161,7 @@ func vaultPluginConfig(t *testing.T, config kms.KMSPluginConfig) *unstructured.U
 	}
 	delete(spec, "kmsPluginImage")
 	return &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "kms.openshift.io/v1alpha1", "kind": "VaultKMSConfig",
+		"apiVersion": "kms.hashicorp.com/v1", "kind": "VaultKMSConfig",
 		"metadata": map[string]interface{}{"name": "cluster"}, "spec": spec,
 		"status": map[string]interface{}{"kmsPluginImage": config.Vault.KMSPluginImage},
 	}}

@@ -648,7 +648,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 		return false, nil
 	})
 	require.NoError(t, err)
-	vaultKMSClient := dynamicClient.Resource(schema.GroupVersionResource{Group: "kms.openshift.io", Version: "v1alpha1", Resource: "vaultkmsconfigs"})
+	vaultKMSClient := dynamicClient.Resource(schema.GroupVersionResource{Group: "kms.hashicorp.com", Version: "v1", Resource: "vaultkmsconfigs"})
 	const (
 		kmsPluginImageA = "registry.example.com/kms-plugin@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 		kmsPluginImageB = "registry.example.com/kms-plugin@sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -661,7 +661,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	seedVaultKMSConfig := func(name, image, address string) {
 		t.Helper()
 		_, err := vaultKMSClient.Create(ctx, &unstructured.Unstructured{Object: map[string]interface{}{
-			"apiVersion": "kms.openshift.io/v1alpha1",
+			"apiVersion": "kms.hashicorp.com/v1",
 			"kind":       "VaultKMSConfig",
 			"metadata":   map[string]interface{}{"name": name},
 			"spec": map[string]interface{}{
@@ -694,7 +694,7 @@ func TestEncryptionIntegration(tt *testing.T) {
 	}
 	patchAPIServerKMSRef := func(name string) {
 		t.Helper()
-		patch := fmt.Sprintf(`{"spec":{"encryption":{"type":"KMS","kms":{"pluginConfig":{"apiVersion":"kms.openshift.io/v1alpha1","resource":"vaultkmsconfigs","name":%q}}}}}`, name)
+		patch := fmt.Sprintf(`{"spec":{"encryption":{"type":"KMS","kms":{"pluginConfig":{"apiVersion":"kms.hashicorp.com/v1","resource":"vaultkmsconfigs","name":%q}}}}}`, name)
 		_, err := fakeApiServerClient.Patch(ctx, "cluster", types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 		require.NoError(t, err)
 	}
@@ -1009,9 +1009,9 @@ const vaultKMSConfigCRD = `
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: vaultkmsconfigs.kms.openshift.io
+  name: vaultkmsconfigs.kms.hashicorp.com
 spec:
-  group: kms.openshift.io
+  group: kms.hashicorp.com
   names:
     kind: VaultKMSConfig
     listKind: VaultKMSConfigList
@@ -1019,7 +1019,7 @@ spec:
     singular: vaultkmsconfig
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - name: v1
     served: true
     storage: true
     subresources:
