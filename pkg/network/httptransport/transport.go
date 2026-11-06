@@ -28,6 +28,7 @@ type Config struct {
 	clientCertificates []tls.Certificate
 	proxyConfigured    bool
 	proxyFunc          func(*http.Request) (*url.URL, error)
+	disableHTTP2       bool
 	tlsMinVersion      uint16
 	tlsCipherSuites    []uint16
 }
@@ -152,6 +153,15 @@ func WithTLSCipherSuites(cipherSuites []uint16) Option {
 	}
 }
 
+// WithDisabledHTTP2 restricts the transport to HTTP/1.1, including after CA reload.
+// Use it when an HTTPS proxy advertises HTTP/2 but requires HTTP/1.1 CONNECT.
+func WithDisabledHTTP2() Option {
+	return func(config *Config) error {
+		config.disableHTTP2 = true
+		return nil
+	}
+}
+
 // NewRoundTripper constructs an outbound HTTP round tripper from the supplied
 // options. By default, it trusts the system certificate pool, honors the
 // standard proxy environment variables, and applies the OpenShift-wide TLS
@@ -213,6 +223,10 @@ func (config *Config) newHTTPTransport() (*http.Transport, error) {
 	}
 	if len(config.tlsCipherSuites) > 0 {
 		tlsConfig.CipherSuites = append([]uint16(nil), config.tlsCipherSuites...)
+	}
+
+	if config.disableHTTP2 {
+		tlsConfig.NextProtos = []string{"http/1.1"}
 	}
 
 	transport := utilnet.SetTransportDefaults(&http.Transport{TLSClientConfig: tlsConfig})

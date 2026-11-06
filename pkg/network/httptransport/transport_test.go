@@ -1,8 +1,12 @@
 package httptransport
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -428,8 +432,8 @@ func (ca *testCA) NewSignedCertificate(client bool) (tls.Certificate, []byte, []
 
 // startTLSServer starts an HTTPS test server presenting certificate. When
 // clientCAs is non-nil the server requires and verifies a client certificate
-// against it (mutual TLS).
-func startTLSServer(t *testing.T, certificate tls.Certificate, clientCAs *x509.CertPool) *httptest.Server {
+// against it (mutual TLS). Optional hooks configure the server before startup.
+func startTLSServer(t *testing.T, certificate tls.Certificate, clientCAs *x509.CertPool, configure ...func(*httptest.Server)) *httptest.Server {
 	t.Helper()
 
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
@@ -441,6 +445,9 @@ func startTLSServer(t *testing.T, certificate tls.Certificate, clientCAs *x509.C
 		server.TLS.ClientCAs = clientCAs
 	}
 
+	for _, configureServer := range configure {
+		configureServer(server)
+	}
 	server.StartTLS()
 	t.Cleanup(server.Close)
 	return server
@@ -485,4 +492,127 @@ func underlyingTransport(t *testing.T, roundTripper http.RoundTripper) *http.Tra
 	}
 	t.Fatalf("got transport type %T, want *http.Transport or *dynamicTransport", roundTripper)
 	return nil
+}
+
+func TestTransportDisableHTTP2(t *testing.T) {
+	t.Setenv("DISABLE_HTTP2", "")
+	for _, disabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("disabled=%t", disabled), func(t *testing.T) {
+			ca := newTestCA(t, "protocol-ca")
+			provider := newTestCAProvider("protocol-ca", ca.pem)
+			opts := []Option{WithCAContentProvider(provider), WithProxyFunc(nil)}
+			if disabled {
+				opts = append(opts, WithDisabledHTTP2())
+			}
+			rt, err := NewRoundTripper(opts...)
+			require.NoError(t, err)
+			server := startTLSServer(t, ca.serverCertificate, nil, func(server *httptest.Server) {
+				server.EnableHTTP2 = true
+			})
+			client := &http.Client{Transport: rt}
+			t.Cleanup(client.CloseIdleConnections)
+			for _, stage := range []string{"initial", "after reload"} {
+				t.Run(stage, func(t *testing.T) {
+					ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+					defer cancel()
+					request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, nil)
+					require.NoError(t, err)
+					response, err := client.Do(request)
+					require.NoError(t, err)
+					require.NoError(t, response.Body.Close())
+					expected := 2
+					if disabled {
+						expected = 1
+					}
+					require.Equal(t, expected, response.ProtoMajor)
+				})
+				if stage == "initial" {
+					previous := underlyingTransport(t, rt)
+					provider.notify()
+					require.NotSame(t, previous, underlyingTransport(t, rt))
+				}
+			}
+		})
+	}
+}
+
+// Exercise the HTTPS proxy handshake separately from direct origin negotiation.
+func TestTransportDisabledHTTP2HTTPSProxy(t *testing.T) {
+	t.Setenv("DISABLE_HTTP2", "")
+	originCA := newTestCA(t, "origin-ca")
+	proxyCA := newTestCA(t, "proxy-ca")
+	origin := startTLSServer(t, originCA.serverCertificate, nil)
+	protocols := make(chan string, 2)
+	proxy := startTLSServer(t, proxyCA.serverCertificate, nil, func(server *httptest.Server) {
+		server.EnableHTTP2 = true
+		server.TLS.NextProtos = []string{"h2", "http/1.1"}
+		server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodConnect || r.Host != origin.Listener.Addr().String() {
+				http.Error(w, "unexpected CONNECT target", http.StatusBadRequest)
+				return
+			}
+			dialer := &net.Dialer{Timeout: 5 * time.Second}
+			upstream, err := dialer.DialContext(r.Context(), "tcp", origin.Listener.Addr().String())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			defer upstream.Close()
+			hijacker, ok := w.(http.Hijacker)
+			if !assert.True(t, ok, "proxy response writer must support hijacking (ALPN %q)", r.TLS.NegotiatedProtocol) {
+				http.Error(w, "proxy connection cannot be hijacked", http.StatusInternalServerError)
+				return
+			}
+			downstream, buffered, err := hijacker.Hijack()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			defer downstream.Close()
+			protocols <- r.TLS.NegotiatedProtocol
+			if _, err := buffered.WriteString("HTTP/1.1 200 Connection Established\r\n\r\n"); err != nil {
+				t.Error(err)
+				return
+			}
+			if err := buffered.Flush(); err != nil {
+				t.Error(err)
+				return
+			}
+			go func() {
+				_, _ = io.Copy(downstream, upstream)
+				_ = downstream.Close()
+			}()
+			_, _ = io.Copy(upstream, buffered.Reader)
+		})
+	})
+	proxyURL, err := url.Parse(proxy.URL)
+	require.NoError(t, err)
+	provider := newTestCAProvider("proxy-and-origin", append(originCA.pem, proxyCA.pem...))
+	rt, err := NewRoundTripper(WithCAContentProvider(provider), WithProxyFunc(http.ProxyURL(proxyURL)), WithDisabledHTTP2())
+	require.NoError(t, err)
+	client := &http.Client{Transport: rt}
+	t.Cleanup(client.CloseIdleConnections)
+	for _, stage := range []string{"initial", "after reload"} {
+		t.Run(stage, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			request, err := http.NewRequestWithContext(ctx, http.MethodGet, origin.URL, nil)
+			require.NoError(t, err)
+			response, err := client.Do(request)
+			require.NoError(t, err)
+			require.NoError(t, response.Body.Close())
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			select {
+			case protocol := <-protocols:
+				require.Equal(t, "http/1.1", protocol)
+			case <-ctx.Done():
+				t.Fatal("proxy did not receive CONNECT")
+			}
+		})
+		if stage == "initial" {
+			previous := underlyingTransport(t, rt)
+			provider.notify()
+			require.NotSame(t, previous, underlyingTransport(t, rt))
+		}
+	}
 }
