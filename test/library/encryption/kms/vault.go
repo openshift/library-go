@@ -180,11 +180,11 @@ func InvalidVaultEncryptionProvider(ctx context.Context, t testing.TB, vaultAddr
 // used by CI e2e tests.
 var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{
 	Type: configv1.EncryptionTypeKMS,
-	KMS:  configv1.KMSPluginConfig{PluginConfig: configv1.KMSPluginConfigReference{APIVersion: "kms.openshift.io/v1alpha1", Resource: "vaultkmsconfigs", Name: "vault"}},
+	KMS:  configv1.KMSPluginConfig{PluginConfig: configv1.KMSPluginConfigReference{APIVersion: "kms.hashicorp.com/v1", Resource: "vaultkmsconfigs", Name: "vault"}},
 }
 
 var defaultVaultConfig = &unstructured.Unstructured{Object: map[string]interface{}{
-	"apiVersion": "kms.openshift.io/v1alpha1",
+	"apiVersion": "kms.hashicorp.com/v1",
 	"kind":       "VaultKMSConfig",
 	"spec": map[string]interface{}{
 		"vaultAddress":   defaultVaultAddress,
@@ -212,11 +212,11 @@ var defaultVaultConfig = &unstructured.Unstructured{Object: map[string]interface
 // secondary Vault instance, used in KMS-to-KMS migration e2e tests.
 var SecondaryVaultKMSPluginConfig = configv1.APIServerEncryption{
 	Type: configv1.EncryptionTypeKMS,
-	KMS:  configv1.KMSPluginConfig{PluginConfig: configv1.KMSPluginConfigReference{APIVersion: "kms.openshift.io/v1alpha1", Resource: "vaultkmsconfigs", Name: "vault-secondary"}},
+	KMS:  configv1.KMSPluginConfig{PluginConfig: configv1.KMSPluginConfigReference{APIVersion: "kms.hashicorp.com/v1", Resource: "vaultkmsconfigs", Name: "vault-secondary"}},
 }
 
 var secondaryVaultConfig = &unstructured.Unstructured{Object: map[string]interface{}{
-	"apiVersion": "kms.openshift.io/v1alpha1",
+	"apiVersion": "kms.hashicorp.com/v1",
 	"kind":       "VaultKMSConfig",
 	"spec": map[string]interface{}{
 		"vaultAddress":   secondaryVaultAddress,
@@ -264,11 +264,11 @@ func ensureVaultKMSConfig(ctx context.Context, t testing.TB, name string, vault 
 	require.NoError(t, err)
 	image, _, err := unstructured.NestedString(vault.Object, "status", "kmsPluginImage")
 	require.NoError(t, err)
-	client := library.GetClients(t).DynamicClient.Resource(schema.GroupVersionResource{Group: "kms.openshift.io", Version: "v1alpha1", Resource: "vaultkmsconfigs"})
+	client := library.GetClients(t).DynamicClient.Resource(schema.GroupVersionResource{Group: "kms.hashicorp.com", Version: "v1", Resource: "vaultkmsconfigs"})
 	err = retry.OnError(retry.DefaultRetry, func(err error) bool { return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) }, func() error {
 		obj, err := client.Get(ctx, name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
-			obj = &unstructured.Unstructured{Object: map[string]interface{}{"apiVersion": "kms.openshift.io/v1alpha1", "kind": "VaultKMSConfig", "metadata": map[string]interface{}{"name": name}, "spec": spec}}
+			obj = &unstructured.Unstructured{Object: map[string]interface{}{"apiVersion": "kms.hashicorp.com/v1", "kind": "VaultKMSConfig", "metadata": map[string]interface{}{"name": name}, "spec": spec}}
 			obj, err = client.Create(ctx, obj, metav1.CreateOptions{})
 		} else if err == nil {
 			obj.Object["spec"] = spec

@@ -68,8 +68,8 @@ func TestResolveKMSConfigErrors(t *testing.T) {
 	require.ErrorIs(t, err, sentinel)
 	for _, gvk := range []schema.GroupVersionKind{
 		{Group: "other.test", Version: "v1alpha1", Kind: "VaultKMSConfig"},
-		{Group: "kms.openshift.io", Version: "v2", Kind: "VaultKMSConfig"},
-		{Group: "kms.openshift.io", Version: "v1alpha1", Kind: "UnknownConfig"},
+		{Group: "kms.hashicorp.com", Version: "v2", Kind: "VaultKMSConfig"},
+		{Group: "kms.hashicorp.com", Version: "v1alpha1", Kind: "UnknownConfig"},
 	} {
 		obj := vaultPluginConfig(t, encryptiontesting.DefaultKMSPluginConfig)
 		obj.SetGroupVersionKind(gvk)
