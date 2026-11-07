@@ -29,6 +29,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/util/cert"
@@ -222,6 +223,18 @@ var tlsGroupToCurveID = map[configv1.TLSGroup]tls.CurveID{
 	configv1.TLSGroupX25519MLKEM768:     tls.X25519MLKEM768,
 	configv1.TLSGroupSecP256r1MLKEM768:  tls.SecP256r1MLKEM768,
 	configv1.TLSGroupSecP384r1MLKEM1024: tls.SecP384r1MLKEM1024,
+}
+
+// curveIDToTLSGroup is the reverse mapping of tlsGroupToCurveID.
+// Built automatically from tlsGroupToCurveID at package initialization.
+var curveIDToTLSGroup = buildCurveIDToTLSGroupMap()
+
+func buildCurveIDToTLSGroupMap() map[tls.CurveID]configv1.TLSGroup {
+	reverseMap := make(map[tls.CurveID]configv1.TLSGroup, len(tlsGroupToCurveID))
+	for group, curveID := range tlsGroupToCurveID {
+		reverseMap[curveID] = group
+	}
+	return reverseMap
 }
 
 // CipherSuitesToNamesOrDie given a list of cipher suites as ints, return their readable names
@@ -432,6 +445,111 @@ func ValidTLSGroups() []configv1.TLSGroup {
 		return strings.Compare(string(a), string(b))
 	})
 	return groups
+}
+
+// CurvePreferencesToGroups reads curve preference IDs from sourcePath in config,
+// converts them to TLS group names using the reverse mapping, and writes them to targetPath.
+// Returns a list of unrecognized curve IDs that were skipped during conversion.
+// Returns error if source path contains invalid data or target path cannot be set.
+func CurvePreferencesToGroups[T int64 | string](
+	config map[string]interface{},
+	sourcePath []string,
+	targetPath []string,
+) ([]tls.CurveID, error) {
+	curvePrefsRaw, found, err := unstructured.NestedSlice(config, sourcePath...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read curve preferences from %v: %w", sourcePath, err)
+	}
+	if !found {
+		return nil, nil
+	}
+
+	var unrecognizedCurveIDs []tls.CurveID
+	groups := make([]string, 0, len(curvePrefsRaw))
+	var t T
+	for _, cpRaw := range curvePrefsRaw {
+		var cpInt64 int64
+		switch any(t).(type) {
+		case int64:
+			v, ok := cpRaw.(int64)
+			if !ok {
+				return nil, fmt.Errorf("invalid curve preference type at %v: expected int64, got %T", sourcePath, cpRaw)
+			}
+			cpInt64 = v
+		case string:
+			v, ok := cpRaw.(string)
+			if !ok {
+				return nil, fmt.Errorf("invalid curve preference type at %v: expected string, got %T", sourcePath, cpRaw)
+			}
+			parsed, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid curve preference string at %v: %w", sourcePath, err)
+			}
+			cpInt64 = parsed
+		}
+
+		curveID := tls.CurveID(cpInt64)
+		groupName, ok := curveIDToTLSGroup[curveID]
+		if !ok {
+			unrecognizedCurveIDs = append(unrecognizedCurveIDs, curveID)
+			continue
+		}
+		groups = append(groups, string(groupName))
+	}
+
+	if len(groups) > 0 {
+		if err := unstructured.SetNestedStringSlice(config, groups, targetPath...); err != nil {
+			return nil, fmt.Errorf("failed to set groups at %v: %w", targetPath, err)
+		}
+	}
+
+	return unrecognizedCurveIDs, nil
+}
+
+// GroupsToCurvePreferences reads TLS group names from sourcePath in config,
+// converts them to curve preference IDs, and writes them to targetPath.
+// Returns a list of unrecognized group names that were skipped during conversion.
+// Returns error if paths cannot be accessed.
+func GroupsToCurvePreferences[T int64 | string](
+	config map[string]interface{},
+	sourcePath []string,
+	targetPath []string,
+) ([]configv1.TLSGroup, error) {
+	groups, found, err := unstructured.NestedStringSlice(config, sourcePath...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read groups from %v: %w", sourcePath, err)
+	}
+	if !found {
+		return nil, nil
+	}
+
+	tlsGroups := make([]configv1.TLSGroup, len(groups))
+	for i, g := range groups {
+		tlsGroups[i] = configv1.TLSGroup(g)
+	}
+
+	curvePreferences, unrecognizedGroups := TLSGroupsToCurvePreferences(tlsGroups)
+
+	if len(curvePreferences) > 0 {
+		curvePrefsInterface := make([]interface{}, len(curvePreferences))
+		var t T
+		switch any(t).(type) {
+		case int64:
+			for i, cp := range curvePreferences {
+				curvePrefsInterface[i] = int64(cp)
+			}
+		case string:
+			for i, cp := range curvePreferences {
+				curvePrefsInterface[i] = strconv.Itoa(int(cp))
+			}
+		}
+
+		if err := unstructured.SetNestedSlice(config, curvePrefsInterface, targetPath...); err != nil {
+			return nil, fmt.Errorf("failed to set curve preferences at %v: %w", targetPath, err)
+		}
+	}
+
+	return unrecognizedGroups, nil
 }
 
 type TLSCertificateConfig struct {
