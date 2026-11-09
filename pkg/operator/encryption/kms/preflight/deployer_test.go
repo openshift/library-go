@@ -79,6 +79,7 @@ spec:
           cpu: 10m
       securityContext:
         allowPrivilegeEscalation: false
+        privileged: false
         capabilities:
           drop:
             - ALL
@@ -168,6 +169,7 @@ spec:
           cpu: 10m
       securityContext:
         allowPrivilegeEscalation: false
+        privileged: false
         capabilities:
           drop:
             - ALL
@@ -256,6 +258,7 @@ spec:
           cpu: 10m
       securityContext:
         allowPrivilegeEscalation: false
+        privileged: false
         capabilities:
           drop:
             - ALL
@@ -287,6 +290,7 @@ spec:
           cpu: 10m
       securityContext:
         allowPrivilegeEscalation: false
+        privileged: false
         capabilities:
           drop:
             - ALL

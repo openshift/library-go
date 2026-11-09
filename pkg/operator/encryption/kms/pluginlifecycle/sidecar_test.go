@@ -154,6 +154,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 			SecurityContext: &corev1.SecurityContext{
 				ReadOnlyRootFilesystem:   ptr.To(true),
 				AllowPrivilegeEscalation: ptr.To(false),
+				Privileged:               ptr.To(false),
 				Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 				SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 			},
@@ -224,6 +225,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						SecurityContext: &corev1.SecurityContext{
 							ReadOnlyRootFilesystem:   ptr.To(true),
 							AllowPrivilegeEscalation: ptr.To(false),
+							Privileged:               ptr.To(false),
 							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 							SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 						},
@@ -277,6 +279,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						SecurityContext: &corev1.SecurityContext{
 							ReadOnlyRootFilesystem:   ptr.To(true),
 							AllowPrivilegeEscalation: ptr.To(false),
+							Privileged:               ptr.To(false),
 							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 							SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 						},
@@ -309,6 +312,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						SecurityContext: &corev1.SecurityContext{
 							ReadOnlyRootFilesystem:   ptr.To(true),
 							AllowPrivilegeEscalation: ptr.To(false),
+							Privileged:               ptr.To(false),
 							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 							SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 						},
@@ -544,6 +548,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						SecurityContext: &corev1.SecurityContext{
 							ReadOnlyRootFilesystem:   ptr.To(true),
 							AllowPrivilegeEscalation: ptr.To(false),
+							Privileged:               ptr.To(false),
 							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 							SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 						},
@@ -593,6 +598,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						SecurityContext: &corev1.SecurityContext{
 							ReadOnlyRootFilesystem:   ptr.To(true),
 							AllowPrivilegeEscalation: ptr.To(false),
+							Privileged:               ptr.To(false),
 							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 							SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 						},
@@ -656,6 +662,7 @@ func TestEnsureKMSPluginSidecarInPodSpec(t *testing.T) {
 						SecurityContext: &corev1.SecurityContext{
 							ReadOnlyRootFilesystem:   ptr.To(true),
 							AllowPrivilegeEscalation: ptr.To(false),
+							Privileged:               ptr.To(false),
 							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 							SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 						},
@@ -830,6 +837,7 @@ func TestEnsureKMSPluginSidecarInStaticPodSpec(t *testing.T) {
 				RunAsUser:                ptr.To(int64(0)),
 				ReadOnlyRootFilesystem:   ptr.To(true),
 				AllowPrivilegeEscalation: ptr.To(false),
+				Privileged:               ptr.To(false),
 				Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 				SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 			},
@@ -858,6 +866,7 @@ func TestEnsureKMSPluginSidecarInStaticPodSpec(t *testing.T) {
 				RunAsUser:                ptr.To(int64(0)),
 				ReadOnlyRootFilesystem:   ptr.To(true),
 				AllowPrivilegeEscalation: ptr.To(false),
+				Privileged:               ptr.To(false),
 				Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 				SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 			},
