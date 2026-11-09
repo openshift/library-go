@@ -94,6 +94,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 					SecurityContext: &corev1.SecurityContext{
 						ReadOnlyRootFilesystem:   ptr.To(true),
 						AllowPrivilegeEscalation: ptr.To(false),
+						Privileged:               ptr.To(false),
 						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 						SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
@@ -158,6 +159,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 					SecurityContext: &corev1.SecurityContext{
 						ReadOnlyRootFilesystem:   ptr.To(true),
 						AllowPrivilegeEscalation: ptr.To(false),
+						Privileged:               ptr.To(false),
 						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 						SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
@@ -207,6 +209,7 @@ func TestVaultSidecarProvider_BuildSidecarContainer(t *testing.T) {
 					SecurityContext: &corev1.SecurityContext{
 						ReadOnlyRootFilesystem:   ptr.To(true),
 						AllowPrivilegeEscalation: ptr.To(false),
+						Privileged:               ptr.To(false),
 						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 						SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
