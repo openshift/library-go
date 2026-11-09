@@ -40,7 +40,7 @@ func ResolveKMSConfig(ctx context.Context, client dynamic.Interface, reference c
 		Type:     kms.VaultKMSProvider,
 	}
 	switch obj.GroupVersionKind() {
-	case schema.GroupVersionKind{Group: "kms.openshift.io", Version: "v1alpha1", Kind: "VaultKMSConfig"}:
+	case schema.GroupVersionKind{Group: "kms.hashicorp.com", Version: "v1", Kind: "VaultKMSConfig"}:
 		spec, _, err := unstructured.NestedMap(obj.Object, "spec")
 		if err != nil {
 			return kms.KMSPluginConfig{}, fmt.Errorf("failed to read KMS plugin configuration spec: %w", err)
