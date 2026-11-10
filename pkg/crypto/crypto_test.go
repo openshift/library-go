@@ -782,6 +782,59 @@ func TestTLSGroupsToCurveIDs(t *testing.T) {
 	}
 }
 
+func TestCurveIDToTLSGroup(t *testing.T) {
+	tests := []struct {
+		name      string
+		curveID   tls.CurveID
+		want      configv1.TLSGroup
+		wantFound bool
+	}{
+		{
+			name:      "X25519",
+			curveID:   tls.X25519,
+			want:      configv1.TLSGroupX25519,
+			wantFound: true,
+		},
+		{
+			name:      "secp256r1",
+			curveID:   tls.CurveP256,
+			want:      configv1.TLSGroupSecP256r1,
+			wantFound: true,
+		},
+		{
+			name:      "secp384r1",
+			curveID:   tls.CurveP384,
+			want:      configv1.TLSGroupSecP384r1,
+			wantFound: true,
+		},
+		{
+			name:      "X25519MLKEM768",
+			curveID:   tls.X25519MLKEM768,
+			want:      configv1.TLSGroupX25519MLKEM768,
+			wantFound: true,
+		},
+		{
+			name:      "unrecognized curve ID",
+			curveID:   tls.CurveID(9999),
+			want:      "",
+			wantFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, found := CurveIDToTLSGroup(tt.curveID)
+			if found != tt.wantFound {
+				t.Errorf("CurveIDToTLSGroup() found = %v, wantFound %v", found, tt.wantFound)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("CurveIDToTLSGroup() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestTLSGroupsToCurvePreferences(t *testing.T) {
 	want := []int32{int32(tls.X25519), int32(tls.CurveP256)}
 	t.Run("TLSGroup values", func(t *testing.T) {
