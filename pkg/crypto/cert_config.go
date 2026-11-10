@@ -46,7 +46,10 @@ func NewSigningCertificate(name string, keyGen KeyPairGenerator, opts ...Certifi
 	if o.signer != nil {
 		// Intermediate CA signed by the provided signer.
 		authorityKeyId := o.signer.Config.Certs[0].SubjectKeyId
-		template := newSigningCertificateTemplateForDuration(subject, o.lifetime, time.Now, authorityKeyId, subjectKeyId)
+		template, err := newSigningCertificateTemplateForDuration(subject, o.lifetime, time.Now, authorityKeyId, subjectKeyId)
+		if err != nil {
+			return nil, err
+		}
 		template.SignatureAlgorithm = 0
 		template.KeyUsage = KeyUsageForPublicKey(publicKey) | x509.KeyUsageCertSign
 
@@ -62,7 +65,10 @@ func NewSigningCertificate(name string, keyGen KeyPairGenerator, opts ...Certifi
 	}
 
 	// Self-signed root CA. AuthorityKeyId and SubjectKeyId match.
-	template := newSigningCertificateTemplateForDuration(subject, o.lifetime, time.Now, subjectKeyId, subjectKeyId)
+	template, err := newSigningCertificateTemplateForDuration(subject, o.lifetime, time.Now, subjectKeyId, subjectKeyId)
+	if err != nil {
+		return nil, err
+	}
 	template.SignatureAlgorithm = 0
 	template.KeyUsage = KeyUsageForPublicKey(publicKey) | x509.KeyUsageCertSign
 

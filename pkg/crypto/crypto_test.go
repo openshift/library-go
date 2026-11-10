@@ -226,7 +226,7 @@ func TestCrypto(t *testing.T) {
 }
 
 // Can be used for CA or intermediate signing certs
-func newSigningCertificateTemplate(subject pkix.Name, lifetime time.Duration, currentTime func() time.Time) *x509.Certificate {
+func newSigningCertificateTemplate(subject pkix.Name, lifetime time.Duration, currentTime func() time.Time) (*x509.Certificate, error) {
 	if lifetime <= 0 {
 		lifetime = DefaultCACertificateLifetimeDuration
 		fmt.Fprintf(os.Stderr, "Validity period of the certificate for %q is unset, resetting to %s!\n", subject.CommonName, lifetime.String())
@@ -244,7 +244,10 @@ func buildCA(t *testing.T) (crypto.PrivateKey, *x509.Certificate) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %#v", err)
 	}
-	caTemplate := newSigningCertificateTemplate(pkix.Name{CommonName: "CA"}, certificateLifetime, time.Now)
+	caTemplate, err := newSigningCertificateTemplate(pkix.Name{CommonName: "CA"}, certificateLifetime, time.Now)
+	if err != nil {
+		t.Fatalf("Unexpected error: %#v", err)
+	}
 	caCrt, err := signCertificate(caTemplate, caPublicKey, caTemplate, caPrivateKey)
 	if err != nil {
 		t.Fatalf("Unexpected error: %#v", err)
@@ -257,7 +260,10 @@ func buildIntermediate(t *testing.T, signingKey crypto.PrivateKey, signingCrt *x
 	if err != nil {
 		t.Fatalf("Unexpected error: %#v", err)
 	}
-	intermediateTemplate := newSigningCertificateTemplate(pkix.Name{CommonName: "Intermediate"}, certificateLifetime, time.Now)
+	intermediateTemplate, err := newSigningCertificateTemplate(pkix.Name{CommonName: "Intermediate"}, certificateLifetime, time.Now)
+	if err != nil {
+		t.Fatalf("Unexpected error: %#v", err)
+	}
 	intermediateCrt, err := signCertificate(intermediateTemplate, intermediatePublicKey, signingCrt, signingKey)
 	if err != nil {
 		t.Fatalf("Unexpected error: %#v", err)
@@ -325,6 +331,26 @@ func TestRandomSerialGenerator(t *testing.T) {
 	template := newServerCertificateTemplate(pkix.Name{CommonName: hostnames[0]}, hostnames, certificateLifetime, time.Now, nil, nil)
 	if _, err := generator.Next(template); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Serials must be positive (x509 requires it) and unique across rapid
+	// successive calls. The previous clock-seeded math/rand implementation
+	// could return duplicate serials when called within the same nanosecond;
+	// crypto/rand must not.
+	const iterations = 1000
+	seen := make(map[int64]struct{}, iterations)
+	for i := 0; i < iterations; i++ {
+		serial, err := generator.Next(template)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if serial <= 0 {
+			t.Fatalf("expected a positive serial number, got %d", serial)
+		}
+		if _, ok := seen[serial]; ok {
+			t.Fatalf("duplicate serial number generated: %d", serial)
+		}
+		seen[serial] = struct{}{}
 	}
 }
 
@@ -433,7 +459,10 @@ func TestValidityPeriodOfSigningCertificate(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		cert := newSigningCertificateTemplate(pkix.Name{CommonName: "CA"}, test.passedDuration, currentFakeTime)
+		cert, err := newSigningCertificateTemplate(pkix.Name{CommonName: "CA"}, test.passedDuration, currentFakeTime)
+		if err != nil {
+			t.Fatalf("Unexpected error: %#v", err)
+		}
 		expirationDate := cert.NotAfter
 		expectedExpirationDate := currentTime.Add(test.realDuration)
 		if expectedExpirationDate != expirationDate {
