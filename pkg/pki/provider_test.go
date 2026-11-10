@@ -194,6 +194,7 @@ func TestResolveCertificateConfig_DefaultProfile_AllTypes(t *testing.T) {
 			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
 		},
 		{
+			// todo: serving and client strength are the same in the default profile, this may not be a useful case as-is
 			name:     "peer picks stronger of serving and client",
 			certType: CertificateTypePeer,
 			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
@@ -208,8 +209,12 @@ func TestResolveCertificateConfig_DefaultProfile_AllTypes(t *testing.T) {
 			if cfg == nil {
 				t.Fatal("expected non-nil config")
 			}
-			if cfg.Key != tc.want {
-				t.Errorf("Key = %+v, want %+v", cfg.Key, tc.want)
+			pub, _, err := cfg.Key.GenerateKeyPair()
+			if err != nil {
+				t.Fatalf("GenerateKeyPair() error = %v", err)
+			}
+			if err := tc.want.Matches(pub); err != nil {
+				t.Errorf("resolved key does not match expected generator: %v", err)
 			}
 		})
 	}
