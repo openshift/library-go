@@ -311,3 +311,7 @@ func (f *fakeCSRClient) Apply(ctx context.Context, certificateSigningRequest *ce
 func (f *fakeCSRClient) ApplyStatus(ctx context.Context, certificateSigningRequest *certificatesv1.CertificateSigningRequestApplyConfiguration, opts metav1.ApplyOptions) (*certificates.CertificateSigningRequest, error) {
 	panic("not implemented")
 }
+
+func (f *fakeCSRClient) DeleteWithResult(ctx context.Context, name string, opts metav1.DeleteOptions) (metav1.APIResult, error) {
+	return nil, errors.New("not implemented")
+}

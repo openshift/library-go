@@ -15,8 +15,8 @@ import (
 	"k8s.io/client-go/util/cert"
 	"k8s.io/utils/ptr"
 
-	celgo "github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/operators"
+	celgo "cel.dev/cel-go/cel"
+	"cel.dev/cel-go/common/operators"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 

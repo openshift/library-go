@@ -361,16 +361,16 @@ func TestDisabledAPIService(t *testing.T) {
 	// build API disabled and deleted
 	operator.getAPIServicesToManageFn = func() (enabled []*apiregistrationv1.APIService, disabled []*apiregistrationv1.APIService, err error) {
 		return []*apiregistrationv1.APIService{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "v1.apps.openshift.io"},
-					Spec:       apiregistrationv1.APIServiceSpec{Group: "apps.openshift.io", Version: "v1", Service: &apiregistrationv1.ServiceReference{}},
-				},
-			}, []*apiregistrationv1.APIService{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "v1.build.openshift.io"},
-					Spec:       apiregistrationv1.APIServiceSpec{Group: "build.openshift.io", Version: "v1", Service: &apiregistrationv1.ServiceReference{}},
-				},
-			}, nil
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "v1.apps.openshift.io"},
+				Spec:       apiregistrationv1.APIServiceSpec{Group: "apps.openshift.io", Version: "v1", Service: &apiregistrationv1.ServiceReference{}},
+			},
+		}, []*apiregistrationv1.APIService{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "v1.build.openshift.io"},
+				Spec:       apiregistrationv1.APIServiceSpec{Group: "build.openshift.io", Version: "v1", Service: &apiregistrationv1.ServiceReference{}},
+			},
+		}, nil
 	}
 
 	_ = operator.sync(context.TODO(), factory.NewSyncContext("test", eventRecorder))

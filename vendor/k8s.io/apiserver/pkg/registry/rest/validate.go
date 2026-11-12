@@ -128,7 +128,7 @@ func validateDeclaratively(ctx context.Context, scheme *runtime.Scheme, obj, old
 	if err != nil {
 		return field.ErrorList{field.InternalError(nil, err)}
 	}
-	versionedObj, err := scheme.ConvertToVersion(obj, versionedGroupVersion)
+	versionedObj, err := scheme.UnsafeConvertToVersion(obj, versionedGroupVersion)
 	if err != nil {
 		return field.ErrorList{field.InternalError(nil, fmt.Errorf("unexpected error converting to versioned type: %w", err))}
 	}
@@ -138,7 +138,7 @@ func validateDeclaratively(ctx context.Context, scheme *runtime.Scheme, obj, old
 	case operation.Create:
 		return scheme.Validate(ctx, o.Options, versionedObj, subresources...)
 	case operation.Update:
-		versionedOldObj, err = scheme.ConvertToVersion(oldObj, versionedGroupVersion)
+		versionedOldObj, err = scheme.UnsafeConvertToVersion(oldObj, versionedGroupVersion)
 		if err != nil {
 			return field.ErrorList{field.InternalError(nil, fmt.Errorf("unexpected error converting to versioned type: %w", err))}
 		}
@@ -214,15 +214,18 @@ func gatherDeclarativeValidationMismatches(imperativeErrs, declarativeErrs field
 	fuzzyMatcher := field.ErrorMatcher{}.ByType().ByOrigin().RequireOriginWhenInvalid().ByFieldNormalized(opts.NormalizationRules)
 	fuzzyMatcherWithShortCircuit := fuzzyMatcher.MatchAncestorShortCircuit()
 
-	// Dedupe imperative errors using the fuzzy matcher (type, field, and origin) as they are
-	// not intended and come from (buggy) duplicate validation calls.
+	// Dedupe imperative errors using the fuzzy matcher (type, field, origin, and coveredByDeclarative flag)
+	// as they are not intended and come from (buggy) duplicate validation calls.
+	// Matching by CoveredByDeclarative ensures we don't deduplicate and accidentally drop generic
+	// covered validations that happen to produce the same error signature as tighter semantic constraints.
 	// This is necessary as without deduping we could get unmatched
 	// imperative errors for cases that are correct (matching).
+	dedupeMatcher := fuzzyMatcher.ByCoveredByDeclarative()
 	dedupedImperativeErrs := field.ErrorList{}
 	for _, err := range imperativeErrs {
 		found := false
 		for _, existingErr := range dedupedImperativeErrs {
-			if fuzzyMatcher.Matches(existingErr, err) {
+			if dedupeMatcher.Matches(existingErr, err) {
 				found = true
 				break
 			}
@@ -424,6 +427,14 @@ func ValidateDeclarativelyWithMigrationChecks(ctx context.Context, scheme *runti
 	errs = append(errs, enforcedDeclarativeErrs...)
 
 	return errs
+}
+
+// ValidateDeclarativelyForManifest runs ValidateDeclarativelyWithMigrationChecks as a create, for
+// objects validated outside a REST request, such as static manifests. gv is the API version whose
+// declarative validation applies, and config should match the one the kind's REST strategy uses.
+func ValidateDeclarativelyForManifest(ctx context.Context, scheme *runtime.Scheme, gv schema.GroupVersion, obj runtime.Object, errs field.ErrorList, config DeclarativeValidationConfig) field.ErrorList {
+	ctx = genericapirequest.WithRequestInfo(ctx, &genericapirequest.RequestInfo{APIGroup: gv.Group, APIVersion: gv.Version})
+	return ValidateDeclarativelyWithMigrationChecks(ctx, scheme, obj, nil, errs, operation.Create, config)
 }
 
 // RecordDuplicateValidationErrors increments a metric and log the error when duplicate validation errors are found.

@@ -15,6 +15,7 @@ type OperatorV1alpha1Interface interface {
 	ClusterAPIsGetter
 	ClusterVersionOperatorsGetter
 	EtcdBackupsGetter
+	EtcdBackupPoliciesGetter
 	ImageContentSourcePoliciesGetter
 	IngressesGetter
 	OLMsGetter
@@ -35,6 +36,10 @@ func (c *OperatorV1alpha1Client) ClusterVersionOperators() ClusterVersionOperato
 
 func (c *OperatorV1alpha1Client) EtcdBackups() EtcdBackupInterface {
 	return newEtcdBackups(c)
+}
+
+func (c *OperatorV1alpha1Client) EtcdBackupPolicies() EtcdBackupPolicyInterface {
+	return newEtcdBackupPolicies(c)
 }
 
 func (c *OperatorV1alpha1Client) ImageContentSourcePolicies() ImageContentSourcePolicyInterface {
@@ -93,7 +98,9 @@ func setConfigDefaults(config *rest.Config) {
 	gv := operatorv1alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
+	if config.NegotiatedSerializer == nil {
+		config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
+	}
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
