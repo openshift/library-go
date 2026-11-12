@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/sharding"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
@@ -126,6 +127,10 @@ func (i FakeInfrastructureSharedInformer) SetWatchErrorHandlerWithContext(ctx ca
 	return nil
 }
 func (i FakeInfrastructureSharedInformer) SetTransform(f cache.TransformFunc) error {
+	return nil
+}
+
+func (i FakeInfrastructureSharedInformer) SetShardSelector(selector sharding.Selector) error {
 	return nil
 }
 

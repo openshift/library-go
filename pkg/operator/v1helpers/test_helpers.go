@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/sharding"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -119,6 +120,10 @@ func (fakeSharedIndexInformer) SetWatchErrorHandlerWithContext(handler cache.Wat
 }
 
 func (fakeSharedIndexInformer) SetTransform(f cache.TransformFunc) error {
+	panic("implement me")
+}
+
+func (fakeSharedIndexInformer) SetShardSelector(selector sharding.Selector) error {
 	panic("implement me")
 }
 
