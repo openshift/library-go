@@ -12,7 +12,6 @@ import (
 
 type ConfigV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	BackupsGetter
 	ClusterMonitoringsGetter
 	ControllerManagersGetter
 	InsightsDataGathersGetter
@@ -22,10 +21,6 @@ type ConfigV1alpha1Interface interface {
 // ConfigV1alpha1Client is used to interact with features provided by the config.openshift.io group.
 type ConfigV1alpha1Client struct {
 	restClient rest.Interface
-}
-
-func (c *ConfigV1alpha1Client) Backups() BackupInterface {
-	return newBackups(c)
 }
 
 func (c *ConfigV1alpha1Client) ClusterMonitorings() ClusterMonitoringInterface {
@@ -88,7 +83,9 @@ func setConfigDefaults(config *rest.Config) {
 	gv := configv1alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
+	if config.NegotiatedSerializer == nil {
+		config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
+	}
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
