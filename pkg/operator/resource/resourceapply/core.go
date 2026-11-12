@@ -262,8 +262,24 @@ func ApplyServiceAccountImproved(ctx context.Context, client coreclientv1.Servic
 	return actual, true, err
 }
 
-// ApplyConfigMap merges objectmeta, requires data
+// ApplyConfigMapImproved merges objectmeta, requires data
 func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, required *corev1.ConfigMap, cache ResourceCache) (*corev1.ConfigMap, bool, error) {
+	return ApplyConfigMapImprovedWithDiffFunc(ctx, client, recorder, required, cache, func(existing, required *corev1.ConfigMap) string {
+		return JSONPatchNoError(existing, required)
+	})
+}
+
+// ApplyConfigMapImprovedWithDiffFunc behaves like ApplyConfigMapImproved, but lets the caller
+// control how the change between the existing and required ConfigMap is rendered in the
+// verbose log message emitted on update. diffFunc must not be nil.
+func ApplyConfigMapImprovedWithDiffFunc(
+	ctx context.Context,
+	client coreclientv1.ConfigMapsGetter,
+	recorder events.Recorder,
+	required *corev1.ConfigMap,
+	cache ResourceCache,
+	diffFunc func(existing, required *corev1.ConfigMap) string,
+) (*corev1.ConfigMap, bool, error) {
 	existing, err := client.ConfigMaps(required.Namespace).Get(ctx, required.Name, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		requiredCopy := required.DeepCopy()
@@ -348,16 +364,33 @@ func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsG
 		sort.Sort(sort.StringSlice(modifiedKeys))
 		details = fmt.Sprintf("cause by changes in %v", strings.Join(modifiedKeys, ","))
 	}
-	if klog.V(2).Enabled() {
-		klog.Infof("ConfigMap %q changes: %v", required.Namespace+"/"+required.Name, JSONPatchNoError(existing, required))
+	logger := klog.FromContext(ctx)
+	if logger.V(2).Enabled() {
+		logger.V(2).Info("ConfigMap changed", "namespace", required.Namespace, "name", required.Name, "diff", diffFunc(existing.DeepCopy(), required.DeepCopy()))
 	}
 	resourcehelper.ReportUpdateEvent(recorder, required, err, details)
 	cache.UpdateCachedResourceMetadata(required, actual)
 	return actual, true, err
 }
 
-// ApplySecret merges objectmeta, requires data
+// ApplySecretImproved merges objectmeta, requires data
 func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, requiredInput *corev1.Secret, cache ResourceCache) (*corev1.Secret, bool, error) {
+	return ApplySecretImprovedWithDiffFunc(ctx, client, recorder, requiredInput, cache, func(existing, modified *corev1.Secret) string {
+		return JSONPatchSecretNoError(existing, modified)
+	})
+}
+
+// ApplySecretImprovedWithDiffFunc behaves like ApplySecretImproved, but lets the caller
+// control how the change between the existing and the modified Secret is rendered in the
+// verbose (klog V(4)) log message emitted on update. diffFunc must not be nil.
+func ApplySecretImprovedWithDiffFunc(
+	ctx context.Context,
+	client coreclientv1.SecretsGetter,
+	recorder events.Recorder,
+	requiredInput *corev1.Secret,
+	cache ResourceCache,
+	diffFunc func(existing, modified *corev1.Secret) string,
+) (*corev1.Secret, bool, error) {
 	// copy the stringData to data.  Error on a data content conflict inside required.  This is usually a bug.
 
 	existing, err := client.Secrets(requiredInput.Namespace).Get(ctx, requiredInput.Name, metav1.GetOptions{})
@@ -427,8 +460,9 @@ func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter,
 		return existing, false, nil
 	}
 
-	if klog.V(4).Enabled() {
-		klog.Infof("Secret %s/%s changes: %v", required.Namespace, required.Name, JSONPatchSecretNoError(existing, existingCopy))
+	logger := klog.FromContext(ctx)
+	if logger.V(4).Enabled() {
+		logger.V(4).Info("Secret changed", "namespace", required.Namespace, "name", required.Name, "diff", diffFunc(existing.DeepCopy(), existingCopy.DeepCopy()))
 	}
 
 	var actual *corev1.Secret
