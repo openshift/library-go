@@ -1,6 +1,7 @@
 package certrotation
 
 import (
+	"bytes"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"slices"
@@ -8,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -128,7 +130,7 @@ func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			actual := needNewTargetCertKeyPairForTime(test.annotations, signer, test.refresh, test.refreshOnlyWhenExpired)
+			actual := needNewTargetCertKeyPairForTime(test.annotations, signer, test.refresh, test.refreshOnlyWhenExpired, clock.RealClock{})
 			if !strings.HasPrefix(actual, test.expected) {
 				t.Errorf("expected %v, got %v", test.expected, actual)
 			}
@@ -691,6 +693,7 @@ func TestNeedNewTargetCertKeyPair(t *testing.T) {
 				test.refresh,
 				test.refreshOnlyWhenExpired,
 				test.creationRequired,
+				clock.RealClock{},
 			)
 
 			if test.expected == "" {
@@ -973,5 +976,261 @@ func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 				t.Errorf("expected cert chain with at least 2 certs, got %d", len(certConfig.Certs))
 			}
 		})
+	}
+}
+
+func TestEnsureTargetCertKeyPairWithFakeClock(t *testing.T) {
+	newFixture := func(t *testing.T, fakeClock *clocktesting.FakeClock, refreshOnlyWhenExpired bool) (*RotatedSelfSignedCertKeySecret, *crypto.CA, *kubefake.Clientset, cache.Indexer, events.InMemoryRecorder) {
+		t.Helper()
+		recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(fakeClock.Now()))
+
+		// Signer CA minted at the fake clock time through the signer rotator (legacy path).
+		signerIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		signerClient := kubefake.NewClientset()
+		signerRotator := &RotatedSigningCASecret{
+			Namespace:     "ns",
+			Name:          "signer",
+			Validity:      48 * time.Hour,
+			Refresh:       24 * time.Hour,
+			Client:        signerClient.CoreV1(),
+			Lister:        corev1listers.NewSecretLister(signerIndexer),
+			EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(fakeClock.Now())),
+			Clock:         fakeClock,
+		}
+		signerCA, _, err := signerRotator.EnsureSigningCertKeyPair(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		client := kubefake.NewClientset()
+		target := &RotatedSelfSignedCertKeySecret{
+			Namespace:              "ns",
+			Name:                   "target",
+			Validity:               24 * time.Hour,
+			Refresh:                12 * time.Hour,
+			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertCreator: &ClientRotation{
+				UserInfo: &user.DefaultInfo{Name: "test-client"},
+				Clock:    fakeClock,
+			},
+			Client:        client.CoreV1(),
+			Lister:        corev1listers.NewSecretLister(indexer),
+			EventRecorder: recorder,
+			Clock:         fakeClock,
+		}
+		return target, signerCA, client, indexer, recorder
+	}
+
+	// hasEvent reports whether any recorded event matches the reason and
+	// contains the message substring.
+	hasEvent := func(recorder events.InMemoryRecorder, reason, messageSubstr string) bool {
+		for _, e := range recorder.Events() {
+			if e.Reason == reason && strings.Contains(e.Message, messageSubstr) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// ensure runs one sync and mirrors the written secret into the lister,
+	// standing in for the informer the real controller runs with.
+	ensure := func(t *testing.T, target *RotatedSelfSignedCertKeySecret, signerCA *crypto.CA, client *kubefake.Clientset, indexer cache.Indexer) *corev1.Secret {
+		t.Helper()
+		secret, err := target.EnsureTargetCertKeyPair(t.Context(), signerCA, signerCA.Config.Certs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		indexer.Add(secret)
+		return secret
+	}
+
+	// Steady state must hold with the fake clock far from real time in both
+	// directions: 30 days in the past catches rotation *decisions* reading
+	// real time; 30 days in the future catches certificate *generation*
+	// reading real time (the cert looks already expired on the fake clock).
+	offsetTestCases := []struct {
+		name   string
+		offset time.Duration
+	}{
+		{
+			name:   "fake clock 30 days in the past",
+			offset: -30 * 24 * time.Hour,
+		},
+		{
+			name:   "fake clock 30 days in the future",
+			offset: 30 * 24 * time.Hour,
+		},
+	}
+
+	for _, tc := range offsetTestCases {
+		t.Run("steady state, "+tc.name, func(t *testing.T) {
+			fakeClock := clocktesting.NewFakeClock(time.Now().Add(tc.offset).Truncate(time.Second))
+			target, signerCA, client, indexer, _ := newFixture(t, fakeClock, false)
+
+			first := ensure(t, target, signerCA, client, indexer)
+			firstPEM := append([]byte{}, first.Data["tls.crt"]...)
+
+			client.ClearActions()
+			second := ensure(t, target, signerCA, client, indexer)
+			if actions := client.Actions(); len(actions) != 0 {
+				t.Fatalf("expected no client actions in steady state, got %s", spew.Sdump(actions))
+			}
+			if !bytes.Equal(firstPEM, second.Data["tls.crt"]) {
+				t.Error("expected the certificate to be unchanged in steady state")
+			}
+		})
+	}
+
+	t.Run("rotate on 80 percent of validity", func(t *testing.T) {
+		now := time.Now().Truncate(time.Second)
+		fakeClock := clocktesting.NewFakeClock(now)
+		target, signerCA, client, indexer, recorder := newFixture(t, fakeClock, false)
+
+		first := ensure(t, target, signerCA, client, indexer)
+
+		fakeClock.Step(20 * time.Hour)
+		client.ClearActions()
+		second := ensure(t, target, signerCA, client, indexer)
+
+		if actions := client.Actions(); len(actions) != 1 || !actions[0].Matches("update", "secrets") {
+			t.Fatalf("expected one secret update action, got %s", spew.Sdump(actions))
+		}
+		if bytes.Equal(first.Data["tls.crt"], second.Data["tls.crt"]) {
+			t.Fatal("expected a new certificate after advancing the clock")
+		}
+		cert, err := crypto.GetCAFromBytes(second.Data["tls.crt"], second.Data["tls.key"])
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantNotBefore := now.Add(20 * time.Hour).Add(-time.Second)
+		if !cert.Config.Certs[0].NotBefore.Equal(wantNotBefore) {
+			t.Errorf("rotated NotBefore = %v, want %v (generation must use the fake clock)", cert.Config.Certs[0].NotBefore, wantNotBefore)
+		}
+		// The 80% rule must be the trigger, not the Refresh rule (Refresh is
+		// 12h and the step is 20h, so both thresholds are crossed).
+		if !hasEvent(recorder, "TargetUpdateRequired", "past refresh time (80% of validity)") {
+			t.Errorf("expected a TargetUpdateRequired event citing the 80%% rule, got %s", spew.Sdump(recorder.Events()))
+		}
+	})
+
+	t.Run("rotate on expiry", func(t *testing.T) {
+		now := time.Now().Truncate(time.Second)
+		fakeClock := clocktesting.NewFakeClock(now)
+		target, signerCA, client, indexer, recorder := newFixture(t, fakeClock, false)
+
+		ensure(t, target, signerCA, client, indexer)
+
+		fakeClock.Step(25 * time.Hour)
+		client.ClearActions()
+		second := ensure(t, target, signerCA, client, indexer)
+
+		if actions := client.Actions(); len(actions) != 1 || !actions[0].Matches("update", "secrets") {
+			t.Fatalf("expected one secret update action after expiry, got %s", spew.Sdump(actions))
+		}
+		// The signer has 23h left of its 48h validity, so the target's 24h
+		// validity must be capped at the signer's remaining lifetime — this
+		// pins RotatedSelfSignedCertKeySecret.Clock.
+		cert, err := crypto.GetCAFromBytes(second.Data["tls.crt"], second.Data["tls.key"])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !cert.Config.Certs[0].NotAfter.Equal(signerCA.Config.Certs[0].NotAfter) {
+			t.Errorf("rotated NotAfter = %v, want signer NotAfter %v (validity cap must use the fake clock)", cert.Config.Certs[0].NotAfter, signerCA.Config.Certs[0].NotAfter)
+		}
+		if !hasEvent(recorder, "TargetUpdateRequired", "already expired") {
+			t.Errorf("expected a TargetUpdateRequired event citing expiry, got %s", spew.Sdump(recorder.Events()))
+		}
+	})
+
+	t.Run("refresh only when expired ignores thresholds", func(t *testing.T) {
+		now := time.Now().Truncate(time.Second)
+		fakeClock := clocktesting.NewFakeClock(now)
+		target, signerCA, client, indexer, recorder := newFixture(t, fakeClock, true)
+
+		ensure(t, target, signerCA, client, indexer)
+
+		// Past 80% of validity and past the refresh time, but not expired:
+		// RefreshOnlyWhenExpired must not rotate.
+		fakeClock.Step(20 * time.Hour)
+		client.ClearActions()
+		ensure(t, target, signerCA, client, indexer)
+		if actions := client.Actions(); len(actions) != 0 {
+			t.Fatalf("expected no client actions before expiry in RefreshOnlyWhenExpired mode, got %s", spew.Sdump(actions))
+		}
+
+		fakeClock.Step(5 * time.Hour)
+		client.ClearActions()
+		ensure(t, target, signerCA, client, indexer)
+		if actions := client.Actions(); len(actions) != 1 || !actions[0].Matches("update", "secrets") {
+			t.Fatalf("expected one secret update action after expiry, got %s", spew.Sdump(actions))
+		}
+		if !hasEvent(recorder, "TargetUpdateRequired", "already expired") {
+			t.Errorf("expected a TargetUpdateRequired event citing expiry, got %s", spew.Sdump(recorder.Events()))
+		}
+	})
+}
+
+func TestTargetCertCreatorsWithFakeClock(t *testing.T) {
+	fixedTime := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+	fakeClock := clocktesting.NewFakeClock(fixedTime)
+	validity := 24 * time.Hour
+	wantNotBefore := fixedTime.Add(-time.Second)
+	wantNotAfter := fixedTime.Add(validity)
+
+	// The legacy generation path hardcodes SHA256WithRSA signatures, so the
+	// signer CA must use an RSA key.
+	parentConfig, err := crypto.NewSigningCertificate("parent-ca", crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithClock(fakeClock))
+	if err != nil {
+		t.Fatal(err)
+	}
+	signerCA := &crypto.CA{SerialGenerator: &crypto.RandomSerialGenerator{}, Config: parentConfig}
+
+	ecdsaKeyGen := crypto.ECDSAKeyPairGenerator{Curve: crypto.P256}
+
+	testCases := []struct {
+		name    string
+		creator TargetCertCreator
+	}{
+		{
+			name:    "client rotation",
+			creator: &ClientRotation{UserInfo: &user.DefaultInfo{Name: "test-client"}, Clock: fakeClock},
+		},
+		{
+			name:    "serving rotation",
+			creator: &ServingRotation{Hostnames: func() []string { return []string{"localhost"} }, Clock: fakeClock},
+		},
+		{
+			name:    "peer rotation",
+			creator: &PeerRotation{Hostnames: func() []string { return []string{"peer-host"} }, UserInfo: &user.DefaultInfo{Name: "peer-host"}, Clock: fakeClock},
+		},
+		{
+			name:    "signer rotation",
+			creator: &SignerRotation{SignerName: "target-signer", Clock: fakeClock},
+		},
+	}
+
+	for _, tc := range testCases {
+		for _, keyGen := range []struct {
+			name   string
+			keyGen crypto.KeyPairGenerator
+		}{
+			{name: "legacy path", keyGen: nil},
+			{name: "PKI path", keyGen: ecdsaKeyGen},
+		} {
+			t.Run(tc.name+" "+keyGen.name, func(t *testing.T) {
+				certConfig, err := tc.creator.NewCertificate(signerCA, validity, keyGen.keyGen)
+				if err != nil {
+					t.Fatal(err)
+				}
+				leaf := certConfig.Certs[0]
+				if !leaf.NotBefore.Equal(wantNotBefore) {
+					t.Errorf("NotBefore = %v, want %v (generation must use the fake clock)", leaf.NotBefore, wantNotBefore)
+				}
+				if !leaf.NotAfter.Equal(wantNotAfter) {
+					t.Errorf("NotAfter = %v, want %v", leaf.NotAfter, wantNotAfter)
+				}
+			})
+		}
 	}
 }
