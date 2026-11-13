@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	configv1 "github.com/openshift/api/config/v1"
 )
@@ -882,4 +883,80 @@ func TestValidTLSGroups(t *testing.T) {
 			t.Errorf("ValidTLSGroups() not sorted: %q before %q", groups[i-1], groups[i])
 		}
 	}
+}
+
+func TestMakeCertsAtTime(t *testing.T) {
+	fixedTime := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+	fakeClock := clocktesting.NewFakePassiveClock(fixedTime)
+	lifetime := 24 * time.Hour
+	wantNotBefore := fixedTime.Add(-time.Second)
+	wantNotAfter := fixedTime.Add(lifetime)
+
+	newCA := func(t *testing.T) *CA {
+		t.Helper()
+		cfg, err := NewSigningCertificate("test-ca", RSAKeyPairGenerator{Bits: 2048}, WithClock(fakeClock))
+		require.NoError(t, err)
+		return &CA{SerialGenerator: &RandomSerialGenerator{}, Config: cfg}
+	}
+
+	testCases := []struct {
+		name string
+		mint func(t *testing.T) *TLSCertificateConfig
+	}{
+		{
+			name: "signer AtTime",
+			mint: func(t *testing.T) *TLSCertificateConfig {
+				cfg, err := UnsafeMakeSelfSignedCAConfigForDurationAtTime("at-time-ca", fakeClock.Now, lifetime)
+				require.NoError(t, err)
+				return cfg
+			},
+		},
+		{
+			name: "server cert AtTime",
+			mint: func(t *testing.T) *TLSCertificateConfig {
+				cfg, err := newCA(t).MakeServerCertForDurationAtTime(sets.New("localhost"), lifetime, fakeClock.Now)
+				require.NoError(t, err)
+				return cfg
+			},
+		},
+		{
+			name: "client cert AtTime",
+			mint: func(t *testing.T) *TLSCertificateConfig {
+				cfg, err := newCA(t).MakeClientCertificateForDurationAtTime(&user.DefaultInfo{Name: "test-client"}, lifetime, fakeClock.Now)
+				require.NoError(t, err)
+				return cfg
+			},
+		},
+		{
+			name: "CA config AtTime",
+			mint: func(t *testing.T) *TLSCertificateConfig {
+				cfg, err := MakeCAConfigForDurationAtTime("sub-ca", lifetime, fakeClock.Now, newCA(t))
+				require.NoError(t, err)
+				return cfg
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := tc.mint(t)
+			leaf := cfg.Certs[0]
+			if !leaf.NotBefore.Equal(wantNotBefore) {
+				t.Errorf("NotBefore = %v, want %v", leaf.NotBefore, wantNotBefore)
+			}
+			if !leaf.NotAfter.Equal(wantNotAfter) {
+				t.Errorf("NotAfter = %v, want %v", leaf.NotAfter, wantNotAfter)
+			}
+		})
+	}
+
+	t.Run("legacy delegation uses real time", func(t *testing.T) {
+		before := time.Now().Add(-2 * time.Second).Truncate(time.Second)
+		cfg, err := MakeSelfSignedCAConfigForDuration("legacy-ca", lifetime)
+		require.NoError(t, err)
+		after := time.Now().Truncate(time.Second)
+		if cfg.Certs[0].NotBefore.Before(before) || cfg.Certs[0].NotBefore.After(after) {
+			t.Errorf("NotBefore = %v, want within [%v, %v]", cfg.Certs[0].NotBefore, before, after)
+		}
+	})
 }
