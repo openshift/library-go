@@ -97,6 +97,15 @@ type TargetCertRechecker interface {
 	RecheckChannel() <-chan struct{}
 }
 
+func (c RotatedSelfSignedCertKeySecret) RecheckChannel() <-chan struct{} {
+	refresher, ok := c.CertCreator.(TargetCertRechecker)
+	if !ok {
+		return nil
+	}
+
+	return refresher.RecheckChannel()
+}
+
 func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Context, signingCertKeyPair *crypto.CA, caBundleCerts []*x509.Certificate) (*corev1.Secret, error) {
 	// at this point our trust bundle has been updated.  We don't know for sure that consumers have updated, but that's why we have a second
 	// validity percentage.  We always check to see if we need to sign.  Often we are signing with an old key or we have no target

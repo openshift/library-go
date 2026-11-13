@@ -63,6 +63,10 @@ type RotatedSigningCASecret struct {
 	EventRecorder events.Recorder
 }
 
+func (c RotatedSigningCASecret) NamespaceName() string {
+	return fmt.Sprintf("%s/%s", c.Namespace, c.Name)
+}
+
 // EnsureSigningCertKeyPair manages the entire lifecycle of a signer cert as a secret, from creation to continued rotation.
 // It always returns the currently used CA pair, a bool indicating whether it was created/updated within this function call and an error.
 func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*crypto.CA, bool, error) {
