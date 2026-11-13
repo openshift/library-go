@@ -11,6 +11,8 @@ import (
 	"k8s.io/client-go/util/cert"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/clock"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 func TestValidateCertificates(t *testing.T) {
@@ -56,6 +58,84 @@ func TestValidateCertificatesExpired(t *testing.T) {
 	if len(validCerts) != 1 {
 		t.Fatalf("expected 1 valid certificate in the chain, but got %d", len(validCerts))
 	}
+}
+
+func TestFilterExpiredCertsWithClock(t *testing.T) {
+	fixedTime := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+	fakeClock := clocktesting.NewFakeClock(fixedTime)
+
+	// Expired relative to the fake clock: window ends before fixedTime+1h.
+	expired, err := newTestCACertificate(pkix.Name{CommonName: "expired"}, int64(1), metav1.Duration{Duration: time.Hour}, fakeClock.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Advance so the first cert's window (fixedTime-1s .. fixedTime+1h) is past.
+	fakeClock.Step(2 * time.Hour)
+
+	valid, err := newTestCACertificate(pkix.Name{CommonName: "valid"}, int64(2), metav1.Duration{Duration: 24 * time.Hour}, fakeClock.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testCases := []struct {
+		name string
+		clk  clock.PassiveClock
+		want int
+	}{
+		{
+			name: "fake clock at advance time keeps only the valid cert",
+			clk:  fakeClock,
+			want: 1,
+		},
+		{
+			name: "fake clock past both windows keeps neither",
+			clk:  clocktesting.NewFakePassiveClock(fixedTime.Add(72 * time.Hour)),
+			want: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := FilterExpiredCertsWithClock(tc.clk, expired.Config.Certs[0], valid.Config.Certs[0])
+			if len(got) != tc.want {
+				t.Fatalf("expected %d valid certificates, got %d", tc.want, len(got))
+			}
+		})
+	}
+
+	// The real-time paths (legacy FilterExpiredCerts and a nil clock) are
+	// checked against certs minted relative to real now, not the fixed-date
+	// certs above, so this test does not become a time bomb once 2030 passes.
+	t.Run("real time paths use certs relative to now", func(t *testing.T) {
+		nowExpired, err := newTestCACertificate(pkix.Name{CommonName: "now-expired"}, int64(3), metav1.Duration{Duration: time.Hour}, func() time.Time { return time.Now().Add(-2 * time.Hour) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		nowValid, err := newTestCACertificate(pkix.Name{CommonName: "now-valid"}, int64(4), metav1.Duration{Duration: 24 * time.Hour}, time.Now)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, tc := range []struct {
+			name string
+			got  []*x509.Certificate
+		}{
+			{
+				name: "legacy FilterExpiredCerts",
+				got:  FilterExpiredCerts(nowExpired.Config.Certs[0], nowValid.Config.Certs[0]),
+			},
+			{
+				name: "nil clock means real time",
+				got:  FilterExpiredCertsWithClock(nil, nowExpired.Config.Certs[0], nowValid.Config.Certs[0]),
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				if len(tc.got) != 1 || !tc.got[0].Equal(nowValid.Config.Certs[0]) {
+					t.Fatalf("expected only the valid-now certificate to survive, got %d certs", len(tc.got))
+				}
+			})
+		}
+	})
 }
 
 // NewCACertificate generates and signs new CA certificate and key.
