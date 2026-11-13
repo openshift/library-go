@@ -1,6 +1,8 @@
 package apiserver
 
 import (
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -9,12 +11,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 
 	configv1 "github.com/openshift/api/config/v1"
+	configfake "github.com/openshift/client-go/config/clientset/versioned/fake"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 
 	"github.com/openshift/library-go/pkg/crypto"
+	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
@@ -387,5 +393,558 @@ func TestObserveTLSSecurityProfileWithGroupPathsSteadyState(t *testing.T) {
 		if strings.Contains(ev.Message, "groups changed") {
 			t.Errorf("steady-state reconcile emitted a spurious groups-changed event: %q", ev.Message)
 		}
+	}
+}
+
+// tlsGroupToCurveIDOrDie converts a TLS group to curve ID as float64 or panics
+func tlsGroupToCurveIDOrDie(group configv1.TLSGroup) float64 {
+	curveID, ok := crypto.TLSGroupToCurveID(group)
+	if !ok {
+		panic("unrecognized TLS group: " + group)
+	}
+	return float64(curveID)
+}
+
+// groupsToCurvePrefs converts TLS groups to curve preference IDs as float64 (JSON unmarshal format)
+func groupsToCurvePrefs(t *testing.T, groups []configv1.TLSGroup) []interface{} {
+	result := make([]interface{}, len(groups))
+	for i, group := range groups {
+		result[i] = tlsGroupToCurveIDOrDie(group)
+	}
+	return result
+}
+
+// makeTLSProfile creates a TLS security profile for testing
+func makeTLSProfile(profileType configv1.TLSProfileType, minTLSVersion configv1.TLSProtocolVersion, ciphers []string, groups []configv1.TLSGroup) *configv1.TLSSecurityProfile {
+	profile := &configv1.TLSSecurityProfile{
+		Type: profileType,
+	}
+	if profileType == configv1.TLSProfileCustomType {
+		profile.Custom = &configv1.CustomTLSProfile{
+			TLSProfileSpec: configv1.TLSProfileSpec{
+				MinTLSVersion: minTLSVersion,
+				Ciphers:       ciphers,
+				Groups:        groups,
+			},
+		}
+	}
+	return profile
+}
+
+// setupTLSGroupsTest creates listers and recorder for testing ObserveTLSSecurityProfileWithGroupsConversion
+func setupTLSGroupsTest(t *testing.T, apiServerTLSProfile *configv1.TLSSecurityProfile) (testLister, events.InMemoryRecorder) {
+	apiServer := &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.APIServerSpec{
+			TLSSecurityProfile: apiServerTLSProfile,
+		},
+	}
+
+	configClient := configfake.NewSimpleClientset(apiServer)
+	configInformers := configinformers.NewSharedInformerFactory(configClient, 0)
+
+	if err := configInformers.Config().V1().APIServers().Informer().GetStore().Add(apiServer); err != nil {
+		t.Fatalf("failed to add apiServer to informer store: %v", err)
+	}
+
+	listers := testLister{
+		apiLister: configInformers.Config().V1().APIServers().Lister(),
+	}
+	recorder := events.NewInMemoryRecorder("test", clock.RealClock{})
+
+	return listers, recorder
+}
+
+func TestObserveTLSSecurityProfileWithGroupsConversion(t *testing.T) {
+	defaultProfile := configv1.TLSProfiles[crypto.DefaultTLSProfileType]
+	oldProfile := configv1.TLSProfiles[configv1.TLSProfileOldType]
+	modernProfile := configv1.TLSProfiles[configv1.TLSProfileModernType]
+
+	tests := []struct {
+		name                          string
+		apiServerTLSProfile           *configv1.TLSSecurityProfile
+		existingConfig                func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) map[string]interface{}
+		expectedCurvePrefs            []interface{}
+		expectedMinVersion            string
+		expectedCipherSuites          []string
+		expectError                   bool
+		expectedErrorStrings          func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) []string
+		mockObserveTLSSecurityProfile observeTLSSecurityProfileWithGroupPathsFunc
+	}{
+		{
+			name:                 "missing TLS config defaults to default profile",
+			apiServerTLSProfile:  nil,
+			expectedCurvePrefs:   groupsToCurvePrefs(t, defaultProfile.Groups),
+			expectedMinVersion:   string(defaultProfile.MinTLSVersion),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites(defaultProfile.Ciphers),
+		},
+		{
+			name:                 "Old profile",
+			apiServerTLSProfile:  makeTLSProfile(configv1.TLSProfileOldType, "", nil, nil),
+			expectedCurvePrefs:   groupsToCurvePrefs(t, oldProfile.Groups),
+			expectedMinVersion:   string(oldProfile.MinTLSVersion),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites(oldProfile.Ciphers),
+		},
+		{
+			name:                 "Modern profile",
+			apiServerTLSProfile:  makeTLSProfile(configv1.TLSProfileModernType, "", nil, nil),
+			expectedCurvePrefs:   groupsToCurvePrefs(t, modernProfile.Groups),
+			expectedMinVersion:   string(modernProfile.MinTLSVersion),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites(modernProfile.Ciphers),
+		},
+		{
+			name: "Custom profile with specific groups",
+			apiServerTLSProfile: makeTLSProfile(
+				configv1.TLSProfileCustomType,
+				configv1.VersionTLS12,
+				[]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+				[]configv1.TLSGroup{configv1.TLSGroupX25519, configv1.TLSGroupSecP256r1},
+			),
+			expectedCurvePrefs: groupsToCurvePrefs(t, []configv1.TLSGroup{
+				configv1.TLSGroupX25519,
+				configv1.TLSGroupSecP256r1,
+			}),
+			expectedMinVersion: string(configv1.VersionTLS12),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites([]string{
+				"TLS_AES_128_GCM_SHA256",
+				"TLS_AES_256_GCM_SHA384",
+			}),
+		},
+		{
+			name:                "Unknown curve ID in existing curvePreferences before reconciling - silently dropped",
+			apiServerTLSProfile: makeTLSProfile(configv1.TLSProfileModernType, "", nil, nil),
+			existingConfig: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) map[string]interface{} {
+				config := map[string]interface{}{}
+				// For apiServerArguments paths, use string curve IDs. For servingInfo, use float64.
+				if curvePreferencesPath[0] == "apiServerArguments" {
+					unstructured.SetNestedSlice(config, []interface{}{
+						fmt.Sprintf("%d", int64(tlsGroupToCurveIDOrDie(configv1.TLSGroupX25519))),
+						"9999",
+						fmt.Sprintf("%d", int64(tlsGroupToCurveIDOrDie(configv1.TLSGroupSecP256r1))),
+					}, curvePreferencesPath...)
+				} else {
+					unstructured.SetNestedSlice(config, []interface{}{
+						tlsGroupToCurveIDOrDie(configv1.TLSGroupX25519),
+						float64(9999),
+						tlsGroupToCurveIDOrDie(configv1.TLSGroupSecP256r1),
+					}, curvePreferencesPath...)
+				}
+				return config
+			},
+			expectedCurvePrefs:   groupsToCurvePrefs(t, modernProfile.Groups),
+			expectedMinVersion:   string(modernProfile.MinTLSVersion),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites(modernProfile.Ciphers),
+		},
+		{
+			name:                "Corrupted minTLSVersion in existing config - all TLS settings still injected",
+			apiServerTLSProfile: makeTLSProfile(configv1.TLSProfileModernType, "", nil, nil),
+			existingConfig: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) map[string]interface{} {
+				config := map[string]interface{}{}
+				// Set as []interface{} instead of []string to avoid deep copy issues
+				unstructured.SetNestedField(config, []interface{}{"not-a-string"}, minTLSVersionPath...)
+				return config
+			},
+			expectedCurvePrefs:   groupsToCurvePrefs(t, modernProfile.Groups),
+			expectedMinVersion:   string(modernProfile.MinTLSVersion),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites(modernProfile.Ciphers),
+			expectError:          true,
+			expectedErrorStrings: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) []string {
+				pathStr := strings.Join(minTLSVersionPath, ".")
+				return []string{
+					fmt.Sprintf("failed to retrieve %v: .%s accessor error: [not-a-string] is of the type []interface {}, expected string", minTLSVersionPath, pathStr),
+				}
+			},
+		},
+		{
+			name:                "Corrupted cipherSuites in existing config - all TLS settings still injected",
+			apiServerTLSProfile: makeTLSProfile(configv1.TLSProfileModernType, "", nil, nil),
+			existingConfig: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) map[string]interface{} {
+				config := map[string]interface{}{}
+				unstructured.SetNestedField(config, "not-a-slice", cipherSuitesPath...)
+				return config
+			},
+			expectedCurvePrefs:   groupsToCurvePrefs(t, modernProfile.Groups),
+			expectedMinVersion:   string(modernProfile.MinTLSVersion),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites(modernProfile.Ciphers),
+			expectError:          true,
+			expectedErrorStrings: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) []string {
+				pathStr := strings.Join(cipherSuitesPath, ".")
+				return []string{
+					fmt.Sprintf("failed to retrieve %v: .%s accessor error: not-a-slice is of the type string, expected []interface{}", cipherSuitesPath, pathStr),
+				}
+			},
+		},
+		{
+			name:                "Corrupted curvePreferences in existing config - all TLS settings still injected",
+			apiServerTLSProfile: makeTLSProfile(configv1.TLSProfileModernType, "", nil, nil),
+			existingConfig: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) map[string]interface{} {
+				config := map[string]interface{}{}
+				unstructured.SetNestedField(config, "not-a-slice", curvePreferencesPath...)
+				return config
+			},
+			expectedCurvePrefs:   groupsToCurvePrefs(t, modernProfile.Groups),
+			expectedMinVersion:   string(modernProfile.MinTLSVersion),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites(modernProfile.Ciphers),
+			expectError:          true,
+			expectedErrorStrings: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) []string {
+				pathStr := strings.Join(curvePreferencesPath, ".")
+				pathArray := fmt.Sprintf("[%s]", strings.Join(curvePreferencesPath, " "))
+				return []string{
+					fmt.Sprintf("failed to read curve preferences from %s: .%s accessor error: not-a-slice is of the type string, expected []interface{}", pathArray, pathStr),
+					fmt.Sprintf(".%s accessor error: not-a-slice is of the type string, expected []interface{}", pathStr),
+				}
+			},
+		},
+		{
+			name: "Unrecognized TLS groups - recognized groups converted, error for unrecognized",
+			apiServerTLSProfile: makeTLSProfile(
+				configv1.TLSProfileCustomType,
+				configv1.VersionTLS12,
+				[]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+				[]configv1.TLSGroup{configv1.TLSGroupX25519, "UnknownGroup", configv1.TLSGroupSecP256r1},
+			),
+			expectedCurvePrefs: groupsToCurvePrefs(t, []configv1.TLSGroup{
+				configv1.TLSGroupX25519,
+				configv1.TLSGroupSecP256r1,
+			}),
+			expectedMinVersion: string(configv1.VersionTLS12),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites([]string{
+				"TLS_AES_128_GCM_SHA256",
+				"TLS_AES_256_GCM_SHA384",
+			}),
+			expectError: true,
+			expectedErrorStrings: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) []string {
+				return []string{
+					"unrecognized TLS groups: [UnknownGroup]",
+				}
+			},
+		},
+		{
+			name: "Unrecognized TLS groups with corrupted curvePreferences - all errors reported, all TLS settings injected",
+			apiServerTLSProfile: makeTLSProfile(
+				configv1.TLSProfileCustomType,
+				configv1.VersionTLS12,
+				[]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+				[]configv1.TLSGroup{configv1.TLSGroupX25519, "UnknownGroup", configv1.TLSGroupSecP256r1},
+			),
+			existingConfig: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) map[string]interface{} {
+				config := map[string]interface{}{}
+				unstructured.SetNestedField(config, "not-a-slice", curvePreferencesPath...)
+				return config
+			},
+			expectedCurvePrefs: groupsToCurvePrefs(t, []configv1.TLSGroup{
+				configv1.TLSGroupX25519,
+				configv1.TLSGroupSecP256r1,
+			}),
+			expectedMinVersion: string(configv1.VersionTLS12),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites([]string{
+				"TLS_AES_128_GCM_SHA256",
+				"TLS_AES_256_GCM_SHA384",
+			}),
+			expectError: true,
+			expectedErrorStrings: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) []string {
+				pathStr := strings.Join(curvePreferencesPath, ".")
+				pathArray := fmt.Sprintf("[%s]", strings.Join(curvePreferencesPath, " "))
+				return []string{
+					fmt.Sprintf("failed to read curve preferences from %s: .%s accessor error: not-a-slice is of the type string, expected []interface{}", pathArray, pathStr),
+					fmt.Sprintf(".%s accessor error: not-a-slice is of the type string, expected []interface{}", pathStr),
+					"unrecognized TLS groups: [UnknownGroup]",
+				}
+			},
+		},
+		{
+			name: "All TLS groups unrecognized - curvePreferences set to empty, minTLSVersion and cipherSuites set",
+			apiServerTLSProfile: makeTLSProfile(
+				configv1.TLSProfileCustomType,
+				configv1.VersionTLS12,
+				[]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+				[]configv1.TLSGroup{"UnknownGroup1", "UnknownGroup2", "UnknownGroup3"},
+			),
+			expectedCurvePrefs: []interface{}{},
+			expectedMinVersion: string(configv1.VersionTLS12),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites([]string{
+				"TLS_AES_128_GCM_SHA256",
+				"TLS_AES_256_GCM_SHA384",
+			}),
+			expectError: true,
+			expectedErrorStrings: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) []string {
+				return []string{
+					"unrecognized TLS groups: [UnknownGroup1 UnknownGroup2 UnknownGroup3]",
+				}
+			},
+		},
+		{
+			name: "Custom profile with zero groups but existing curvePreferences - curvePreferences set to empty",
+			apiServerTLSProfile: makeTLSProfile(
+				configv1.TLSProfileCustomType,
+				configv1.VersionTLS12,
+				[]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+				[]configv1.TLSGroup{},
+			),
+			existingConfig: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) map[string]interface{} {
+				config := map[string]interface{}{}
+				// For apiServerArguments paths, use string curve IDs. For servingInfo, use float64.
+				if curvePreferencesPath[0] == "apiServerArguments" {
+					unstructured.SetNestedSlice(config, []interface{}{
+						fmt.Sprintf("%d", int64(tlsGroupToCurveIDOrDie(configv1.TLSGroupX25519))),
+						fmt.Sprintf("%d", int64(tlsGroupToCurveIDOrDie(configv1.TLSGroupSecP256r1))),
+					}, curvePreferencesPath...)
+				} else {
+					unstructured.SetNestedSlice(config, []interface{}{
+						tlsGroupToCurveIDOrDie(configv1.TLSGroupX25519),
+						tlsGroupToCurveIDOrDie(configv1.TLSGroupSecP256r1),
+					}, curvePreferencesPath...)
+				}
+				return config
+			},
+			expectedCurvePrefs: []interface{}{},
+			expectedMinVersion: string(configv1.VersionTLS12),
+			expectedCipherSuites: crypto.OpenSSLToIANACipherSuites([]string{
+				"TLS_AES_128_GCM_SHA256",
+				"TLS_AES_256_GCM_SHA384",
+			}),
+		},
+		{
+			name: "FIPS filtering - non-compliant groups filtered out, error reported",
+			apiServerTLSProfile: makeTLSProfile(
+				configv1.TLSProfileCustomType,
+				configv1.VersionTLS12,
+				[]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+				[]configv1.TLSGroup{
+					configv1.TLSGroupX25519,         // Not FIPS compliant (filtered out)
+					configv1.TLSGroupSecP256r1,      // FIPS compliant (kept)
+					configv1.TLSGroupSecP384r1,      // FIPS compliant (kept)
+					configv1.TLSGroupX25519MLKEM768, // Not FIPS compliant (filtered out)
+				},
+			),
+			// Mock to simulate FIPS filtering
+			mockObserveTLSSecurityProfile: func(
+				listers configobserver.Listers,
+				recorder events.Recorder,
+				existingConfig map[string]interface{},
+				minTLSVersionPath []string,
+				cipherSuitesPath []string,
+				groupsPath []string,
+			) (map[string]interface{}, []error) {
+				// Simulate FIPS filtering: only FIPS-compliant groups remain
+				config := map[string]interface{}{}
+				unstructured.SetNestedField(config, string(configv1.VersionTLS12), minTLSVersionPath...)
+				unstructured.SetNestedStringSlice(config, []string{
+					"TLS_AES_128_GCM_SHA256",
+					"TLS_AES_256_GCM_SHA384",
+				}, cipherSuitesPath...)
+				unstructured.SetNestedStringSlice(config, []string{
+					string(configv1.TLSGroupSecP256r1),
+					string(configv1.TLSGroupSecP384r1),
+				}, groupsPath...)
+				return config, nil
+			},
+			expectedCurvePrefs: groupsToCurvePrefs(t, []configv1.TLSGroup{
+				configv1.TLSGroupSecP256r1,
+				configv1.TLSGroupSecP384r1,
+			}),
+			expectedMinVersion: string(configv1.VersionTLS12),
+			expectedCipherSuites: []string{
+				"TLS_AES_128_GCM_SHA256",
+				"TLS_AES_256_GCM_SHA384",
+			},
+			expectError: true,
+			expectedErrorStrings: func(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath []string) []string {
+				return []string{
+					"TLS groups filtered out from custom profile: [X25519 X25519MLKEM768]",
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// TODO: Implement proper FIPS-aware test expectations instead of skipping
+			if crypto.IsFIPSEnabled() {
+				t.Skip("FIPS mode enabled - test expectations need to be updated for FIPS-filtered groups")
+			}
+
+			for _, useAPIServerArgs := range []bool{false, true} {
+				minTLSVersionPath := []string{"servingInfo", "minTLSVersion"}
+				cipherSuitesPath := []string{"servingInfo", "cipherSuites"}
+				curvePreferencesPath := []string{"servingInfo", "curvePreferences"}
+				pathName := "FromServingInfo"
+				if useAPIServerArgs {
+					minTLSVersionPath = []string{"apiServerArguments", "tls-min-version"}
+					cipherSuitesPath = []string{"apiServerArguments", "tls-cipher-suites"}
+					curvePreferencesPath = []string{"apiServerArguments", "tls-curve-preferences"}
+					pathName = "FromAPIServerArguments"
+				}
+				t.Run(pathName, func(t *testing.T) {
+					listers, recorder := setupTLSGroupsTest(t, tt.apiServerTLSProfile)
+
+					// Normalize existing config through JSON marshaling/unmarshaling to match real behavior.
+					// In production, existingConfig comes from the CR's spec.observedConfig field, which is stored
+					// in etcd as JSON. When retrieved, JSON numbers become float64 and concrete Go types like []string
+					// become []interface{}. This round-trip simulates that normalization.
+					var existingConfig map[string]interface{}
+					if tt.existingConfig == nil {
+						existingConfig = map[string]interface{}{}
+					} else {
+						existingConfig = tt.existingConfig(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath)
+						jsonBytes, err := json.Marshal(existingConfig)
+						if err != nil {
+							t.Fatalf("failed to marshal existing config: %v", err)
+						}
+						if err := json.Unmarshal(jsonBytes, &existingConfig); err != nil {
+							t.Fatalf("failed to unmarshal existing config: %v", err)
+						}
+					}
+
+					var observedConfig map[string]interface{}
+					var errs []error
+
+					// Use mock if provided, otherwise use the real function
+					if tt.mockObserveTLSSecurityProfile != nil {
+						innerFunc := innerObserveTLSSecurityProfileWithGroupsConversion[int64]
+						if useAPIServerArgs {
+							innerFunc = innerObserveTLSSecurityProfileWithGroupsConversion[string]
+						}
+
+						observedConfig, errs = innerFunc(
+							listers,
+							recorder,
+							existingConfig,
+							tt.mockObserveTLSSecurityProfile,
+							minTLSVersionPath,
+							cipherSuitesPath,
+							curvePreferencesPath,
+						)
+					} else {
+						if useAPIServerArgs {
+							observedConfig, errs = ObserveTLSSecurityProfileWithGroupsConversionToArguments(listers, recorder, existingConfig)
+						} else {
+							observedConfig, errs = ObserveTLSSecurityProfileWithGroupsConversion(listers, recorder, existingConfig)
+						}
+					}
+
+					// Normalize observed config through JSON marshaling/unmarshaling to match real behavior.
+					// In production, observedConfig is written to the CR's spec.observedConfig field and persisted
+					// to etcd as JSON. When the operator reads it back (as existingConfig in the next reconcile),
+					// the JSON round-trip converts int64 → float64 and other type normalizations. This simulates
+					// that behavior so our expected values match what would actually be seen.
+					if observedConfig != nil {
+						jsonBytes, err := json.Marshal(observedConfig)
+						if err != nil {
+							t.Fatalf("failed to marshal observed config: %v", err)
+						}
+						if err := json.Unmarshal(jsonBytes, &observedConfig); err != nil {
+							t.Fatalf("failed to unmarshal observed config: %v", err)
+						}
+					}
+
+					if tt.expectError {
+						if len(errs) == 0 {
+							t.Fatal("expected errors, but got none")
+						}
+						if tt.expectedErrorStrings != nil {
+							expectedErrors := tt.expectedErrorStrings(minTLSVersionPath, cipherSuitesPath, curvePreferencesPath)
+							var actualErrorStrings []string
+							for _, err := range errs {
+								actualErrorStrings = append(actualErrorStrings, err.Error())
+							}
+							if !reflect.DeepEqual(actualErrorStrings, expectedErrors) {
+								t.Errorf("error mismatch:\nexpected: %v\nactual:   %v", expectedErrors, actualErrorStrings)
+							}
+						}
+					} else {
+						if len(errs) > 0 {
+							t.Fatalf("unexpected errors: %v", errs)
+						}
+					}
+
+					if tt.expectedCurvePrefs != nil {
+						// For apiServerArguments, curves are stored as strings, not int64
+						if useAPIServerArgs {
+							curvePrefsStrings, found, err := unstructured.NestedStringSlice(observedConfig, curvePreferencesPath...)
+							if err != nil {
+								t.Fatalf("failed to read curvePreferences: %v", err)
+							}
+							if !found {
+								t.Error("curvePreferences should be set")
+							} else {
+								// Convert expected int64 values to strings for comparison
+								expectedStrings := make([]string, len(tt.expectedCurvePrefs))
+								for i, v := range tt.expectedCurvePrefs {
+									expectedStrings[i] = fmt.Sprintf("%v", v)
+								}
+								if !reflect.DeepEqual(curvePrefsStrings, expectedStrings) {
+									t.Errorf("curve preferences mismatch:\nexpected: %v\nactual:   %v",
+										expectedStrings, curvePrefsStrings)
+								}
+							}
+						} else {
+							curvePrefs, found, err := unstructured.NestedSlice(observedConfig, curvePreferencesPath...)
+							if err != nil {
+								t.Fatalf("failed to read curvePreferences: %v", err)
+							}
+							if !found {
+								t.Error("curvePreferences should be set")
+							} else if !reflect.DeepEqual(curvePrefs, tt.expectedCurvePrefs) {
+								t.Errorf("curve preferences mismatch:\nexpected: %v\nactual:   %v",
+									tt.expectedCurvePrefs, curvePrefs)
+							}
+						}
+					} else {
+						_, found, _ := unstructured.NestedSlice(observedConfig, curvePreferencesPath...)
+						if found {
+							t.Error("curvePreferences should not be set when not expected")
+						}
+					}
+
+					if tt.expectedMinVersion != "" {
+						minVersion, found, err := unstructured.NestedString(observedConfig, minTLSVersionPath...)
+						if err != nil {
+							t.Fatalf("failed to read minTLSVersion: %v", err)
+						}
+						if !found {
+							t.Error("minTLSVersion should be set")
+						} else if minVersion != tt.expectedMinVersion {
+							t.Errorf("expected minTLSVersion=%s, got: %v", tt.expectedMinVersion, minVersion)
+						}
+					} else {
+						_, found, _ := unstructured.NestedString(observedConfig, minTLSVersionPath...)
+						if found {
+							t.Error("minTLSVersion should not be set when not expected")
+						}
+					}
+
+					if tt.expectedCipherSuites != nil {
+						cipherSuites, found, err := unstructured.NestedStringSlice(observedConfig, cipherSuitesPath...)
+						if err != nil {
+							t.Fatalf("failed to read cipherSuites: %v", err)
+						}
+						if !found {
+							t.Error("cipherSuites should be set")
+						} else if !reflect.DeepEqual(cipherSuites, tt.expectedCipherSuites) {
+							t.Errorf("cipher suites mismatch:\nexpected: %v\nactual:   %v",
+								tt.expectedCipherSuites, cipherSuites)
+						}
+					} else {
+						_, found, _ := unstructured.NestedStringSlice(observedConfig, cipherSuitesPath...)
+						if found {
+							t.Error("cipherSuites should not be set when not expected")
+						}
+					}
+
+					if tempField, found, err := unstructured.NestedFieldNoCopy(observedConfig, tempTLSGroupsField); err != nil {
+						t.Errorf("error checking temp field %s: %v", tempTLSGroupsField, err)
+					} else if found {
+						t.Errorf("temp field %s should be removed from observedConfig, got: %v", tempTLSGroupsField, tempField)
+					}
+
+					for _, event := range recorder.Events() {
+						if event.Reason == "ObservationFailed" {
+							t.Errorf("unexpected observation failure: %s", event.Message)
+						}
+					}
+				})
+			}
+		})
 	}
 }
