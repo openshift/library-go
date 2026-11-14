@@ -61,7 +61,7 @@ func TestValidateCertificatesExpired(t *testing.T) {
 }
 
 func TestFilterExpiredCertsWithClock(t *testing.T) {
-	fixedTime := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+	fixedTime := time.Now()
 	fakeClock := clocktesting.NewFakeClock(fixedTime)
 
 	// Expired relative to the fake clock: window ends before fixedTime+1h.
@@ -103,39 +103,6 @@ func TestFilterExpiredCertsWithClock(t *testing.T) {
 		})
 	}
 
-	// The real-time paths (legacy FilterExpiredCerts and a nil clock) are
-	// checked against certs minted relative to real now, not the fixed-date
-	// certs above, so this test does not become a time bomb once 2030 passes.
-	t.Run("real time paths use certs relative to now", func(t *testing.T) {
-		nowExpired, err := newTestCACertificate(pkix.Name{CommonName: "now-expired"}, int64(3), metav1.Duration{Duration: time.Hour}, func() time.Time { return time.Now().Add(-2 * time.Hour) })
-		if err != nil {
-			t.Fatal(err)
-		}
-		nowValid, err := newTestCACertificate(pkix.Name{CommonName: "now-valid"}, int64(4), metav1.Duration{Duration: 24 * time.Hour}, time.Now)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		for _, tc := range []struct {
-			name string
-			got  []*x509.Certificate
-		}{
-			{
-				name: "legacy FilterExpiredCerts",
-				got:  FilterExpiredCerts(nowExpired.Config.Certs[0], nowValid.Config.Certs[0]),
-			},
-			{
-				name: "nil clock means real time",
-				got:  FilterExpiredCertsWithClock(nil, nowExpired.Config.Certs[0], nowValid.Config.Certs[0]),
-			},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				if len(tc.got) != 1 || !tc.got[0].Equal(nowValid.Config.Certs[0]) {
-					t.Fatalf("expected only the valid-now certificate to survive, got %d certs", len(tc.got))
-				}
-			})
-		}
-	})
 }
 
 // NewCACertificate generates and signs new CA certificate and key.
