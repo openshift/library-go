@@ -1,6 +1,7 @@
 package certrotation
 
 import (
+	"bytes"
 	gcrypto "crypto"
 	"crypto/rand"
 	"crypto/x509"
@@ -278,4 +279,58 @@ func signCertificate(template *x509.Certificate, requestKey gcrypto.PublicKey, i
 		return nil, errors.New("Expected a single certificate")
 	}
 	return certs[0], nil
+}
+
+func TestEnsureConfigMapCABundlePrunesExpiredWithFakeClock(t *testing.T) {
+	fixedTime := time.Now().Truncate(time.Second)
+	fakeClock := clocktesting.NewFakeClock(fixedTime)
+
+	// Old signer whose validity window ends before the fake clock's advance time.
+	oldCA, err := newTestCACertificate(pkix.Name{CommonName: "old-signer"}, int64(1), metav1.Duration{Duration: time.Hour}, fakeClock.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeClock.Step(2 * time.Hour)
+
+	// Current signer, valid at the advanced fake time.
+	currentCA, err := newTestCACertificate(pkix.Name{CommonName: "current-signer"}, int64(2), metav1.Duration{Duration: 24 * time.Hour}, fakeClock.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	oldPEM, err := crypto.EncodeCertificates(oldCA.Config.Certs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	existingConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "trust-bundle"},
+		Data:       map[string]string{"ca-bundle.crt": string(oldPEM)},
+	}
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	if err := indexer.Add(existingConfigMap); err != nil {
+		t.Fatal(err)
+	}
+	client := kubefake.NewSimpleClientset(existingConfigMap)
+
+	c := &CABundleConfigMap{
+		Namespace: "ns",
+		Name:      "trust-bundle",
+
+		Client:        client.CoreV1(),
+		Lister:        corev1listers.NewConfigMapLister(indexer),
+		EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(fakeClock.Now())),
+		Clock:         fakeClock,
+	}
+
+	updatedCerts, err := c.EnsureConfigMapCABundle(t.Context(), currentCA, "signer-secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updatedCerts) != 1 {
+		t.Fatalf("expected 1 certificate in the bundle after pruning, got %d", len(updatedCerts))
+	}
+	if !bytes.Equal(updatedCerts[0].Raw, currentCA.Config.Certs[0].Raw) {
+		t.Error("expected the current signer to survive pruning")
+	}
 }

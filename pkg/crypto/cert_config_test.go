@@ -13,6 +13,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 var allKeyPairGenerators = []KeyPairGenerator{
@@ -479,4 +480,47 @@ func curveForName(c ECDSACurve) elliptic.Curve {
 
 func x509pkixName(cn, org string) pkix.Name {
 	return pkix.Name{CommonName: cn, Organization: []string{org}}
+}
+
+func TestNewSigningCertificateWithClock(t *testing.T) {
+	fixedTime := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+	fakeClock := clocktesting.NewFakePassiveClock(fixedTime)
+
+	testCases := []struct {
+		name string
+		opts []CertificateOption
+	}{
+		{
+			name: "fake clock fixes certificate validity",
+			opts: []CertificateOption{
+				WithLifetime(24 * time.Hour),
+				WithClock(fakeClock),
+			},
+		},
+		{
+			name: "nil clock after a fake clock does not clobber it",
+			opts: []CertificateOption{
+				WithLifetime(24 * time.Hour),
+				WithClock(fakeClock),
+				WithClock(nil),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			certConfig, err := NewSigningCertificate("test-ca", RSAKeyPairGenerator{Bits: 2048}, tc.opts...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cert := certConfig.Certs[0]
+			// Templates backdate NotBefore by one second.
+			if !cert.NotBefore.Equal(fixedTime.Add(-time.Second)) {
+				t.Errorf("NotBefore = %v, want %v", cert.NotBefore, fixedTime.Add(-time.Second))
+			}
+			if !cert.NotAfter.Equal(fixedTime.Add(24 * time.Hour)) {
+				t.Errorf("NotAfter = %v, want %v", cert.NotAfter, fixedTime.Add(24*time.Hour))
+			}
+		})
+	}
 }

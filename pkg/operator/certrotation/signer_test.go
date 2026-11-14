@@ -1,6 +1,7 @@
 package certrotation
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"strings"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/openshift/api/annotations"
 	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
+	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/pki"
 )
@@ -438,5 +440,169 @@ func TestEnsureSigningCertKeyPair_WithKeyConfig(t *testing.T) {
 	}
 	if !cert.IsCA {
 		t.Error("expected IsCA to be true")
+	}
+}
+
+func TestEnsureSigningCertKeyPairRotatesWithFakeClock(t *testing.T) {
+	newController := func(t *testing.T, fakeClock *clocktesting.FakeClock, indexer cache.Indexer, client *kubefake.Clientset) (*RotatedSigningCASecret, events.InMemoryRecorder) {
+		t.Helper()
+		recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(fakeClock.Now()))
+		return &RotatedSigningCASecret{
+			Namespace:     "ns",
+			Name:          "signer",
+			Validity:      24 * time.Hour,
+			Refresh:       12 * time.Hour,
+			Client:        client.CoreV1(),
+			Lister:        corev1listers.NewSecretLister(indexer),
+			EventRecorder: recorder,
+			Clock:         fakeClock,
+		}, recorder
+	}
+
+	// hasEvent reports whether any recorded event matches the reason and
+	// contains the message substring.
+	hasEvent := func(recorder events.InMemoryRecorder, reason, messageSubstr string) bool {
+		for _, e := range recorder.Events() {
+			if e.Reason == reason && strings.Contains(e.Message, messageSubstr) {
+				return true
+			}
+		}
+		return false
+	}
+
+	t.Run("rotate on 80 percent of validity", func(t *testing.T) {
+		now := time.Now().Truncate(time.Second)
+		fakeClock := clocktesting.NewFakeClock(now)
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		client := kubefake.NewClientset()
+
+		c, recorder := newController(t, fakeClock, indexer, client)
+		if _, _, err := c.EnsureSigningCertKeyPair(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+
+		created, err := client.CoreV1().Secrets("ns").Get(t.Context(), "signer", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := indexer.Add(created); err != nil {
+			t.Fatal(err)
+		}
+		firstCert, err := crypto.GetCAFromBytes(created.Data["tls.crt"], created.Data["tls.key"])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !firstCert.Config.Certs[0].NotBefore.Equal(now.Add(-time.Second)) {
+			t.Errorf("first NotBefore = %v, want %v (generation must use the fake clock)", firstCert.Config.Certs[0].NotBefore, now.Add(-time.Second))
+		}
+
+		// Advance past 80% of the 24h validity: rotation must trigger without real time passing.
+		fakeClock.Step(20 * time.Hour)
+
+		client.ClearActions()
+		if _, _, err := c.EnsureSigningCertKeyPair(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+
+		actions := client.Actions()
+		if len(actions) != 1 || !actions[0].Matches("update", "secrets") {
+			t.Fatalf("expected one secret update action, got %s", spew.Sdump(actions))
+		}
+		updatedSecret := actions[0].(clienttesting.UpdateAction).GetObject().(*corev1.Secret)
+		secondCert, err := crypto.GetCAFromBytes(updatedSecret.Data["tls.crt"], updatedSecret.Data["tls.key"])
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantNotBefore := now.Add(20 * time.Hour).Add(-time.Second)
+		if !secondCert.Config.Certs[0].NotBefore.Equal(wantNotBefore) {
+			t.Errorf("rotated NotBefore = %v, want %v", secondCert.Config.Certs[0].NotBefore, wantNotBefore)
+		}
+		if bytes.Equal(firstCert.Config.Certs[0].Raw, secondCert.Config.Certs[0].Raw) {
+			t.Error("expected a new signer certificate after advancing the clock")
+		}
+		// The 80% rule must be the trigger, not the Refresh rule (Refresh is
+		// 12h and the step is 20h, so both thresholds are crossed).
+		if !hasEvent(recorder, "SignerUpdateRequired", "past refresh time (80% of validity)") {
+			t.Errorf("expected a SignerUpdateRequired event citing the 80%% rule, got %s", spew.Sdump(recorder.Events()))
+		}
+	})
+
+	// Steady state must hold with the fake clock far from real time in both
+	// directions: 30 days in the past catches rotation *decisions* reading
+	// real time (real now is past the cert's NotAfter, so "already expired"
+	// fires on every sync); 30 days in the future catches certificate
+	// *generation* reading real time (the cert looks already expired on the
+	// fake clock, so the controller re-rotates).
+	offsetTestCases := []struct {
+		name   string
+		offset time.Duration
+	}{
+		{
+			name:   "fake clock 30 days in the past",
+			offset: -30 * 24 * time.Hour,
+		},
+		{
+			name:   "fake clock 30 days in the future",
+			offset: 30 * 24 * time.Hour,
+		},
+	}
+
+	for _, tc := range offsetTestCases {
+		t.Run("steady state, "+tc.name, func(t *testing.T) {
+			fakeClock := clocktesting.NewFakeClock(time.Now().Add(tc.offset).Truncate(time.Second))
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			client := kubefake.NewClientset()
+
+			c, _ := newController(t, fakeClock, indexer, client)
+			if _, _, err := c.EnsureSigningCertKeyPair(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+
+			created, err := client.CoreV1().Secrets("ns").Get(t.Context(), "signer", metav1.GetOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := indexer.Add(created); err != nil {
+				t.Fatal(err)
+			}
+
+			client.ClearActions()
+			if _, _, err := c.EnsureSigningCertKeyPair(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if actions := client.Actions(); len(actions) != 0 {
+				t.Fatalf("expected no client actions in steady state, got %s", spew.Sdump(actions))
+			}
+		})
+	}
+}
+
+func TestEnsureSigningCertKeyPairPKIPathWithFakeClock(t *testing.T) {
+	fixedTime := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC).Truncate(time.Second)
+	fakeClock := clocktesting.NewFakeClock(fixedTime)
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	client := kubefake.NewClientset()
+
+	profile := pki.DefaultPKIProfile()
+	c := &RotatedSigningCASecret{
+		Namespace:          "ns",
+		Name:               "signer",
+		Validity:           24 * time.Hour,
+		Refresh:            12 * time.Hour,
+		CertificateName:    "test.signer",
+		PKIProfileProvider: pki.NewStaticPKIProfileProvider(&profile),
+		Client:             client.CoreV1(),
+		Lister:             corev1listers.NewSecretLister(indexer),
+		EventRecorder:      events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(fakeClock.Now())),
+		Clock:              fakeClock,
+	}
+
+	signingCertKeyPair, _, err := c.EnsureSigningCertKeyPair(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !signingCertKeyPair.Config.Certs[0].NotBefore.Equal(fixedTime.Add(-time.Second)) {
+		t.Errorf("NotBefore = %v, want %v (PKI path generation must use the fake clock)", signingCertKeyPair.Config.Certs[0].NotBefore, fixedTime.Add(-time.Second))
 	}
 }
