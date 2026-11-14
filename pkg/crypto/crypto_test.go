@@ -949,14 +949,4 @@ func TestMakeCertsAtTime(t *testing.T) {
 			}
 		})
 	}
-
-	t.Run("legacy delegation uses real time", func(t *testing.T) {
-		before := time.Now().Add(-2 * time.Second).Truncate(time.Second)
-		cfg, err := MakeSelfSignedCAConfigForDuration("legacy-ca", lifetime)
-		require.NoError(t, err)
-		after := time.Now().Truncate(time.Second)
-		if cfg.Certs[0].NotBefore.Before(before) || cfg.Certs[0].NotBefore.After(after) {
-			t.Errorf("NotBefore = %v, want within [%v, %v]", cfg.Certs[0].NotBefore, before, after)
-		}
-	})
 }

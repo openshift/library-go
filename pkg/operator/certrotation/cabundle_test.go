@@ -308,7 +308,9 @@ func TestEnsureConfigMapCABundlePrunesExpiredWithFakeClock(t *testing.T) {
 		Data:       map[string]string{"ca-bundle.crt": string(oldPEM)},
 	}
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	indexer.Add(existingConfigMap)
+	if err := indexer.Add(existingConfigMap); err != nil {
+		t.Fatal(err)
+	}
 	client := kubefake.NewSimpleClientset(existingConfigMap)
 
 	c := &CABundleConfigMap{

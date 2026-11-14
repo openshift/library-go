@@ -1041,7 +1041,9 @@ func TestEnsureTargetCertKeyPairWithFakeClock(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		indexer.Add(secret)
+		if err := indexer.Add(secret); err != nil {
+			t.Fatal(err)
+		}
 		return secret
 	}
 
@@ -1082,93 +1084,114 @@ func TestEnsureTargetCertKeyPairWithFakeClock(t *testing.T) {
 		})
 	}
 
-	t.Run("rotate on 80 percent of validity", func(t *testing.T) {
-		now := time.Now().Truncate(time.Second)
-		fakeClock := clocktesting.NewFakeClock(now)
-		target, signerCA, client, indexer, recorder := newFixture(t, fakeClock, false)
+	// rotationStep is one clock advance followed by one sync. A step with an
+	// empty wantEvent expects no update; otherwise it expects exactly one
+	// secret update whose TargetUpdateRequired event cites wantEvent.
+	type rotationStep struct {
+		advance   time.Duration
+		wantEvent string
+		verify    func(t *testing.T, fakeClock *clocktesting.FakeClock, signerCA *crypto.CA, previous, current *corev1.Secret)
+	}
 
-		first := ensure(t, target, signerCA, client, indexer)
+	testCases := []struct {
+		name                   string
+		refreshOnlyWhenExpired bool
+		steps                  []rotationStep
+	}{
+		{
+			name: "rotate on 80 percent of validity",
+			steps: []rotationStep{
+				{
+					advance:   20 * time.Hour,
+					wantEvent: "past refresh time (80% of validity)",
+					verify: func(t *testing.T, fakeClock *clocktesting.FakeClock, signerCA *crypto.CA, previous, current *corev1.Secret) {
+						cert, err := crypto.GetCAFromBytes(current.Data["tls.crt"], current.Data["tls.key"])
+						if err != nil {
+							t.Fatal(err)
+						}
+						wantNotBefore := fakeClock.Now().Add(-time.Second)
+						if !cert.Config.Certs[0].NotBefore.Equal(wantNotBefore) {
+							t.Errorf("rotated NotBefore = %v, want %v (generation must use the fake clock)", cert.Config.Certs[0].NotBefore, wantNotBefore)
+						}
+					},
+				},
+			},
+		},
+		{
+			name: "rotate on expiry",
+			steps: []rotationStep{
+				{
+					advance:   25 * time.Hour,
+					wantEvent: "already expired",
+					verify: func(t *testing.T, fakeClock *clocktesting.FakeClock, signerCA *crypto.CA, previous, current *corev1.Secret) {
+						// The signer has 23h left of its 48h validity, so the target's 24h
+						// validity must be capped at the signer's remaining lifetime — this
+						// pins RotatedSelfSignedCertKeySecret.Clock.
+						cert, err := crypto.GetCAFromBytes(current.Data["tls.crt"], current.Data["tls.key"])
+						if err != nil {
+							t.Fatal(err)
+						}
+						if !cert.Config.Certs[0].NotAfter.Equal(signerCA.Config.Certs[0].NotAfter) {
+							t.Errorf("rotated NotAfter = %v, want signer NotAfter %v (validity cap must use the fake clock)", cert.Config.Certs[0].NotAfter, signerCA.Config.Certs[0].NotAfter)
+						}
+					},
+				},
+			},
+		},
+		{
+			name:                   "refresh only when expired ignores thresholds",
+			refreshOnlyWhenExpired: true,
+			steps: []rotationStep{
+				{
+					// Past 80% of validity and past the refresh time, but not
+					// expired: RefreshOnlyWhenExpired must not rotate.
+					advance: 20 * time.Hour,
+				},
+				{
+					advance:   5 * time.Hour,
+					wantEvent: "already expired",
+				},
+			},
+		},
+	}
 
-		fakeClock.Step(20 * time.Hour)
-		client.ClearActions()
-		second := ensure(t, target, signerCA, client, indexer)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeClock := clocktesting.NewFakeClock(time.Now().Truncate(time.Second))
+			target, signerCA, client, indexer, recorder := newFixture(t, fakeClock, tc.refreshOnlyWhenExpired)
 
-		if actions := client.Actions(); len(actions) != 1 || !actions[0].Matches("update", "secrets") {
-			t.Fatalf("expected one secret update action, got %s", spew.Sdump(actions))
-		}
-		if bytes.Equal(first.Data["tls.crt"], second.Data["tls.crt"]) {
-			t.Fatal("expected a new certificate after advancing the clock")
-		}
-		cert, err := crypto.GetCAFromBytes(second.Data["tls.crt"], second.Data["tls.key"])
-		if err != nil {
-			t.Fatal(err)
-		}
-		wantNotBefore := now.Add(20 * time.Hour).Add(-time.Second)
-		if !cert.Config.Certs[0].NotBefore.Equal(wantNotBefore) {
-			t.Errorf("rotated NotBefore = %v, want %v (generation must use the fake clock)", cert.Config.Certs[0].NotBefore, wantNotBefore)
-		}
-		// The 80% rule must be the trigger, not the Refresh rule (Refresh is
-		// 12h and the step is 20h, so both thresholds are crossed).
-		if !hasEvent(recorder, "TargetUpdateRequired", "past refresh time (80% of validity)") {
-			t.Errorf("expected a TargetUpdateRequired event citing the 80%% rule, got %s", spew.Sdump(recorder.Events()))
-		}
-	})
+			previous := ensure(t, target, signerCA, client, indexer)
 
-	t.Run("rotate on expiry", func(t *testing.T) {
-		now := time.Now().Truncate(time.Second)
-		fakeClock := clocktesting.NewFakeClock(now)
-		target, signerCA, client, indexer, recorder := newFixture(t, fakeClock, false)
+			for _, step := range tc.steps {
+				fakeClock.Step(step.advance)
+				client.ClearActions()
+				current := ensure(t, target, signerCA, client, indexer)
 
-		ensure(t, target, signerCA, client, indexer)
-
-		fakeClock.Step(25 * time.Hour)
-		client.ClearActions()
-		second := ensure(t, target, signerCA, client, indexer)
-
-		if actions := client.Actions(); len(actions) != 1 || !actions[0].Matches("update", "secrets") {
-			t.Fatalf("expected one secret update action after expiry, got %s", spew.Sdump(actions))
-		}
-		// The signer has 23h left of its 48h validity, so the target's 24h
-		// validity must be capped at the signer's remaining lifetime — this
-		// pins RotatedSelfSignedCertKeySecret.Clock.
-		cert, err := crypto.GetCAFromBytes(second.Data["tls.crt"], second.Data["tls.key"])
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !cert.Config.Certs[0].NotAfter.Equal(signerCA.Config.Certs[0].NotAfter) {
-			t.Errorf("rotated NotAfter = %v, want signer NotAfter %v (validity cap must use the fake clock)", cert.Config.Certs[0].NotAfter, signerCA.Config.Certs[0].NotAfter)
-		}
-		if !hasEvent(recorder, "TargetUpdateRequired", "already expired") {
-			t.Errorf("expected a TargetUpdateRequired event citing expiry, got %s", spew.Sdump(recorder.Events()))
-		}
-	})
-
-	t.Run("refresh only when expired ignores thresholds", func(t *testing.T) {
-		now := time.Now().Truncate(time.Second)
-		fakeClock := clocktesting.NewFakeClock(now)
-		target, signerCA, client, indexer, recorder := newFixture(t, fakeClock, true)
-
-		ensure(t, target, signerCA, client, indexer)
-
-		// Past 80% of validity and past the refresh time, but not expired:
-		// RefreshOnlyWhenExpired must not rotate.
-		fakeClock.Step(20 * time.Hour)
-		client.ClearActions()
-		ensure(t, target, signerCA, client, indexer)
-		if actions := client.Actions(); len(actions) != 0 {
-			t.Fatalf("expected no client actions before expiry in RefreshOnlyWhenExpired mode, got %s", spew.Sdump(actions))
-		}
-
-		fakeClock.Step(5 * time.Hour)
-		client.ClearActions()
-		ensure(t, target, signerCA, client, indexer)
-		if actions := client.Actions(); len(actions) != 1 || !actions[0].Matches("update", "secrets") {
-			t.Fatalf("expected one secret update action after expiry, got %s", spew.Sdump(actions))
-		}
-		if !hasEvent(recorder, "TargetUpdateRequired", "already expired") {
-			t.Errorf("expected a TargetUpdateRequired event citing expiry, got %s", spew.Sdump(recorder.Events()))
-		}
-	})
+				if step.wantEvent == "" {
+					if actions := client.Actions(); len(actions) != 0 {
+						t.Fatalf("expected no client actions, got %s", spew.Sdump(actions))
+					}
+					if !bytes.Equal(previous.Data["tls.crt"], current.Data["tls.crt"]) {
+						t.Error("expected the certificate to be unchanged")
+					}
+				} else {
+					if actions := client.Actions(); len(actions) != 1 || !actions[0].Matches("update", "secrets") {
+						t.Fatalf("expected one secret update action, got %s", spew.Sdump(actions))
+					}
+					if bytes.Equal(previous.Data["tls.crt"], current.Data["tls.crt"]) {
+						t.Fatal("expected a new certificate after advancing the clock")
+					}
+					if !hasEvent(recorder, "TargetUpdateRequired", step.wantEvent) {
+						t.Errorf("expected a TargetUpdateRequired event citing %q, got %s", step.wantEvent, spew.Sdump(recorder.Events()))
+					}
+				}
+				if step.verify != nil {
+					step.verify(t, fakeClock, signerCA, previous, current)
+				}
+				previous = current
+			}
+		})
+	}
 }
 
 func TestTargetCertCreatorsWithFakeClock(t *testing.T) {

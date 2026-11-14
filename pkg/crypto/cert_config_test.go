@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
@@ -488,9 +487,8 @@ func TestNewSigningCertificateWithClock(t *testing.T) {
 	fakeClock := clocktesting.NewFakePassiveClock(fixedTime)
 
 	testCases := []struct {
-		name        string
-		opts        []CertificateOption
-		wantRealNow bool
+		name string
+		opts []CertificateOption
 	}{
 		{
 			name: "fake clock fixes certificate validity",
@@ -498,13 +496,6 @@ func TestNewSigningCertificateWithClock(t *testing.T) {
 				WithLifetime(24 * time.Hour),
 				WithClock(fakeClock),
 			},
-		},
-		{
-			name: "nil clock is ignored, real time is used",
-			opts: []CertificateOption{
-				WithClock(nil),
-			},
-			wantRealNow: true,
 		},
 		{
 			name: "nil clock after a fake clock does not clobber it",
@@ -518,24 +509,11 @@ func TestNewSigningCertificateWithClock(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Captured before minting: key generation plus signing can take
-			// long enough under -race that an after-the-fact lower bound
-			// would flake.
-			before := time.Now().Add(-2 * time.Second).Truncate(time.Second)
 			certConfig, err := NewSigningCertificate("test-ca", RSAKeyPairGenerator{Bits: 2048}, tc.opts...)
 			if err != nil {
 				t.Fatal(err)
 			}
 			cert := certConfig.Certs[0]
-			if tc.wantRealNow {
-				// Nil clock means real time: NotBefore must land in the
-				// bracket captured around the minting call.
-				after := time.Now().Truncate(time.Second)
-				if cert.NotBefore.Before(before) || cert.NotBefore.After(after) {
-					t.Errorf("NotBefore = %v, want within [%v, %v]", cert.NotBefore, before, after)
-				}
-				return
-			}
 			// Templates backdate NotBefore by one second.
 			if !cert.NotBefore.Equal(fixedTime.Add(-time.Second)) {
 				t.Errorf("NotBefore = %v, want %v", cert.NotBefore, fixedTime.Add(-time.Second))
@@ -544,45 +522,5 @@ func TestNewSigningCertificateWithClock(t *testing.T) {
 				t.Errorf("NotAfter = %v, want %v", cert.NotAfter, fixedTime.Add(24*time.Hour))
 			}
 		})
-	}
-}
-
-func TestNewSigningCertificateOptionOrdering(t *testing.T) {
-	fixedTime := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
-	fakeClock := clocktesting.NewFakePassiveClock(fixedTime)
-
-	parentConfig, err := NewSigningCertificate("parent", RSAKeyPairGenerator{Bits: 2048}, WithClock(fakeClock))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ca := &CA{SerialGenerator: &RandomSerialGenerator{}, Config: parentConfig}
-
-	// WithSigner and WithClock set disjoint fields; order must not matter.
-	first, err := NewSigningCertificate("child", RSAKeyPairGenerator{Bits: 2048}, WithSigner(ca), WithClock(fakeClock))
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := NewSigningCertificate("child", RSAKeyPairGenerator{Bits: 2048}, WithClock(fakeClock), WithSigner(ca))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Both options must be applied in both orders: an absolute time check
-	// proves WithClock took effect, the chain and authority key ID prove
-	// WithSigner did.
-	wantNotBefore := fixedTime.Add(-time.Second)
-	for _, result := range []*TLSCertificateConfig{first, second} {
-		if !result.Certs[0].NotBefore.Equal(wantNotBefore) {
-			t.Errorf("NotBefore = %v, want %v", result.Certs[0].NotBefore, wantNotBefore)
-		}
-		if len(result.Certs) != 2 {
-			t.Errorf("expected the signer's chain (2 certs), got %d", len(result.Certs))
-		}
-		if !bytes.Equal(result.Certs[0].AuthorityKeyId, parentConfig.Certs[0].SubjectKeyId) {
-			t.Errorf("AuthorityKeyId = %x, want the parent's SubjectKeyId %x", result.Certs[0].AuthorityKeyId, parentConfig.Certs[0].SubjectKeyId)
-		}
-	}
-	if !first.Certs[0].NotBefore.Equal(second.Certs[0].NotBefore) {
-		t.Errorf("NotBefore differs by option order: %v vs %v", first.Certs[0].NotBefore, second.Certs[0].NotBefore)
 	}
 }

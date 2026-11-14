@@ -485,7 +485,9 @@ func TestEnsureSigningCertKeyPairRotatesWithFakeClock(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		indexer.Add(created)
+		if err := indexer.Add(created); err != nil {
+			t.Fatal(err)
+		}
 		firstCert, err := crypto.GetCAFromBytes(created.Data["tls.crt"], created.Data["tls.key"])
 		if err != nil {
 			t.Fatal(err)
@@ -560,7 +562,9 @@ func TestEnsureSigningCertKeyPairRotatesWithFakeClock(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			indexer.Add(created)
+			if err := indexer.Add(created); err != nil {
+				t.Fatal(err)
+			}
 
 			client.ClearActions()
 			if _, _, err := c.EnsureSigningCertKeyPair(t.Context()); err != nil {
