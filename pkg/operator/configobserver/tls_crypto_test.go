@@ -206,7 +206,8 @@ func TestTLSGroupsToCurvePreferences(t *testing.T) {
 		config                map[string]interface{}
 		sourcePath            []string
 		targetPath            []string
-		expectedCurveIDs      []int64
+		convertFunc           func(map[string]interface{}, []string, []string) ([]configv1.TLSGroup, error)
+		expectedCurveIDs      []interface{}
 		expectedUnrecognized  []configv1.TLSGroup
 		expectedTargetPathSet bool
 		expectError           bool
@@ -218,7 +219,8 @@ func TestTLSGroupsToCurvePreferences(t *testing.T) {
 			},
 			sourcePath:            []string{"tempGroups"},
 			targetPath:            []string{"servingInfo", "curvePreferences"},
-			expectedCurveIDs:      []int64{int64(tls.X25519), int64(tls.CurveP256), int64(tls.CurveP384)},
+			convertFunc:           TLSGroupsToCurvePreferences[int64],
+			expectedCurveIDs:      []interface{}{int64(tls.X25519), int64(tls.CurveP256), int64(tls.CurveP384)},
 			expectedTargetPathSet: true,
 		},
 		{
@@ -228,7 +230,8 @@ func TestTLSGroupsToCurvePreferences(t *testing.T) {
 			},
 			sourcePath:            []string{"tempGroups"},
 			targetPath:            []string{"servingInfo", "curvePreferences"},
-			expectedCurveIDs:      []int64{int64(tls.X25519), int64(tls.CurveP256)},
+			convertFunc:           TLSGroupsToCurvePreferences[int64],
+			expectedCurveIDs:      []interface{}{int64(tls.X25519), int64(tls.CurveP256)},
 			expectedUnrecognized:  []configv1.TLSGroup{"invalid-group"},
 			expectedTargetPathSet: true,
 		},
@@ -239,27 +242,58 @@ func TestTLSGroupsToCurvePreferences(t *testing.T) {
 			},
 			sourcePath:           []string{"tempGroups"},
 			targetPath:           []string{"servingInfo", "curvePreferences"},
+			convertFunc:          TLSGroupsToCurvePreferences[int64],
 			expectedUnrecognized: []configv1.TLSGroup{"invalid1", "invalid2"},
 		},
 		{
-			name:       "source path doesn't exist",
-			config:     map[string]interface{}{},
-			sourcePath: []string{"tempGroups"},
-			targetPath: []string{"servingInfo", "curvePreferences"},
+			name:        "source path doesn't exist",
+			config:      map[string]interface{}{},
+			sourcePath:  []string{"tempGroups"},
+			targetPath:  []string{"servingInfo", "curvePreferences"},
+			convertFunc: TLSGroupsToCurvePreferences[int64],
 		},
 		{
 			name: "empty groups array - target path not set",
 			config: map[string]interface{}{
 				"tempGroups": []interface{}{},
 			},
-			sourcePath: []string{"tempGroups"},
-			targetPath: []string{"servingInfo", "curvePreferences"},
+			sourcePath:  []string{"tempGroups"},
+			targetPath:  []string{"servingInfo", "curvePreferences"},
+			convertFunc: TLSGroupsToCurvePreferences[int64],
+		},
+		{
+			name: "type mismatch: existing int64 values, target type string - should convert to strings",
+			config: map[string]interface{}{
+				"tempGroups": []interface{}{"X25519", "secp256r1", "secp384r1"},
+				"apiServerArguments": map[string]interface{}{
+					"tls-curve-preferences": []interface{}{int64(29), int64(23), int64(24)},
+				},
+			},
+			sourcePath:            []string{"tempGroups"},
+			targetPath:            []string{"apiServerArguments", "tls-curve-preferences"},
+			convertFunc:           TLSGroupsToCurvePreferences[string],
+			expectedCurveIDs:      []interface{}{"29", "23", "24"},
+			expectedTargetPathSet: true,
+		},
+		{
+			name: "type mismatch: existing float64 values, target type string - should convert to strings",
+			config: map[string]interface{}{
+				"tempGroups": []interface{}{"X25519", "secp256r1", "secp384r1"},
+				"apiServerArguments": map[string]interface{}{
+					"tls-curve-preferences": []interface{}{float64(29), float64(23), float64(24)},
+				},
+			},
+			sourcePath:            []string{"tempGroups"},
+			targetPath:            []string{"apiServerArguments", "tls-curve-preferences"},
+			convertFunc:           TLSGroupsToCurvePreferences[string],
+			expectedCurveIDs:      []interface{}{"29", "23", "24"},
+			expectedTargetPathSet: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			unrecognized, err := TLSGroupsToCurvePreferences[int64](tt.config, tt.sourcePath, tt.targetPath)
+			unrecognized, err := tt.convertFunc(tt.config, tt.sourcePath, tt.targetPath)
 
 			if tt.expectError {
 				if err == nil {
