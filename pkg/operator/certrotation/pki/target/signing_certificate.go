@@ -32,14 +32,18 @@ func NewSignerRotation(certificateName string, pkiProvider pki.PKIProfileProvide
 func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_@%d", r.signerName, time.Now().Unix())
 
-	cfg, err := pki.ResolveCertificateConfig(r.pkiProvider, pki.CertificateTypeClient, r.certificateName)
+	cfg, err := pki.ResolveCertificateConfig(r.pkiProvider, pki.CertificateTypeSigner, r.certificateName)
 	if err != nil {
 		return nil, fmt.Errorf("resolving PKI configuration: %w", err)
 	}
 
+	remainingSignerValidity := signer.Config.Certs[0].NotAfter.Sub(r.clock.Now())
+
+	lifetime := min(remainingSignerValidity, validity)
+
 	return crypto.NewSigningCertificate(signerName, cfg.Key,
 		crypto.WithSigner(signer),
-		crypto.WithLifetime(validity),
+		crypto.WithLifetime(lifetime),
 		crypto.WithNowFunc(r.clock.Now),
 	)
 }

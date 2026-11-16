@@ -115,7 +115,7 @@ func WithOwner(owner metav1.OwnerReference) SigningCASecretRotatorOption {
 	}
 }
 
-func NewSigningCASecretRotator(namespace string, name string, certificateName string, pkiProfileProvider pki.PKIProfileProvider, client corev1client.SecretsGetter, informer corev1informers.SecretInformer, options ...SigningCASecretRotatorOption) *SigningCASecretRotator {
+func NewSigningCASecretRotator(namespace string, name string, certificateName string, pkiProfileProvider pki.PKIProfileProvider, client corev1client.SecretsGetter, informer corev1informers.SecretInformer, eventRecorder events.Recorder, options ...SigningCASecretRotatorOption) *SigningCASecretRotator {
 	defaultValidity := crypto.DefaultCACertificateLifetimeDuration
 	rotator := &SigningCASecretRotator{
 		namespace:          namespace,
@@ -126,6 +126,8 @@ func NewSigningCASecretRotator(namespace string, name string, certificateName st
 		informer:           informer,
 		lister:             informer.Lister(),
 		validity:           &defaultValidity,
+		eventRecorder:      eventRecorder,
+		clock:              clock.RealClock{},
 	}
 
 	for _, option := range options {
@@ -133,7 +135,7 @@ func NewSigningCASecretRotator(namespace string, name string, certificateName st
 	}
 
 	if rotator.refresh == nil {
-		defaultRefresh := (*rotator.validity * time.Duration(80)) / 100
+		defaultRefresh := *rotator.validity - *rotator.validity/5
 		rotator.refresh = &defaultRefresh
 	}
 
@@ -256,6 +258,10 @@ func buildSecret(secret *corev1.Secret, certificateName string, pkiProvider pki.
 		return fmt.Errorf("writing certificate and key bytes: %w", err)
 	}
 
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
+	}
+
 	secret.Data[certsSecretKey] = certBytes.Bytes()
 	secret.Data[keySecretKey] = keyBytes.Bytes()
 
@@ -273,7 +279,7 @@ func checkIfSignerUpdateRequired(secret *corev1.Secret, refresh time.Duration, c
 
 	ca, err := crypto.GetCAFromBytes(certBytes, keyBytes)
 	if err != nil {
-		return false, "", fmt.Errorf("loading CA data: %w", err)
+		return true, fmt.Sprintf("invalid contents: %v", err), nil
 	}
 
 	signerRoot := ca.Config.Certs[0]

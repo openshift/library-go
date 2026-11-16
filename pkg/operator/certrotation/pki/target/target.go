@@ -110,16 +110,17 @@ func WithOwner(owner metav1.OwnerReference) TargetCertKeySecretRotatorOption {
 	}
 }
 
-func NewTargetCertKeySecretRotator(namespace string, name string, certCreator TargetCertCreator, client corev1client.SecretsGetter, informer corev1informers.SecretInformer, options ...TargetCertKeySecretRotatorOption) *TargetCertKeySecretRotator {
+func NewTargetCertKeySecretRotator(namespace string, name string, certCreator TargetCertCreator, client corev1client.SecretsGetter, informer corev1informers.SecretInformer, eventRecorder events.Recorder, options ...TargetCertKeySecretRotatorOption) *TargetCertKeySecretRotator {
 	defaultValidity := crypto.DefaultCertificateLifetimeDuration
 	rotator := &TargetCertKeySecretRotator{
-		namespace:       namespace,
-		name:            name,
-		certCreator:     certCreator,
-		client:          client,
-		informer:        informer,
-		lister:          informer.Lister(),
-		validity:        &defaultValidity,
+		namespace:     namespace,
+		name:          name,
+		certCreator:   certCreator,
+		client:        client,
+		informer:      informer,
+		lister:        informer.Lister(),
+		validity:      &defaultValidity,
+		eventRecorder: eventRecorder,
 	}
 
 	for _, option := range options {
@@ -127,7 +128,7 @@ func NewTargetCertKeySecretRotator(namespace string, name string, certCreator Ta
 	}
 
 	if rotator.refresh == nil {
-		defaultRefresh := (*rotator.validity * time.Duration(80)) / 100
+		defaultRefresh := *rotator.validity - *rotator.validity/5
 		rotator.refresh = &defaultRefresh
 	}
 
@@ -199,6 +200,10 @@ func (c *TargetCertKeySecretRotator) createSecret(ctx context.Context, secret *c
 		return nil, fmt.Errorf("creating new certificate: %w", err)
 	}
 
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
+	}
+
 	secret.Data[certsSecretKey], secret.Data[keySecretKey], err = tlsCertificateConfig.GetPEMBytes()
 	if err != nil {
 		return nil, fmt.Errorf("getting certificate PEM-encoded bytes: %w", err)
@@ -232,10 +237,16 @@ func (c *TargetCertKeySecretRotator) updateSecret(ctx context.Context, secret *c
 			return nil, fmt.Errorf("creating new certificate: %w", err)
 		}
 
+		if secret.Data == nil {
+			secret.Data = map[string][]byte{}
+		}
+
 		secret.Data[certsSecretKey], secret.Data[keySecretKey], err = tlsCertificateConfig.GetPEMBytes()
 		if err != nil {
 			return nil, fmt.Errorf("getting certificate PEM-encoded bytes: %w", err)
 		}
+
+		c.certCreator.SetAnnotations(tlsCertificateConfig, secret.Annotations)
 	}
 
 	// No updates are needed to the secret
@@ -264,7 +275,7 @@ func checkIfTargetUpdateRequired(secret *corev1.Secret, signer *crypto.CA, caBun
 
 	ca, err := crypto.GetCAFromBytes(certBytes, keyBytes)
 	if err != nil {
-		return false, "", fmt.Errorf("loading certificate data: %w", err)
+		return true, fmt.Sprintf("invalid contents: %v", err), nil
 	}
 
 	leaf := ca.Config.Certs[0]

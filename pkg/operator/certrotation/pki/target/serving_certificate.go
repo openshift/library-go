@@ -60,13 +60,17 @@ func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Durati
 		return nil, fmt.Errorf("no hostnames set")
 	}
 
-	cfg, err := pki.ResolveCertificateConfig(r.pkiProvider, pki.CertificateTypeClient, r.certificateName)
+	cfg, err := pki.ResolveCertificateConfig(r.pkiProvider, pki.CertificateTypeServing, r.certificateName)
 	if err != nil {
 		return nil, fmt.Errorf("resolving PKI configuration: %w", err)
 	}
 
+	remainingSignerValidity := signer.Config.Certs[0].NotAfter.Sub(r.clock.Now())
+
+	lifetime := min(remainingSignerValidity, validity)
+
 	return signer.NewServerCertificate(sets.New(hostnames...), cfg.Key,
-		crypto.WithLifetime(validity),
+		crypto.WithLifetime(lifetime),
 		crypto.WithExtensions(r.certificateExtensionFn...),
 		crypto.WithNowFunc(r.clock.Now),
 	)

@@ -47,13 +47,19 @@ func WithPeerHostnamesChangedChannel(hostnamesChanged <-chan struct{}) PeerRotat
 }
 
 func NewPeerRotation(certificateName string, pkiProvider pki.PKIProfileProvider, hostnames ServingHostnameFunc, userInfo user.Info, options ...PeerRotationOption) *PeerRotation {
-	return &PeerRotation{
+	rotation := &PeerRotation{
 		certificateName: certificateName,
 		pkiProvider:     pkiProvider,
 		hostnames:       hostnames,
 		userInfo:        userInfo,
 		clock:           clock.RealClock{},
 	}
+
+	for _, option := range options {
+		option(rotation)
+	}
+
+	return rotation
 }
 
 func (r *PeerRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
@@ -66,14 +72,18 @@ func (r *PeerRotation) NewCertificate(signer *crypto.CA, validity time.Duration)
 		return nil, fmt.Errorf("PeerRotation requires UserInfo")
 	}
 
-	cfg, err := pki.ResolveCertificateConfig(r.pkiProvider, pki.CertificateTypeClient, r.certificateName)
+	cfg, err := pki.ResolveCertificateConfig(r.pkiProvider, pki.CertificateTypePeer, r.certificateName)
 	if err != nil {
 		return nil, fmt.Errorf("resolving PKI configuration: %w", err)
 	}
 
+	remainingSignerValidity := signer.Config.Certs[0].NotAfter.Sub(r.clock.Now())
+
+	lifetime := min(remainingSignerValidity, validity)
+
 	return signer.NewPeerCertificate(
 		sets.New(hostnames...), r.userInfo, cfg.Key,
-		crypto.WithLifetime(validity),
+		crypto.WithLifetime(lifetime),
 		crypto.WithExtensions(r.certificateExtensionFn...),
 		crypto.WithNowFunc(r.clock.Now),
 	)
