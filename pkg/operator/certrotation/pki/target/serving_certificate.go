@@ -68,6 +68,7 @@ func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Durati
 	return signer.NewServerCertificate(sets.New(hostnames...), cfg.Key,
 		crypto.WithLifetime(validity),
 		crypto.WithExtensions(r.certificateExtensionFn...),
+		crypto.WithNowFunc(r.clock.Now),
 	)
 }
 

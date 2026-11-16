@@ -36,7 +36,7 @@ func (r *ClientRotation) NewCertificate(signer *crypto.CA, validity time.Duratio
 		return nil, fmt.Errorf("resolving PKI configuration: %w", err)
 	}
 
-	return signer.NewClientCertificate(r.userInfo, cfg.Key, crypto.WithLifetime(validity))
+	return signer.NewClientCertificate(r.userInfo, cfg.Key, crypto.WithLifetime(validity), crypto.WithNowFunc(r.clock.Now))
 }
 
 func (r *ClientRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration) (bool, string, error) {

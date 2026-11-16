@@ -68,9 +68,9 @@ type SigningCASecretRotator struct {
 
 	// Plumbing:
 	informer      corev1informers.SecretInformer // required
-	lister        corev1listers.SecretLister // optional, inherited from informer if not provided
-	client        corev1client.SecretsGetter // required
-	eventRecorder events.Recorder // required
+	lister        corev1listers.SecretLister     // optional, inherited from informer if not provided
+	client        corev1client.SecretsGetter     // required
+	eventRecorder events.Recorder                // required
 
 	clock clock.PassiveClock
 }
@@ -299,9 +299,11 @@ func createSigningTLSCertificateConfig(name string, pkiProvider pki.PKIProfilePr
 		return nil, fmt.Errorf("resolving certificate configuration: %w", err)
 	}
 
-	signerName := generateSignerName(name, "TODO", clk)
+	now := clk.Now()
 
-	baseline, err := crypto.NewSigningCertificate(signerName, cfg.Key, crypto.WithLifetime(lifetime))
+	signerName := generateSignerName(name, "TODO", now)
+
+	baseline, err := crypto.NewSigningCertificate(signerName, cfg.Key, crypto.WithLifetime(lifetime), crypto.WithNowFunc(func() time.Time { return now }))
 	if err != nil {
 		return nil, fmt.Errorf("generating self-signed signing certificate: %w", err)
 	}
@@ -315,6 +317,6 @@ func createSigningTLSCertificateConfig(name string, pkiProvider pki.PKIProfilePr
 // span of one second from the time a certificate was issued will end up using the exact same signer name.
 // The inclusion of the key algorithm prevents this race condition for rotations related to algorithm
 // changes.
-func generateSignerName(name string, algorithm string, clk clock.PassiveClock) string {
-	return fmt.Sprintf("%s_%s@%d", name, algorithm, clk.Now().Unix())
+func generateSignerName(name string, algorithm string, now time.Time) string {
+	return fmt.Sprintf("%s_%s@%d", name, algorithm, now.Unix())
 }

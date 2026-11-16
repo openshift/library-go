@@ -75,6 +75,7 @@ func (r *PeerRotation) NewCertificate(signer *crypto.CA, validity time.Duration)
 		sets.New(hostnames...), r.userInfo, cfg.Key,
 		crypto.WithLifetime(validity),
 		crypto.WithExtensions(r.certificateExtensionFn...),
+		crypto.WithNowFunc(r.clock.Now),
 	)
 }
 

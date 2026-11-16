@@ -40,6 +40,7 @@ func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duratio
 	return crypto.NewSigningCertificate(signerName, cfg.Key,
 		crypto.WithSigner(signer),
 		crypto.WithLifetime(validity),
+		crypto.WithNowFunc(r.clock.Now),
 	)
 }
 
