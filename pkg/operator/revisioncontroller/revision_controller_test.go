@@ -946,3 +946,126 @@ func TestSyncWithRevisionReadinessCheck(t *testing.T) {
 		})
 	}
 }
+
+// TestSyncAdvertisedRevisionNewerThanLatestReady covers the case where the operator status advertises a
+// LatestAvailableRevision whose revision-status configmap is not marked as ready, e.g. because the write
+// setting the ready annotation was lost when etcd was restored. The controller must never try to lower
+// LatestAvailableRevision (the API rejects it) and must still be able to roll out new revisions.
+func TestSyncAdvertisedRevisionNewerThanLatestReady(t *testing.T) {
+	readyStatus := func(revision string, ready string) *v1.ConfigMap {
+		return &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "revision-status-" + revision,
+				Namespace:   targetNamespace,
+				Annotations: map[string]string{"operator.openshift.io/revision-ready": ready},
+			},
+			Data: map[string]string{"revision": revision},
+		}
+	}
+
+	tests := []struct {
+		name                            string
+		startingObjects                 []runtime.Object
+		expectedLatestAvailableRevision int32
+		expectRevision8                 bool
+	}{
+		{
+			name: "content of advertised revision is outdated, new revision is rolled out",
+			startingObjects: []runtime.Object{
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: targetNamespace}, Data: map[string]string{"key": "new"}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config-6", Namespace: targetNamespace}, Data: map[string]string{"key": "old"}},
+				// test-config-7 was lost with the restore
+				readyStatus("6", "true"),
+				readyStatus("7", "false"),
+			},
+			expectedLatestAvailableRevision: 8,
+			expectRevision8:                 true,
+		},
+		{
+			name: "content of advertised revision is current, nothing to do",
+			startingObjects: []runtime.Object{
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: targetNamespace}, Data: map[string]string{"key": "new"}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config-6", Namespace: targetNamespace}, Data: map[string]string{"key": "old"}},
+				&v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test-config-7", Namespace: targetNamespace}, Data: map[string]string{"key": "new"}},
+				readyStatus("6", "true"),
+				readyStatus("7", "false"),
+			},
+			expectedLatestAvailableRevision: 7,
+			expectRevision8:                 false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// emulate the "self >= oldSelf" validation of LatestAvailableRevision
+			accepted := int32(7)
+			var attemptedDowngrades []int32
+			validateStatus := func(_ string, status *operatorv1.StaticPodOperatorStatus) error {
+				if status == nil {
+					return nil
+				}
+				if status.LatestAvailableRevision < accepted {
+					attemptedDowngrades = append(attemptedDowngrades, status.LatestAvailableRevision)
+					return fmt.Errorf("latestAvailableRevision: must only increase")
+				}
+				accepted = status.LatestAvailableRevision
+				return nil
+			}
+
+			operatorClient := v1helpers.NewFakeStaticPodOperatorClient(
+				&operatorv1.StaticPodOperatorSpec{OperatorSpec: operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}},
+				&operatorv1.StaticPodOperatorStatus{OperatorStatus: operatorv1.OperatorStatus{LatestAvailableRevision: 7}},
+				validateStatus,
+				nil,
+			)
+			kubeClient := fake.NewSimpleClientset(tc.startingObjects...)
+			eventRecorder := events.NewRecorder(kubeClient.CoreV1().Events("test"), "test-operator", &v1.ObjectReference{}, clocktesting.NewFakePassiveClock(time.Now()))
+
+			c := NewRevisionController(
+				"testing",
+				targetNamespace,
+				[]RevisionResource{{Name: "test-config"}},
+				nil,
+				informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace(targetNamespace)),
+				operatorClient,
+				kubeClient.CoreV1(),
+				kubeClient.CoreV1(),
+				eventRecorder,
+				nil,
+				nil,
+			)
+
+			// sync a few times to make sure the controller converges and doesn't get stuck
+			for i := 0; i < 3; i++ {
+				require.NoError(t, c.Sync(context.TODO(), factory.NewSyncContext("RevisionController", eventRecorder)), "sync %d", i)
+			}
+
+			require.Empty(t, attemptedDowngrades, "controller must never try to lower LatestAvailableRevision")
+
+			emittedEvents, err := kubeClient.CoreV1().Events("test").List(context.TODO(), metav1.ListOptions{})
+			require.NoError(t, err)
+			var foundNotReadyEvent bool
+			for _, e := range emittedEvents.Items {
+				if e.Reason == "LatestAvailableRevisionNotReady" && e.Type == v1.EventTypeWarning {
+					foundNotReadyEvent = true
+				}
+			}
+			require.True(t, foundNotReadyEvent, "expected a LatestAvailableRevisionNotReady warning event")
+
+			_, status, _, err := operatorClient.GetStaticPodOperatorState()
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedLatestAvailableRevision, status.LatestAvailableRevision)
+
+			revision8, err := kubeClient.CoreV1().ConfigMaps(targetNamespace).Get(context.TODO(), "revision-status-8", metav1.GetOptions{})
+			if !tc.expectRevision8 {
+				require.Error(t, err, "revision-status-8 must not be created")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, "true", revision8.Annotations["operator.openshift.io/revision-ready"])
+			config8, err := kubeClient.CoreV1().ConfigMaps(targetNamespace).Get(context.TODO(), "test-config-8", metav1.GetOptions{})
+			require.NoError(t, err)
+			require.Equal(t, map[string]string{"key": "new"}, config8.Data)
+		})
+	}
+}
