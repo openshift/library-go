@@ -16,7 +16,7 @@ func TestCurvePreferencesToTLSGroups(t *testing.T) {
 		sourcePath            []string
 		targetPath            []string
 		expectedGroups        []string
-		expectedUnrecog       []tls.CurveID
+		expectedUnrecognized  []tls.CurveID
 		expectedTargetPathSet bool
 		expectError           bool
 	}{
@@ -42,7 +42,7 @@ func TestCurvePreferencesToTLSGroups(t *testing.T) {
 			sourcePath:            []string{"servingInfo", "curvePreferences"},
 			targetPath:            []string{"tempGroups"},
 			expectedGroups:        []string{"X25519", "secp256r1"},
-			expectedUnrecog:       []tls.CurveID{9999},
+			expectedUnrecognized:  []tls.CurveID{9999},
 			expectedTargetPathSet: true,
 		},
 		{
@@ -52,9 +52,9 @@ func TestCurvePreferencesToTLSGroups(t *testing.T) {
 					"curvePreferences": []interface{}{int64(9998), int64(9999)},
 				},
 			},
-			sourcePath:      []string{"servingInfo", "curvePreferences"},
-			targetPath:      []string{"tempGroups"},
-			expectedUnrecog: []tls.CurveID{9998, 9999},
+			sourcePath:           []string{"servingInfo", "curvePreferences"},
+			targetPath:           []string{"tempGroups"},
+			expectedUnrecognized: []tls.CurveID{9998, 9999},
 		},
 		{
 			name:       "source path doesn't exist",
@@ -178,14 +178,8 @@ func TestCurvePreferencesToTLSGroups(t *testing.T) {
 				return
 			}
 
-			if len(unrecognized) != len(tt.expectedUnrecog) {
-				t.Errorf("expected %d unrecognized curve IDs, got %d", len(tt.expectedUnrecog), len(unrecognized))
-			}
-			for i, curveID := range tt.expectedUnrecog {
-				if i >= len(unrecognized) || unrecognized[i] != curveID {
-					t.Errorf("unrecognized curve IDs mismatch: expected %v, got %v", tt.expectedUnrecog, unrecognized)
-					break
-				}
+			if !reflect.DeepEqual(unrecognized, tt.expectedUnrecognized) {
+				t.Errorf("unrecognized curve IDs mismatch:\nexpected: %v\nactual:   %v", tt.expectedUnrecognized, unrecognized)
 			}
 
 			groups, found, err := unstructured.NestedStringSlice(tt.config, tt.targetPath...)
@@ -198,14 +192,8 @@ func TestCurvePreferencesToTLSGroups(t *testing.T) {
 			}
 
 			if found {
-				if len(groups) != len(tt.expectedGroups) {
-					t.Errorf("expected %d groups, got %d", len(tt.expectedGroups), len(groups))
-				}
-				for i, group := range tt.expectedGroups {
-					if i >= len(groups) || groups[i] != group {
-						t.Errorf("groups mismatch: expected %v, got %v", tt.expectedGroups, groups)
-						break
-					}
+				if !reflect.DeepEqual(groups, tt.expectedGroups) {
+					t.Errorf("groups mismatch:\nexpected: %v\nactual:   %v", tt.expectedGroups, groups)
 				}
 			}
 		})
@@ -219,7 +207,7 @@ func TestTLSGroupsToCurvePreferences(t *testing.T) {
 		sourcePath            []string
 		targetPath            []string
 		expectedCurveIDs      []int64
-		expectedUnrecog       []configv1.TLSGroup
+		expectedUnrecognized  []configv1.TLSGroup
 		expectedTargetPathSet bool
 		expectError           bool
 	}{
@@ -241,7 +229,7 @@ func TestTLSGroupsToCurvePreferences(t *testing.T) {
 			sourcePath:            []string{"tempGroups"},
 			targetPath:            []string{"servingInfo", "curvePreferences"},
 			expectedCurveIDs:      []int64{int64(tls.X25519), int64(tls.CurveP256)},
-			expectedUnrecog:       []configv1.TLSGroup{"invalid-group"},
+			expectedUnrecognized:  []configv1.TLSGroup{"invalid-group"},
 			expectedTargetPathSet: true,
 		},
 		{
@@ -249,9 +237,9 @@ func TestTLSGroupsToCurvePreferences(t *testing.T) {
 			config: map[string]interface{}{
 				"tempGroups": []interface{}{"invalid1", "invalid2"},
 			},
-			sourcePath:      []string{"tempGroups"},
-			targetPath:      []string{"servingInfo", "curvePreferences"},
-			expectedUnrecog: []configv1.TLSGroup{"invalid1", "invalid2"},
+			sourcePath:           []string{"tempGroups"},
+			targetPath:           []string{"servingInfo", "curvePreferences"},
+			expectedUnrecognized: []configv1.TLSGroup{"invalid1", "invalid2"},
 		},
 		{
 			name:       "source path doesn't exist",
@@ -285,14 +273,8 @@ func TestTLSGroupsToCurvePreferences(t *testing.T) {
 				return
 			}
 
-			if len(unrecognized) != len(tt.expectedUnrecog) {
-				t.Errorf("expected %d unrecognized groups, got %d", len(tt.expectedUnrecog), len(unrecognized))
-			}
-			for i, group := range tt.expectedUnrecog {
-				if i >= len(unrecognized) || unrecognized[i] != group {
-					t.Errorf("unrecognized groups mismatch: expected %v, got %v", tt.expectedUnrecog, unrecognized)
-					break
-				}
+			if !reflect.DeepEqual(unrecognized, tt.expectedUnrecognized) {
+				t.Errorf("unrecognized groups mismatch:\nexpected: %v\nactual:   %v", tt.expectedUnrecognized, unrecognized)
 			}
 
 			curvePrefsRaw, found, err := unstructured.NestedSlice(tt.config, tt.targetPath...)
@@ -305,21 +287,8 @@ func TestTLSGroupsToCurvePreferences(t *testing.T) {
 			}
 
 			if found {
-				if len(curvePrefsRaw) != len(tt.expectedCurveIDs) {
-					t.Errorf("expected %d curve preferences, got %d", len(tt.expectedCurveIDs), len(curvePrefsRaw))
-				}
-				for i, expectedID := range tt.expectedCurveIDs {
-					if i >= len(curvePrefsRaw) {
-						break
-					}
-					actualID, ok := curvePrefsRaw[i].(int64)
-					if !ok {
-						t.Errorf("curve preference at index %d is not int64", i)
-						continue
-					}
-					if actualID != expectedID {
-						t.Errorf("curve IDs mismatch at index %d: expected %d, got %d", i, expectedID, actualID)
-					}
+				if !reflect.DeepEqual(curvePrefsRaw, tt.expectedCurveIDs) {
+					t.Errorf("curve preferences mismatch:\nexpected: %v\nactual:   %v", tt.expectedCurveIDs, curvePrefsRaw)
 				}
 			}
 		})
