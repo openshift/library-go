@@ -227,18 +227,27 @@ func TestControllerWithInformer2(t *testing.T) {
 func TestControllerScheduled(t *testing.T) {
 	syncCalled := make(chan struct{})
 	controller := New().ResyncSchedule("@every 1s").WithSync(func(ctx context.Context, controllerContext SyncContext) error {
-		syncCalled <- struct{}{}
+		select {
+		case syncCalled <- struct{}{}:
+		case <-ctx.Done():
+		}
 		return nil
 	}).ToController("test", events.NewInMemoryRecorder("fake-controller", clocktesting.NewFakePassiveClock(time.Now())))
 
+	observerDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		// cancel() must be called first, otherwise observerDone would never be closed
+		cancel()
+		<-observerDone
+	}()
 
 	syncCounter := 0
 	var syncMutex sync.Mutex
 
 	// observe sync calls
 	go func() {
+		defer close(observerDone)
 		for {
 			select {
 			case <-syncCalled:
