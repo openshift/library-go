@@ -333,7 +333,7 @@ func (t *testStatusReporter) Report(ctx context.Context, controllerName string, 
 // mockTargetCertCreator is a mock implementation of TargetCertCreator for testing
 type mockTargetCertCreator struct{}
 
-func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.Duration, _ crypto.KeyPairGenerator) (*crypto.TLSCertificateConfig, error) {
+func (m *mockTargetCertCreator) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
 	// Use the provided signer to create a real certificate with matching key
 	certConfig, err := signer.MakeServerCert(sets.New("test-cert", "localhost"), validity)
 	if err != nil {

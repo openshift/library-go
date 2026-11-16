@@ -47,6 +47,8 @@ func (s *StaticPodConditionStatusReporter) Report(ctx context.Context, controlle
 	return updated, updateErr
 }
 
+// TODO: Add new implementations of the below interfaces to perform Configurable PKI behaviors with cross-signing (except for CABundleConfigMapRotator).
+
 type SigningCertKeyPairSecretRotator interface {
 	EnsureSigningCertKeyPair(context.Context) (*crypto.CA, bool, error)
 	NamespaceName() string

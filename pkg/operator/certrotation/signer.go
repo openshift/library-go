@@ -9,7 +9,6 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
-	"github.com/openshift/library-go/pkg/pki"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,10 +51,6 @@ type RotatedSigningCASecret struct {
 	// CertificateName is the logical name of this certificate for PKI profile resolution.
 	CertificateName string
 
-	// PKIProfileProvider, when non-nil, enables ConfigurablePKI certificate
-	// key algorithm resolution. When nil, legacy certificate generation is used.
-	PKIProfileProvider pki.PKIProfileProvider
-
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
 	Lister        corev1listers.SecretLister
@@ -92,8 +87,8 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
 	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
-		needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
+		needsMetadataUpdate := EnsureOwnerRefAndTLSAnnotations(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+		needsTypeChange := EnsureSecretTLSTypeSet(signingCertKeyPairSecret)
 		updateRequired = needsMetadataUpdate || needsTypeChange
 	}
 
@@ -211,33 +206,6 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 	return notBefore, notAfter, ""
 }
 
-func (c RotatedSigningCASecret) resolveKeyPairGenerator() (crypto.KeyPairGenerator, error) {
-	return resolveKeyPairGeneratorWithFallback(c.PKIProfileProvider, pki.CertificateTypeSigner, c.CertificateName)
-}
-
-// resolveKeyPairGeneratorWithFallback resolves the key pair generator from the
-// PKI profile provider. Returns nil for Unmanaged mode (no key override).
-//
-// TODO(sanchezl): Remove the fallback to DefaultPKIProfile() once installer
-// support for the PKI resource is in place. Until then, the PKI resource may
-// not exist in TechPreview clusters. Once removed, callers can use
-// pki.ResolveCertificateConfig directly.
-func resolveKeyPairGeneratorWithFallback(provider pki.PKIProfileProvider, certType pki.CertificateType, name string) (crypto.KeyPairGenerator, error) {
-	cfg, err := pki.ResolveCertificateConfig(provider, certType, name)
-	if err != nil {
-		klog.Warningf("Failed to resolve PKI config for %s %q, falling back to default profile: %v", certType, name, err)
-		defaultProfile := pki.DefaultPKIProfile()
-		cfg, err = pki.ResolveCertificateConfig(pki.NewStaticPKIProfileProvider(&defaultProfile), certType, name)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if cfg == nil {
-		return nil, nil
-	}
-	return cfg.Key, nil
-}
-
 // setSigningCertKeyPairSecretAndTLSAnnotations generates a new signing certificate and key pair,
 // stores them in the specified secret, and adds predefined TLS annotations to that secret.
 func (c RotatedSigningCASecret) setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret) error {
@@ -254,24 +222,7 @@ func (c RotatedSigningCASecret) setSigningCertKeyPairSecretAndTLSAnnotations(sig
 func (c RotatedSigningCASecret) setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_%s@%d", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name, time.Now().Unix())
 
-	var ca *crypto.TLSCertificateConfig
-	var err error
-	if c.PKIProfileProvider != nil {
-		keyGen, err := c.resolveKeyPairGenerator()
-		if err != nil {
-			return nil, err
-		}
-		if keyGen != nil {
-			ca, err = crypto.NewSigningCertificate(signerName, keyGen, crypto.WithLifetime(c.Validity))
-			if err != nil {
-				return nil, err
-			}
-		}
-		// nil keyGen means Unmanaged: fall through to legacy cert generation
-	}
-	if ca == nil {
-		ca, err = crypto.MakeSelfSignedCAConfigForDuration(signerName, c.Validity)
-	}
+	ca, err := crypto.MakeSelfSignedCAConfigForDuration(signerName, c.Validity)
 	if err != nil {
 		return nil, err
 	}
