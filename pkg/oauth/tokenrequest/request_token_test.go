@@ -2,6 +2,7 @@ package tokenrequest
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -820,6 +821,278 @@ func TestConvertErrorIfUnknownX509(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTransportWithSystemRoots(t *testing.T) {
+	// the probe request as the issuer saw it, reset by every subtest that
+	// reaches a server
+	var probeMethod, probePath, probeHost string
+	recordProbe := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probeMethod, probePath, probeHost = r.Method, r.URL.Path, r.Host
+	})
+
+	// serves TLS with a self-signed certificate, i.e. one that is never part of
+	// the system trust bundle, so the probe falls back to the kubeconfig CA
+	tlsServer := httptest.NewTLSServer(recordProbe)
+	defer tlsServer.Close()
+	tlsServerURL, err := url.Parse(tlsServer.URL)
+	if err != nil {
+		t.Fatalf("unexpected error parsing the test server URL: %v", err)
+	}
+
+	// serves plain HTTP, so the probe response carries no TLS connection state
+	plainServer := httptest.NewServer(recordProbe)
+	defer plainServer.Close()
+
+	// closed up front so that connecting to it is refused
+	deadServer := httptest.NewTLSServer(recordProbe)
+	deadServerURL := deadServer.URL
+	deadServer.Close()
+
+	caData := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: tlsServer.Certificate().Raw})
+	missingCAFile := "/this/path/does/not/exist/ca.crt"
+
+	// trusts the test server, standing in for the system trust bundle in the
+	// cases that exercise successful validation of the serving certificate
+	trustingRoots := x509.NewCertPool()
+	trustingRoots.AddCert(tlsServer.Certificate())
+
+	for _, tc := range []struct {
+		name   string
+		issuer string
+		// roots stands in for the system trust bundle; nil means the real one,
+		// which never trusts the self-signed test certificates.
+		roots        *x509.CertPool
+		clientConfig *restclient.Config
+		expectError  string
+		// expectProbePath and expectProbeHost, when set, are asserted against
+		// the probe request as the issuer received it.
+		expectProbePath string
+		expectProbeHost string
+		// target, when set, is requested with the returned transport to assert
+		// which trust bundle the transport ended up with.
+		target            string
+		expectTargetError string
+	}{
+		{
+			name:         "malformed issuer URL",
+			issuer:       "https://exa\nmple.com",
+			clientConfig: &restclient.Config{},
+			expectError:  "invalid control character in URL",
+		},
+		{
+			name:         "unreachable issuer",
+			issuer:       deadServerURL,
+			clientConfig: &restclient.Config{TLSClientConfig: restclient.TLSClientConfig{CAData: caData}},
+			expectError:  "connection refused",
+		},
+		// The three cases below pin which port the issuer is probed on, by way
+		// of the address the failed dial reports. Note that they document the
+		// behaviour rather than cover the port block in transportWithSystemRoots:
+		// the port an issuer is reached on is worked out by net/http from the
+		// scheme, so these would keep passing if that block were deleted.
+		//
+		// They all use the IPv6 loopback so that the probe is refused
+		// immediately, rather than waiting out a DNS lookup or a connect timeout.
+		{
+			name:         "https issuer without a port is probed on 443",
+			issuer:       "https://[::1]/oauth/token",
+			clientConfig: &restclient.Config{},
+			expectError:  "dial tcp [::1]:443",
+		},
+		{
+			// a plain HTTP issuer must not be probed on 443
+			name:         "http issuer without a port is probed on 80",
+			issuer:       "http://[::1]/oauth/token",
+			clientConfig: &restclient.Config{},
+			expectError:  "dial tcp [::1]:80",
+		},
+		{
+			name:         "issuer with a port is probed on it",
+			issuer:       "https://[::1]:8443/oauth/token",
+			clientConfig: &restclient.Config{},
+			expectError:  "dial tcp [::1]:8443",
+		},
+		{
+			// the issuer already spells out a port, so the Host header it is
+			// reached with must be unchanged
+			name:            "issuer path and authority are preserved",
+			issuer:          tlsServer.URL + "/oauth/token",
+			clientConfig:    &restclient.Config{TLSClientConfig: restclient.TLSClientConfig{CAData: caData}},
+			expectProbePath: "/oauth/token",
+			expectProbeHost: tlsServerURL.Host,
+		},
+		{
+			name:         "self-signed issuer falls back to the kubeconfig CA",
+			issuer:       tlsServer.URL,
+			clientConfig: &restclient.Config{TLSClientConfig: restclient.TLSClientConfig{CAData: caData}},
+			target:       tlsServer.URL,
+		},
+		{
+			name:   "self-signed issuer without a usable kubeconfig CA surfaces the error",
+			issuer: tlsServer.URL,
+			// the fallback transport cannot be built, which must be reported
+			clientConfig: &restclient.Config{TLSClientConfig: restclient.TLSClientConfig{CAFile: missingCAFile}},
+			expectError:  missingCAFile,
+		},
+		{
+			name:   "self-signed issuer with an empty kubeconfig CA keeps the system roots",
+			issuer: tlsServer.URL,
+			// nothing to fall back to, so the resulting transport does not trust
+			// the issuer either - the assertion must not paper over that
+			clientConfig:      &restclient.Config{},
+			target:            tlsServer.URL,
+			expectTargetError: "x509:",
+		},
+		{
+			// regression test: the probe response of a plain HTTP issuer has no
+			// TLS connection state to inspect
+			name:         "plain HTTP issuer falls back to the kubeconfig CA",
+			issuer:       plainServer.URL,
+			clientConfig: &restclient.Config{TLSClientConfig: restclient.TLSClientConfig{CAData: caData}},
+			target:       tlsServer.URL,
+		},
+		{
+			name:         "plain HTTP issuer without a usable kubeconfig CA surfaces the error",
+			issuer:       plainServer.URL,
+			clientConfig: &restclient.Config{TLSClientConfig: restclient.TLSClientConfig{CAFile: missingCAFile}},
+			expectError:  missingCAFile,
+		},
+		{
+			// same client config as the fallback case above, but the issuer now
+			// validates against the roots, so the kubeconfig CA must be dropped:
+			// the returned transport is left with roots that do not trust the
+			// test server, hence the expected failure
+			name:              "issuer trusted by the roots drops the kubeconfig CA",
+			issuer:            tlsServer.URL,
+			roots:             trustingRoots,
+			clientConfig:      &restclient.Config{TLSClientConfig: restclient.TLSClientConfig{CAData: caData}},
+			target:            tlsServer.URL,
+			expectTargetError: "x509:",
+		},
+		{
+			// only the CA is unset when the system roots work, so the rest of the
+			// kubeconfig TLS config still has to produce a usable transport
+			name:   "issuer trusted by the roots surfaces client certificate errors",
+			issuer: tlsServer.URL,
+			roots:  trustingRoots,
+			clientConfig: &restclient.Config{TLSClientConfig: restclient.TLSClientConfig{
+				CAData:   caData,
+				CertFile: "/this/path/does/not/exist/client.crt",
+				KeyFile:  "/this/path/does/not/exist/client.key",
+			}},
+			expectError: "client.crt",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			probeMethod, probePath, probeHost = "", "", ""
+
+			rt, err := transportWithSystemRoots(tc.issuer, tc.clientConfig, tc.roots)
+
+			if tc.expectError != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got transport %v", tc.expectError, rt)
+				}
+				if !strings.Contains(err.Error(), tc.expectError) {
+					t.Fatalf("expected error containing %q, got %q", tc.expectError, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if rt == nil {
+				t.Fatal("expected a transport, got nil")
+			}
+
+			if tc.expectProbePath != "" {
+				if probeMethod != http.MethodHead {
+					t.Errorf("expected the issuer to be probed with %s, got %s", http.MethodHead, probeMethod)
+				}
+				if probePath != tc.expectProbePath {
+					t.Errorf("expected the issuer to be probed at %q, got %q", tc.expectProbePath, probePath)
+				}
+				if probeHost != tc.expectProbeHost {
+					t.Errorf("expected the issuer to be probed with Host %q, got %q", tc.expectProbeHost, probeHost)
+				}
+			}
+
+			if tc.target == "" {
+				return
+			}
+
+			req, err := http.NewRequest(http.MethodGet, tc.target, nil)
+			if err != nil {
+				t.Fatalf("unexpected error building the request: %v", err)
+			}
+			resp, err := rt.RoundTrip(req)
+			if tc.expectTargetError != "" {
+				if err == nil {
+					resp.Body.Close()
+					t.Fatalf("expected error containing %q, got status %s", tc.expectTargetError, resp.Status)
+				}
+				if !strings.Contains(err.Error(), tc.expectTargetError) {
+					t.Fatalf("expected error containing %q, got %q", tc.expectTargetError, err.Error())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error from the returned transport: %v", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("expected %d from the returned transport, got %s", http.StatusOK, resp.Status)
+			}
+		})
+	}
+}
+
+func TestVerifyServerCertChain(t *testing.T) {
+	tlsServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer tlsServer.Close()
+
+	chain := []*x509.Certificate{tlsServer.Certificate()}
+
+	trustingRoots := x509.NewCertPool()
+	trustingRoots.AddCert(tlsServer.Certificate())
+
+	t.Run("empty chain", func(t *testing.T) {
+		_, err := verifyServerCertChain("127.0.0.1", nil, trustingRoots)
+		if err == nil {
+			t.Fatal("expected an error for an empty certificate chain")
+		}
+		if !strings.Contains(err.Error(), "empty certificate chain") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("chain trusted by the given roots verifies", func(t *testing.T) {
+		verified, err := verifyServerCertChain("127.0.0.1", chain, trustingRoots)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(verified) == 0 {
+			t.Fatal("expected at least one verified chain")
+		}
+	})
+
+	t.Run("hostname outside the certificate SANs is rejected", func(t *testing.T) {
+		_, err := verifyServerCertChain("not-in-the-cert.example.org", chain, trustingRoots)
+		if err == nil {
+			t.Fatal("expected a hostname mismatch error")
+		}
+		var hostnameErr x509.HostnameError
+		if !errors.As(err, &hostnameErr) {
+			t.Fatalf("expected an x509.HostnameError, got %T: %v", err, err)
+		}
+	})
+
+	t.Run("self-signed chain is not trusted by the system roots", func(t *testing.T) {
+		if _, err := verifyServerCertChain("127.0.0.1", chain, nil); err == nil {
+			t.Fatal("expected the self-signed certificate to fail verification")
+		}
+	})
 }
 
 func parameterDiff(input, expected map[string][]string) string {

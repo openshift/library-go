@@ -401,7 +401,8 @@ func (o *RequestTokenOptions) newOsinClient() (*osincli.Client, *osincli.Authori
 	// in our ca data otherwise an external
 	// oauth server with a valid cert will fail with
 	// error: x509: certificate signed by unknown authority
-	rt, err := transportWithSystemRoots(o.Issuer, o.ClientConfig)
+	// a nil root pool means the system trust bundle is used
+	rt, err := transportWithSystemRoots(o.Issuer, o.ClientConfig, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -524,7 +525,12 @@ func request(rt http.RoundTripper, requestURL string, requestHeaders http.Header
 // issuer, validates it against the system roots and if the validation passes,
 // returns transport using just system roots, otherwise it returns a transport
 // that uses the CA from kubeconfig
-func transportWithSystemRoots(issuer string, clientConfig *restclient.Config) (http.RoundTripper, error) {
+//
+// roots is the pool the serving certificate is validated against; nil means the
+// system trust bundle (or the platform verifier). It is a parameter, rather than
+// always being nil, so that tests can exercise the path where validation succeeds
+// without depending on the trust store of the machine running them.
+func transportWithSystemRoots(issuer string, clientConfig *restclient.Config, roots *x509.CertPool) (http.RoundTripper, error) {
 	issuerURL, err := url.Parse(issuer)
 	if err != nil {
 		return nil, err
@@ -533,7 +539,11 @@ func transportWithSystemRoots(issuer string, clientConfig *restclient.Config) (h
 	port := issuerURL.Port()
 	if len(port) == 0 {
 		port = "443"
+		if issuerURL.Scheme == "http" {
+			port = "80"
+		}
 	}
+
 	// perform the retrieval with insecure transport, otherwise oauth-server
 	// logs remote tls error which is confusing during troubleshooting
 	client := http.Client{
@@ -546,13 +556,23 @@ func transportWithSystemRoots(issuer string, clientConfig *restclient.Config) (h
 			},
 		},
 	}
+
 	resp, err := client.Head(issuer)
 	if err != nil {
 		return nil, err
 	}
 	resp.Body.Close()
 
-	_, err = verifyServerCertChain(issuerURL.Hostname(), resp.TLS.PeerCertificates)
+	// resp.TLS is nil for unencrypted responses, i.e. a plain HTTP issuer or an
+	// issuer that redirected us to a plain HTTP endpoint. There is no serving
+	// certificate to validate in that case, so there is nothing to be gained from
+	// dropping the kubeconfig CA.
+	if resp.TLS == nil {
+		klog.V(4).Infof("falling back to kubeconfig CA as %q did not yield a TLS connection", issuer)
+		return restclient.TransportFor(clientConfig)
+	}
+
+	_, err = verifyServerCertChain(issuerURL.Hostname(), resp.TLS.PeerCertificates, roots)
 
 	switch err.(type) {
 	case nil:
@@ -569,11 +589,7 @@ func transportWithSystemRoots(issuer string, clientConfig *restclient.Config) (h
 
 		// no error meaning the system roots work with the OAuth server
 		klog.V(4).Info("using system roots as no error was encountered")
-		systemRootsRT, err := restclient.TransportFor(configWithSystemRoots)
-		if err != nil {
-			return nil, err
-		}
-		return systemRootsRT, nil
+		return restclient.TransportFor(configWithSystemRoots)
 	case x509.UnknownAuthorityError, x509.HostnameError, x509.CertificateInvalidError, x509.SystemRootsError,
 		tls.RecordHeaderError, *net.OpError:
 		// fallback to the CA in the kubeconfig since the system roots did not work
@@ -600,9 +616,10 @@ func transportWithSystemRoots(issuer string, clientConfig *restclient.Config) (h
 	}
 }
 
-// verifyCertChain uses the system trust bundle in order to perform validation
-// of a certificate chain
-func verifyServerCertChain(dnsName string, chain []*x509.Certificate) ([][]*x509.Certificate, error) {
+// verifyServerCertChain performs validation of a certificate chain against
+// roots. A nil roots pool means the system trust bundle (or, on platforms that
+// have one, the platform verifier) is used.
+func verifyServerCertChain(dnsName string, chain []*x509.Certificate, roots *x509.CertPool) ([][]*x509.Certificate, error) {
 	if len(chain) == 0 {
 		return nil, fmt.Errorf("the server presented an empty certificate chain")
 	}
@@ -613,6 +630,7 @@ func verifyServerCertChain(dnsName string, chain []*x509.Certificate) ([][]*x509
 	}
 
 	return chain[0].Verify(x509.VerifyOptions{
+		Roots:         roots,
 		Intermediates: intermediates,
 		DNSName:       dnsName,
 	})
