@@ -85,13 +85,13 @@ s16gDilgo+8DEAxQfQIDAQAB
 			name:        "fake public key",
 			pubKey:      "fake key",
 			privKey:     rsaPrivKey1,
-			expectedErr: fmt.Errorf("data does not contain any valid RSA or ECDSA public keys"),
+			expectedErr: fmt.Errorf("data does not contain any valid RSA, ECDSA or ML-DSA public keys"),
 		},
 		{
 			name:        "fake private key",
 			pubKey:      rsaPublicKey1,
 			privKey:     "fake key",
-			expectedErr: fmt.Errorf("data does not contain a valid RSA or ECDSA private key"),
+			expectedErr: fmt.Errorf("data does not contain a valid RSA, ECDSA or ML-DSA private key"),
 		},
 	}
 	for _, tc := range keyPairTests {
