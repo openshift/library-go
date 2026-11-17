@@ -3,13 +3,13 @@ module github.com/openshift/library-go
 go 1.27.0
 
 require (
+	cel.dev/cel-go v0.33.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/distribution/distribution/v3 v3.0.0-20230511163743-f7717b7855ca
 	github.com/fvbommel/sortorder v1.1.0
 	github.com/go-ldap/ldap/v3 v3.4.11
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
-	github.com/google/cel-go v0.29.2
 	github.com/google/gnostic-models v0.7.1
 	github.com/google/go-cmp v0.7.0
 	github.com/imdario/mergo v0.3.7
@@ -55,7 +55,6 @@ require (
 )
 
 require (
-	cel.dev/cel-go v0.33.2 // indirect
 	cel.dev/expr v0.25.3 // indirect
 	cyphar.com/go-pathrs v0.2.1 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
