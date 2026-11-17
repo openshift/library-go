@@ -44,6 +44,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().CSISnapshotControllers().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("cloudcredentials"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().CloudCredentials().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("clusterapis"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().ClusterAPIs().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("clustercsidrivers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().ClusterCSIDrivers().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("configs"):
@@ -94,6 +96,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1alpha1().ClusterVersionOperators().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("etcdbackups"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1alpha1().EtcdBackups().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("etcdbackuppolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1alpha1().EtcdBackupPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("imagecontentsourcepolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1alpha1().ImageContentSourcePolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("ingresses"):
