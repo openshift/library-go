@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 
 	"k8s.io/client-go/util/cert"
@@ -203,12 +204,13 @@ func TestEnsureConfigMapCABundle(t *testing.T) {
 			}
 
 			c := &CABundleConfigMap{
-				Namespace: "ns",
-				Name:      "trust-bundle",
+				namespace: "ns",
+				name:      "trust-bundle",
 
-				Client:        client.CoreV1(),
-				Lister:        corev1listers.NewConfigMapLister(indexer),
-				EventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+				client:        client.CoreV1(),
+				lister:        corev1listers.NewConfigMapLister(indexer),
+				eventRecorder: events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+				clock:         clock.RealClock{},
 			}
 
 			newCA, err := test.caFn()

@@ -20,7 +20,7 @@ import (
 // signerBravo signs signerDelta
 // signerDelta signs servingCert
 func TestServingCertVerification(t *testing.T) {
-	rootAlphaConfig, err := MakeSelfSignedCAConfigForDuration("RootAlfa", 1*time.Hour)
+	rootAlphaConfig, err := NewSigningCertificate("RootAlfa", RSAKeyPairGenerator{Bits: keyBits}, WithLifetime(1*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestServingCertVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signerBravoConfig, err := MakeCAConfigForDuration("SignerBravo", 1*time.Hour, rootAlpha)
+	signerBravoConfig, err := NewSigningCertificate("SignerBravo", RSAKeyPairGenerator{Bits: keyBits}, WithLifetime(1*time.Hour), WithSigner(rootAlpha))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestServingCertVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signerDeltaConfig, err := MakeCAConfigForDuration("SignerDelta", 1*time.Hour, signerBravo)
+	signerDeltaConfig, err := NewSigningCertificate("SignerDelta", RSAKeyPairGenerator{Bits: keyBits}, WithLifetime(1*time.Hour), WithSigner(signerBravo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestServingCertVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	servingCertConfig, err := signerDelta.MakeServerCertForDuration(sets.New("::", "127.0.0.1", "localhost"), 1*time.Hour)
+	servingCertConfig, err := signerDelta.NewServerCertificate(sets.New("::", "127.0.0.1", "localhost"), RSAKeyPairGenerator{Bits: keyBits}, WithLifetime(1*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestServingCertVerification(t *testing.T) {
 			case len(test.expectedError) != 0 && err != nil && !strings.Contains(err.Error(), test.expectedError):
 				t.Fatal(err)
 			default:
-				//ok
+				// ok
 			}
 			if err != nil {
 				return
@@ -210,7 +210,7 @@ func createErrorParsingCAData(pemCerts []byte) error {
 // signerBravo signs signerDelta
 // signerDelta signs clientEcho
 func TestClientCertVerification(t *testing.T) {
-	rootAlphaConfig, err := MakeSelfSignedCAConfigForDuration("RootAlfa", 1*time.Hour)
+	rootAlphaConfig, err := NewSigningCertificate("RootAlfa", RSAKeyPairGenerator{Bits: keyBits}, WithLifetime(1*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestClientCertVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signerBravoConfig, err := MakeCAConfigForDuration("SignerBravo", 1*time.Hour, rootAlpha)
+	signerBravoConfig, err := NewSigningCertificate("SignerBravo", RSAKeyPairGenerator{Bits: keyBits}, WithLifetime(1*time.Hour), WithSigner(rootAlpha))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestClientCertVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signerDeltaConfig, err := MakeCAConfigForDuration("SignerDelta", 1*time.Hour, signerBravo)
+	signerDeltaConfig, err := NewSigningCertificate("SignerDelta", RSAKeyPairGenerator{Bits: keyBits}, WithLifetime(1*time.Hour), WithSigner(signerBravo))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,11 +246,12 @@ func TestClientCertVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clientEcho, err := signerDelta.MakeClientCertificateForDuration(
+	clientEcho, err := signerDelta.NewClientCertificate(
 		&user.DefaultInfo{
 			Name: "clientEcho",
 		},
-		1*time.Hour)
+		RSAKeyPairGenerator{Bits: keyBits},
+		WithLifetime(1*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +262,7 @@ func TestClientCertVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rootServingConfig, err := MakeSelfSignedCAConfigForDuration("RootServing", 1*time.Hour)
+	rootServingConfig, err := NewSigningCertificate("RootServing", RSAKeyPairGenerator{Bits: keyBits}, WithLifetime(1*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +274,7 @@ func TestClientCertVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	servingCertConfig, err := rootServing.MakeServerCertForDuration(sets.New("::", "127.0.0.1", "localhost"), 1*time.Hour)
+	servingCertConfig, err := rootServing.NewServerCertificate(sets.New("::", "127.0.0.1", "localhost"), RSAKeyPairGenerator{Bits: keyBits}, WithLifetime(1*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +375,7 @@ func TestClientCertVerification(t *testing.T) {
 			case len(test.expectedError) != 0 && err != nil && !strings.Contains(err.Error(), test.expectedError):
 				t.Fatal(err)
 			default:
-				//ok
+				// ok
 			}
 			if err != nil {
 				return

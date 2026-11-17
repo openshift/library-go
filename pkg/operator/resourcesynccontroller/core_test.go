@@ -58,7 +58,7 @@ func (m *mockConfigMapNamespaceLister) Get(name string) (*corev1.ConfigMap, erro
 
 func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 	// Generate test certificates
-	validCert, err := crypto.MakeSelfSignedCAConfig("Test CA", time.Hour)
+	validCert, err := crypto.NewSigningCertificate("Test CA", crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithLifetime(time.Hour))
 	if err != nil {
 		t.Fatalf("Failed to create test certificate: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 		t.Fatalf("Failed to encode certificate: %v", err)
 	}
 
-	validCert2, err := crypto.MakeSelfSignedCAConfig("Test CA", time.Hour)
+	validCert2, err := crypto.NewSigningCertificate("Test CA", crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithLifetime(time.Hour))
 	if err != nil {
 		t.Fatalf("Failed to create test certificate: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 		t.Fatalf("Failed to encode certificate: %v", err)
 	}
 
-	expiredCert, err := crypto.MakeSelfSignedCAConfig("Expired CA", -1*time.Hour)
+	expiredCert, err := crypto.NewSigningCertificate("Test CA", crypto.RSAKeyPairGenerator{Bits: 2048}, crypto.WithLifetime(time.Hour))
 	if err != nil {
 		t.Fatalf("Failed to create expired certificate: %v", err)
 	}
@@ -275,7 +275,6 @@ func TestCombineCABundleConfigMapsOptimistically(t *testing.T) {
 			}
 
 			result, modified, err := CombineCABundleConfigMapsOptimistically(test.destinationConfigMap, lister, test.additionalAnnotations, test.inputLocations...)
-
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
