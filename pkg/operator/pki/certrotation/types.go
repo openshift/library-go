@@ -112,9 +112,11 @@ func (r Rotation) Validate() error {
 		return err
 	}
 	seenNames := make(map[string]struct{}, len(r.Targets))
-	seenLocations := map[Location]struct{}{
+	// Secrets and ConfigMaps are distinct objects even at the same
+	// namespace/name, so secret-location uniqueness is checked among the
+	// signer and targets only; the bundle is a configmap.
+	seenSecrets := map[Location]struct{}{
 		r.Signer.Location: {},
-		r.Bundle.Location: {},
 	}
 	for i := range r.Targets {
 		if err := r.Targets[i].validate(); err != nil {
@@ -124,10 +126,10 @@ func (r Rotation) Validate() error {
 			return fmt.Errorf("duplicate target name %q", r.Targets[i].Name)
 		}
 		seenNames[r.Targets[i].Name] = struct{}{}
-		if _, exists := seenLocations[r.Targets[i].Location]; exists {
-			return fmt.Errorf("duplicate artifact location %s", r.Targets[i].Location)
+		if _, exists := seenSecrets[r.Targets[i].Location]; exists {
+			return fmt.Errorf("duplicate secret location %s", r.Targets[i].Location)
 		}
-		seenLocations[r.Targets[i].Location] = struct{}{}
+		seenSecrets[r.Targets[i].Location] = struct{}{}
 	}
 	return nil
 }

@@ -15,6 +15,7 @@ import (
 	kubernetes "k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1lister "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 var (
@@ -42,30 +43,41 @@ func New(client kubernetes.Interface, informers InformerSource) *Store {
 	return &Store{client: client, informers: informers}
 }
 
-func (s *Store) secrets(ns string) (corev1lister.SecretNamespaceLister, corev1client.SecretInterface, bool) {
+// secrets returns the namespace lister and shared informer for secrets, so
+// callers can prefer the lister once the informer has synced. Requesting the
+// informer also registers it with its factory.
+func (s *Store) secrets(ns string) (corev1lister.SecretNamespaceLister, cache.SharedIndexInformer, corev1client.SecretInterface) {
 	if s.informers != nil {
 		if factory := s.informers.InformersFor(ns); factory != nil {
-			return factory.Core().V1().Secrets().Lister().Secrets(ns), s.client.CoreV1().Secrets(ns), true
+			secretInformer := factory.Core().V1().Secrets()
+			return secretInformer.Lister().Secrets(ns), secretInformer.Informer(), s.client.CoreV1().Secrets(ns)
 		}
 	}
-	return nil, s.client.CoreV1().Secrets(ns), false
+	return nil, nil, s.client.CoreV1().Secrets(ns)
 }
 
-func (s *Store) configMaps(ns string) (corev1lister.ConfigMapNamespaceLister, corev1client.ConfigMapInterface, bool) {
+// configMaps returns the namespace lister and shared informer for configmaps.
+func (s *Store) configMaps(ns string) (corev1lister.ConfigMapNamespaceLister, cache.SharedIndexInformer, corev1client.ConfigMapInterface) {
 	if s.informers != nil {
 		if factory := s.informers.InformersFor(ns); factory != nil {
-			return factory.Core().V1().ConfigMaps().Lister().ConfigMaps(ns), s.client.CoreV1().ConfigMaps(ns), true
+			configMapInformer := factory.Core().V1().ConfigMaps()
+			return configMapInformer.Lister().ConfigMaps(ns), configMapInformer.Informer(), s.client.CoreV1().ConfigMaps(ns)
 		}
 	}
-	return nil, s.client.CoreV1().ConfigMaps(ns), false
+	return nil, nil, s.client.CoreV1().ConfigMaps(ns)
 }
 
-// GetSecret reads a secret through the lister when informers are configured,
-// falling back to a live GET otherwise. A not-found secret yields
-// (nil, nil): absence is a classification input, not an error.
+// GetSecret reads a secret through the lister when informers are configured
+// and their cache has synced, falling back to a live GET otherwise: an
+// unsynced cache reports every object as missing and would drive a
+// create-AlreadyExists loop. A not-found secret yields (nil, nil): absence
+// is a classification input, not an error.
 func (s *Store) GetSecret(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
-	lister, _, _ := s.secrets(namespace)
+	lister, informer, _ := s.secrets(namespace)
 	if lister != nil {
+		if informer != nil && !informer.HasSynced() {
+			return s.GetSecretLive(ctx, namespace, name)
+		}
 		secret, err := lister.Get(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -85,10 +97,14 @@ func (s *Store) GetSecret(ctx context.Context, namespace, name string) (*corev1.
 	return secret, nil
 }
 
-// GetConfigMap reads a configmap the same way GetSecret reads a secret.
+// GetConfigMap reads a configmap the same way GetSecret reads a secret:
+// through the lister once synced, live before that, (nil, nil) when absent.
 func (s *Store) GetConfigMap(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
-	lister, _, _ := s.configMaps(namespace)
+	lister, informer, _ := s.configMaps(namespace)
 	if lister != nil {
+		if informer != nil && !informer.HasSynced() {
+			return s.GetConfigMapLive(ctx, namespace, name)
+		}
 		configMap, err := lister.Get(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -126,14 +142,14 @@ func (s *Store) GetSecretLive(ctx context.Context, namespace, name string) (*cor
 // CreateSecret creates a secret and returns the object the API server
 // persisted.
 func (s *Store) CreateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
-	_, client, _ := s.secrets(secret.Namespace)
+	_, _, client := s.secrets(secret.Namespace)
 	return client.Create(ctx, secret, metav1CreateOptions)
 }
 
 // UpdateSecret updates a secret with its resourceVersion as the optimistic
 // concurrency precondition and returns the object the API server persisted.
 func (s *Store) UpdateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
-	_, client, _ := s.secrets(secret.Namespace)
+	_, _, client := s.secrets(secret.Namespace)
 	updated, err := client.Update(ctx, secret, metav1UpdateOptions)
 	if err != nil {
 		return nil, fmt.Errorf("updating secret %s/%s: %w", secret.Namespace, secret.Name, err)
@@ -141,16 +157,29 @@ func (s *Store) UpdateSecret(ctx context.Context, secret *corev1.Secret) (*corev
 	return updated, nil
 }
 
+// GetConfigMapLive reads a configmap straight from the API server, bypassing
+// the lister cache, for the read-your-writes guard.
+func (s *Store) GetConfigMapLive(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
+	configMap, err := s.client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1GetOptions)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return configMap, nil
+}
+
 // CreateConfigMap creates a configmap and returns the persisted object.
 func (s *Store) CreateConfigMap(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
-	_, client, _ := s.configMaps(configMap.Namespace)
+	_, _, client := s.configMaps(configMap.Namespace)
 	return client.Create(ctx, configMap, metav1CreateOptions)
 }
 
 // UpdateConfigMap updates a configmap with its resourceVersion as the
 // optimistic concurrency precondition and returns the persisted object.
 func (s *Store) UpdateConfigMap(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
-	_, client, _ := s.configMaps(configMap.Namespace)
+	_, _, client := s.configMaps(configMap.Namespace)
 	updated, err := client.Update(ctx, configMap, metav1UpdateOptions)
 	if err != nil {
 		return nil, fmt.Errorf("updating configmap %s/%s: %w", configMap.Namespace, configMap.Name, err)

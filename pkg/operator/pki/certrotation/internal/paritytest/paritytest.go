@@ -28,12 +28,15 @@ import (
 // Config describes one rotation under test, in terms both v1 and v2 can
 // build.
 type Config struct {
-	Namespace     string
-	SignerName    string
-	BundleName    string
-	TargetName    string
-	Validity      time.Duration
-	Refresh       time.Duration
+	Namespace  string
+	SignerName string
+	BundleName string
+	TargetName string
+	Validity   time.Duration
+	Refresh    time.Duration
+	// TargetRefresh overrides the target's refresh period when non-zero;
+	// the default is Refresh, matching the signer.
+	TargetRefresh time.Duration
 	JiraComponent string
 	TestName      string
 }
@@ -51,6 +54,13 @@ func DefaultConfig() Config {
 		JiraComponent: "parity-component",
 		TestName:      "parity-e2e",
 	}
+}
+
+func (c Config) targetRefresh() time.Duration {
+	if c.TargetRefresh != 0 {
+		return c.TargetRefresh
+	}
+	return c.Refresh
 }
 
 // userInfo satisfies both v1's user.Info requirement and v2's.

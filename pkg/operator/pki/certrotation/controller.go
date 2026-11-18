@@ -8,6 +8,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"k8s.io/klog/v2"
+
 	"github.com/openshift/library-go/pkg/controller/factory"
 )
 
@@ -35,8 +37,8 @@ type controller struct {
 
 // NewController wraps a Reconciler for the given Rotation in a
 // factory.Controller. Options.Informers is required: the controller derives
-// its own informers from it, filtered to exactly the Rotation's objects.
-// Call this before starting the informer factories.
+// the shared namespace informers from it and filters events to exactly the
+// Rotation's objects. Call this before starting the informer factories.
 //
 // The controller name passed to ToController is "CertRotationController",
 // matching v1; do not change it without migrating the operator conditions
@@ -114,19 +116,24 @@ func (c *controller) toFactoryController(opts Options) (factory.Controller, erro
 	), nil
 }
 
-// rotationInformers derives the filtered informers of the Rotation's
-// objects, one informer per involved namespace.
+// rotationInformers derives the Rotation's informers: the secrets and
+// configmaps shared informers of every involved namespace, deduplicated,
+// with events filtered to the Rotation's own objects.
 func (c *controller) rotationInformers(opts Options) []factory.Informer {
-	signer := c.rotation.Signer
-	bundle := c.rotation.Bundle
-	targets := c.rotation.Targets
-
-	informers := []factory.Informer{
-		opts.Informers.InformersFor(signer.Namespace).Core().V1().Secrets().Informer(),
-		opts.Informers.InformersFor(bundle.Namespace).Core().V1().ConfigMaps().Informer(),
+	seenNamespaces := map[string]struct{}{
+		c.rotation.Signer.Namespace: {},
+		c.rotation.Bundle.Namespace: {},
 	}
-	for i := range targets {
-		informers = append(informers, opts.Informers.InformersFor(targets[i].Namespace).Core().V1().Secrets().Informer())
+	for i := range c.rotation.Targets {
+		seenNamespaces[c.rotation.Targets[i].Location.Namespace] = struct{}{}
+	}
+
+	informers := make([]factory.Informer, 0, 2*len(seenNamespaces))
+	for ns := range seenNamespaces {
+		informers = append(informers,
+			opts.Informers.InformersFor(ns).Core().V1().Secrets().Informer(),
+			opts.Informers.InformersFor(ns).Core().V1().ConfigMaps().Informer(),
+		)
 	}
 	return informers
 }
@@ -139,7 +146,7 @@ func (c *controller) filterEvents(obj any) bool {
 			return true
 		}
 		for i := range c.rotation.Targets {
-			if typed.Namespace == c.rotation.Targets[i].Namespace && typed.Name == c.rotation.Targets[i].Name {
+			if typed.Namespace == c.rotation.Targets[i].Location.Namespace && typed.Name == c.rotation.Targets[i].Location.Name {
 				return true
 			}
 		}
@@ -174,9 +181,10 @@ func (c *controller) sync(ctx context.Context, syncCtx factory.SyncContext) erro
 				}
 				continue
 			}
-			reportErr := c.targetReportError(ctx, target.Name, targetErr)
-			if reportErr != nil {
-				return fmt.Errorf("reporting status for target %s: %w", target.Name, reportErr)
+			if reportErr := c.targetReportError(ctx, target.Name, targetErr); reportErr != nil {
+				// A failed report must not skip reporting for the remaining
+				// targets.
+				klog.Errorf("reporting status for target %s: %v", target.Name, reportErr)
 			}
 		}
 	}

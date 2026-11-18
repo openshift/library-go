@@ -29,20 +29,18 @@ func (s staticHostnames) Hostnames() []string {
 //
 // Notification is non-blocking and coalescing: Set notifies subscribers only
 // when the hostname set (compared order-insensitively) changed, and slow
-// subscribers never block Set. The v2 controller subscribes via Subscribe;
-// v1 adapters can bridge the same channel into ServingRotation.HostnamesChanged
-// during a feature-gated transition.
+// subscribers never block Set. Every subscriber gets its own channel via
+// Subscribe, so two subscribers cannot steal each other's notifications.
 type DynamicHostnames struct {
-	lock    sync.RWMutex
-	current sets.Set[string]
-	notify  chan struct{}
+	lock        sync.RWMutex
+	current     sets.Set[string]
+	subscribers []chan struct{}
 }
 
 // NewDynamicHostnames creates an empty DynamicHostnames.
 func NewDynamicHostnames() *DynamicHostnames {
 	return &DynamicHostnames{
 		current: sets.New[string](),
-		notify:  make(chan struct{}, 1),
 	}
 }
 
@@ -63,19 +61,28 @@ func (d *DynamicHostnames) Set(hostnames []string) (changed bool) {
 		return false
 	}
 	d.current = next
+	subscribers := make([]chan struct{}, len(d.subscribers))
+	copy(subscribers, d.subscribers)
 	d.lock.Unlock()
 
-	select {
-	case d.notify <- struct{}{}:
-	default:
-		// A notification is already pending; it will carry this change too.
+	for _, subscriber := range subscribers {
+		select {
+		case subscriber <- struct{}{}:
+		default:
+			// A notification is already pending; it will carry this change
+			// too.
+		}
 	}
 	return true
 }
 
 // Subscribe returns a notification channel that receives a value whenever
-// the hostname set changes. The channel is coalescing (buffered size one)
-// and never closed.
+// the hostname set changes. Each subscriber gets its own coalescing channel
+// (buffered size one), never closed.
 func (d *DynamicHostnames) Subscribe() <-chan struct{} {
-	return d.notify
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	subscriber := make(chan struct{}, 1)
+	d.subscribers = append(d.subscribers, subscriber)
+	return subscriber
 }

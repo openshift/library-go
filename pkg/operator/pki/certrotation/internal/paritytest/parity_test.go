@@ -220,3 +220,22 @@ func TestConvergenceMixedRoles(t *testing.T) {
 func eventsRecorder() events.Recorder {
 	return events.NewLoggingEventRecorder("paritytest", clock.RealClock{})
 }
+
+func TestParityDifferingRefreshPeriods(t *testing.T) {
+	// The trust-propagation gate is the target's own refresh / 10 in both
+	// implementations. Run parity with a one-hour target refresh under a
+	// twelve-hour signer refresh: an implementation that gated on the
+	// signer's refresh would diverge from one gating on the target's.
+	cfg := DefaultConfig()
+	cfg.TargetRefresh = time.Hour
+
+	v1Client := fake.NewSimpleClientset()
+	v2Client := fake.NewSimpleClientset()
+	if err := RunV1(t, cfg, v1Client, false); err != nil {
+		t.Fatalf("v1 pass: %v", err)
+	}
+	if _, err := RunV2(t, cfg, v2Client, certrotationv2.RoleWriter); err != nil {
+		t.Fatalf("v2 pass: %v", err)
+	}
+	AssertArtifactsEqual(t, cfg, v1Client, v2Client)
+}

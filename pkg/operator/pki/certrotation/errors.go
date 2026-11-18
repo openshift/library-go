@@ -16,7 +16,8 @@ var (
 
 	// ErrInputNotReady reports that an input the Rotation needs is not yet
 	// available, for example a serving cert with no hostnames resolved yet.
-	// The controller requeues and reports Degraded only if it persists.
+	// The controller requeues and reports it Degraded immediately, matching
+	// v1's reporting of all sync errors.
 	ErrInputNotReady = errors.New("certrotation: input not ready")
 
 	// ErrPKIConfig reports that PKI configuration is unavailable or invalid.

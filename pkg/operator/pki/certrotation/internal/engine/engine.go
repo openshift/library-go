@@ -12,12 +12,16 @@
 package engine
 
 import (
+	stdcrypto "crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
+	"strings"
 	"time"
-
-	stdcrypto "crypto"
 
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/certrotation/contract"
@@ -61,10 +65,6 @@ const (
 	// StateKeyDrift: under ConfigurablePKI, the resolved key algorithm
 	// differs from the key the artifact currently holds.
 	StateKeyDrift State = "KeyDrift"
-
-	// StateMetadataDrift: annotations, labels, owner references or Secret
-	// type differ from the desired values. Not a rotation trigger.
-	StateMetadataDrift State = "MetadataDrift"
 
 	// StateCurrent: nothing above matched. This includes well-formed keys
 	// whose algorithm this build cannot recognize: the binary that can
@@ -125,8 +125,8 @@ func ClassifySigner(inputs SignerInputs, now time.Time) (State, string) {
 		return StateDue, fmt.Sprintf("past signer refresh period of %s", inputs.Refresh)
 	}
 	if inputs.ResolvedKeyAlgorithm != "" {
-		if algo, err := crypto.KeyAlgorithmForPrivateKey(inputs.ParsedKey); err == nil && string(algo) != inputs.ResolvedKeyAlgorithm {
-			return StateKeyDrift, fmt.Sprintf("signer key is %s, resolved algorithm is %s", algo, inputs.ResolvedKeyAlgorithm)
+		if description, err := crypto.KeyDescriptionForPrivateKey(inputs.ParsedKey); err == nil && description != inputs.ResolvedKeyAlgorithm {
+			return StateKeyDrift, fmt.Sprintf("signer key is %s, resolved key is %s", description, inputs.ResolvedKeyAlgorithm)
 		}
 	}
 	return StateCurrent, ""
@@ -146,9 +146,6 @@ type TargetInputs struct {
 	// SignerNotBefore is the current signer certificate's NotBefore, for
 	// the trust-propagation gate.
 	SignerNotBefore time.Time
-	// SignerRefresh is the signer's configured refresh period, for the
-	// trust-propagation gate.
-	SignerRefresh time.Duration
 	// BundleCerts is the parsed content of the persisted CA bundle.
 	BundleCerts []*x509.Certificate
 	// ResolvedKeyAlgorithm is the key algorithm the PKI resolution would
@@ -172,10 +169,10 @@ func ClassifyTarget(inputs TargetInputs, now time.Time) (State, string) {
 		return StateDue, "past 80% of target validity"
 	}
 	// The refresh boundary only applies once the current signer has been
-	// alive long enough for its trust to propagate (v1's
-	// timeToWaitForTrustRotation = refresh / 10).
+	// alive long enough for its trust to propagate. As in v1, the wait is
+	// the target's own refresh period divided by ten.
 	if now.After(inputs.ParsedCert.NotBefore.Add(inputs.Refresh)) &&
-		now.After(inputs.SignerNotBefore.Add(inputs.SignerRefresh/10)) {
+		now.After(inputs.SignerNotBefore.Add(inputs.Refresh/10)) {
 		return StateDue, fmt.Sprintf("past target refresh period of %s and signer trust has propagated", inputs.Refresh)
 	}
 	if !issuerInBundle(inputs.ParsedCert, inputs.BundleCerts) {
@@ -185,8 +182,8 @@ func ClassifyTarget(inputs TargetInputs, now time.Time) (State, string) {
 		return StateHostnameDrift, "target hostnames changed"
 	}
 	if inputs.ResolvedKeyAlgorithm != "" {
-		if algo, err := crypto.KeyAlgorithmForPrivateKey(inputs.ParsedKey); err == nil && string(algo) != inputs.ResolvedKeyAlgorithm {
-			return StateKeyDrift, fmt.Sprintf("target key is %s, resolved algorithm is %s", algo, inputs.ResolvedKeyAlgorithm)
+		if description, err := crypto.KeyDescriptionForPrivateKey(inputs.ParsedKey); err == nil && description != inputs.ResolvedKeyAlgorithm {
+			return StateKeyDrift, fmt.Sprintf("target key is %s, resolved key is %s", description, inputs.ResolvedKeyAlgorithm)
 		}
 	}
 	return StateCurrent, ""
@@ -202,8 +199,6 @@ func Decide(state State, role Role) Action {
 			return ActionCreate
 		case StateInvalid, StateExpired, StateDue, StateStaleTrust, StateHostnameDrift, StateKeyDrift:
 			return ActionRegenerate
-		case StateMetadataDrift:
-			return ActionRepairMeta
 		case StateCurrent:
 			return ActionNone
 		}
@@ -216,7 +211,7 @@ func Decide(state State, role Role) Action {
 			return ActionCreate
 		case StateInvalid, StateExpired:
 			return ActionRegenerate
-		case StateDue, StateStaleTrust, StateHostnameDrift, StateKeyDrift, StateMetadataDrift, StateCurrent:
+		case StateDue, StateStaleTrust, StateHostnameDrift, StateKeyDrift, StateCurrent:
 			return ActionNone
 		}
 	}
@@ -229,13 +224,17 @@ func Decide(state State, role Role) Action {
 // owns the artifact, and acting on it would make an older healer fight a
 // newer writer during upgrade skew.
 func invalidData(cert *x509.Certificate, key stdcrypto.PrivateKey, keyParseErr error, notAfterAnnotation string) (string, bool) {
+	if notAfterAnnotation == contract.ForceRegeneration {
+		return "force-regeneration sentinel set on not-after annotation", true
+	}
 	if cert == nil {
 		return "tls.crt is missing or unparseable", true
 	}
 	if keyParseErr != nil {
 		if errors.Is(keyParseErr, crypto.ErrUnknownKeyAlgorithm) {
 			// Unknown algorithm: not invalid, and not judgeable. Treated as
-			// current for rotation purposes.
+			// current for rotation purposes. The binary that can judge it
+			// owns the artifact.
 			return "", false
 		}
 		return fmt.Sprintf("tls.key is malformed: %v", keyParseErr), true
@@ -243,10 +242,29 @@ func invalidData(cert *x509.Certificate, key stdcrypto.PrivateKey, keyParseErr e
 	if key == nil {
 		return "tls.key is missing", true
 	}
-	if notAfterAnnotation == contract.ForceRegeneration {
-		return "force-regeneration sentinel set on not-after annotation", true
+	if !keyMatchesCert(cert, key) {
+		return "tls.crt and tls.key do not match", true
 	}
 	return "", false
+}
+
+// keyMatchesCert reports whether the private key belongs to the certificate.
+// A mismatched pair is unusable and must be regenerated.
+func keyMatchesCert(cert *x509.Certificate, key stdcrypto.PrivateKey) bool {
+	switch typedKey := key.(type) {
+	case *rsa.PrivateKey:
+		rsaPub, ok := cert.PublicKey.(*rsa.PublicKey)
+		return ok && rsaPub.N.Cmp(typedKey.N) == 0 && rsaPub.E == typedKey.E
+	case *ecdsa.PrivateKey:
+		ecdsaPub, ok := cert.PublicKey.(*ecdsa.PublicKey)
+		return ok && ecdsaPub.X.Cmp(typedKey.X) == 0 && ecdsaPub.Y.Cmp(typedKey.Y) == 0 && ecdsaPub.Curve == typedKey.Curve
+	case ed25519.PrivateKey:
+		edPub, ok := cert.PublicKey.(ed25519.PublicKey)
+		return ok && edPub.Equal(ed25519.PublicKey(typedKey.Public().(ed25519.PublicKey)))
+	default:
+		// Key types this build cannot inspect cannot be judged either way.
+		return true
+	}
 }
 
 // issuerInBundle reports whether the leaf's issuer is present in the bundle,
@@ -261,14 +279,31 @@ func issuerInBundle(leaf *x509.Certificate, bundle []*x509.Certificate) bool {
 }
 
 // hostnamesChanged compares the desired hostname set against the
-// certificate's SAN set, order-insensitively.
+// certificate's SAN set, order-insensitively. Desired entries are
+// canonicalized first: Go stores SANs in canonical form, so a desired
+// non-canonical IPv6 literal (or mixed-case DNS name) must not compare
+// unequal to its canonical self.
 func hostnamesChanged(desired []string, cert *x509.Certificate) bool {
 	certHostnames := make([]string, 0, len(cert.DNSNames)+len(cert.IPAddresses))
 	for _, dns := range cert.DNSNames {
-		certHostnames = append(certHostnames, dns)
+		certHostnames = append(certHostnames, strings.ToLower(dns))
 	}
 	for _, ip := range cert.IPAddresses {
 		certHostnames = append(certHostnames, ip.String())
 	}
-	return contract.FormatHostnames(desired) != contract.FormatHostnames(certHostnames)
+	return contract.FormatHostnames(canonicalHostnames(desired)) != contract.FormatHostnames(certHostnames)
+}
+
+// canonicalHostnames renders each hostname in the form certificates carry:
+// IPs through net.IP.String, DNS names lower-cased.
+func canonicalHostnames(hostnames []string) []string {
+	result := make([]string, 0, len(hostnames))
+	for _, hostname := range hostnames {
+		if ip := net.ParseIP(hostname); ip != nil {
+			result = append(result, ip.String())
+			continue
+		}
+		result = append(result, strings.ToLower(hostname))
+	}
+	return result
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -67,6 +68,20 @@ func NewReconciler(rotation Rotation, opts Options) (*Reconciler, error) {
 	if err := checkLegacyPeerCertConstraint(rotation, opts.PKI.mode); err != nil {
 		return nil, err
 	}
+	// Register the rotation's informers now, not lazily on first read: an
+	// informer first requested after its factory started never runs, and
+	// every artifact would read as missing.
+	if opts.Informers != nil {
+		for _, ns := range namespaces(rotation) {
+			if factory := opts.Informers.InformersFor(ns); factory != nil {
+				factory.Core().V1().Secrets().Informer()
+				factory.Core().V1().ConfigMaps().Informer()
+			}
+		}
+	}
+	// The Reconciler is not safe for concurrent Reconcile calls: the
+	// write-record map and the pending action are unsynchronized. The
+	// controller runs one worker; embedders must serialize calls themselves.
 	return &Reconciler{
 		rotation: rotation,
 		opts:     opts,
@@ -165,10 +180,15 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Result, error) {
 	result.NextCheck = nextCheck
 
 	var allErrs []error
+	failedNames := make([]string, 0, len(result.TargetErrors))
 	for name, err := range result.TargetErrors {
 		if err != nil {
-			allErrs = append(allErrs, fmt.Errorf("target %s: %w", name, err))
+			failedNames = append(failedNames, name)
 		}
+	}
+	sort.Strings(failedNames)
+	for _, name := range failedNames {
+		allErrs = append(allErrs, fmt.Errorf("target %s: %w", name, result.TargetErrors[name]))
 	}
 	return result, errors.Join(allErrs...)
 }
@@ -214,18 +234,11 @@ func (r *Reconciler) resolveKeyGens() (keyGenerations, error) {
 	return result, nil
 }
 
-// keyGenAlgorithm reports the algorithm string of a resolved generator for
-// key-drift comparison, or "" when it cannot be determined.
+// keyGenAlgorithm reports the full key description of a resolved generator
+// (algorithm and parameters, e.g. "ECDSA-P256") for key-drift comparison,
+// or "" when it cannot be determined.
 func keyGenAlgorithm(gen crypto.KeyPairGenerator) string {
-	switch g := gen.(type) {
-	case crypto.RSAKeyPairGenerator:
-		return "RSA"
-	case crypto.ECDSAKeyPairGenerator:
-		return "ECDSA"
-	default:
-		_ = g
-		return ""
-	}
+	return crypto.KeyDescriptionForGenerator(gen)
 }
 
 func (r *Reconciler) signerRef() ArtifactRef {
@@ -241,23 +254,51 @@ func (r *Reconciler) bundleRef() ArtifactRef {
 }
 
 // getSecret reads a secret through the read-your-writes guard: if this
-// reconciler wrote the artifact recently and the lister disagrees about the
-// resource version, read live instead.
+// reconciler wrote the artifact recently, a lister that reports it missing
+// or at a different resource version is stale, and the object is read live
+// instead. The window is measured on the reconciler's own clock.
 func (r *Reconciler) getSecret(ctx context.Context, location Location) (*corev1.Secret, error) {
 	secret, err := r.store.GetSecret(ctx, location.Namespace, location.Name)
 	if err != nil {
 		return nil, err
 	}
-	if secret == nil {
-		return nil, nil
-	}
-	if record, exists := r.writes[location.String()]; exists {
-		stale := time.Since(record.writtenAt) < readYourWritesWindow && secret.ResourceVersion != record.resourceVersion
-		if stale {
+	if record, exists := r.writes[location.String()]; exists && r.now().Sub(record.writtenAt) < readYourWritesWindow {
+		if secret == nil || secret.ResourceVersion != record.resourceVersion {
 			return r.store.GetSecretLive(ctx, location.Namespace, location.Name)
 		}
 	}
 	return secret, nil
+}
+
+// getConfigMap reads a configmap through the same read-your-writes guard.
+func (r *Reconciler) getConfigMap(ctx context.Context, location Location) (*corev1.ConfigMap, error) {
+	configMap, err := r.store.GetConfigMap(ctx, location.Namespace, location.Name)
+	if err != nil {
+		return nil, err
+	}
+	if record, exists := r.writes[location.String()]; exists && r.now().Sub(record.writtenAt) < readYourWritesWindow {
+		if configMap == nil || configMap.ResourceVersion != record.resourceVersion {
+			return r.store.GetConfigMapLive(ctx, location.Namespace, location.Name)
+		}
+	}
+	return configMap, nil
+}
+
+// regenerateOver returns the object to write a regenerated artifact into:
+// a deep copy of the existing object when there is one, so foreign
+// annotations, labels, owner references and extra data keys survive
+// regeneration exactly as v1's DeepCopy-based flow preserved them; a fresh
+// object otherwise.
+func regenerateOver(existing *corev1.Secret, location Location) *corev1.Secret {
+	if existing != nil {
+		return existing.DeepCopy()
+	}
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: location.Namespace,
+			Name:      location.Name,
+		},
+	}
 }
 
 // parsedArtifact is the parsed content of a TLS secret, in the shape the
@@ -329,7 +370,9 @@ func (r *Reconciler) writeSecret(ctx context.Context, ref ArtifactRef, desired *
 }
 
 func (r *Reconciler) writeError(ref ArtifactRef, err error) *ArtifactError {
-	if apierrors.IsConflict(err) {
+	// A create race with another writer is the same condition as an update
+	// conflict: retry on the next pass, hold back Degraded reporting.
+	if apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) {
 		return &ArtifactError{Artifact: ref, Phase: PhaseWrite, Err: fmt.Errorf("%w: %v", ErrConflict, err)}
 	}
 	return &ArtifactError{Artifact: ref, Phase: PhaseWrite, Err: err}
@@ -366,13 +409,8 @@ func (r *Reconciler) reconcileSigner(ctx context.Context, now time.Time, keyGen 
 		if err != nil {
 			return nil, nil, &ArtifactError{Artifact: ref, Phase: PhaseIssue, Err: err}
 		}
-		desired := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: r.rotation.Signer.Namespace,
-				Name:      r.rotation.Signer.Name,
-			},
-			Type: corev1.SecretTypeTLS,
-		}
+		desired := regenerateOver(existing, r.rotation.Signer.Location)
+		desired.Type = corev1.SecretTypeTLS
 		certBytes, keyBytes, err := issued.GetPEMBytes()
 		if err != nil {
 			return nil, nil, &ArtifactError{Artifact: ref, Phase: PhaseIssue, Err: err}
@@ -392,22 +430,6 @@ func (r *Reconciler) reconcileSigner(ctx context.Context, now time.Time, keyGen 
 			op = OpCreated
 		}
 		r.pendingAction = &Action{Artifact: ref, Op: op, Reason: reason}
-		return r.parsePersistedCA(persisted, ref)
-
-	case engine.ActionRepairMeta:
-		repaired := existing.DeepCopy()
-		modified := r.applyMetadata(&repaired.ObjectMeta, r.rotation.Signer.Metadata, contract.CertificateTypeSigner, r.rotation.Owner)
-		if ensureSecretType(repaired) {
-			modified = true
-		}
-		if !modified {
-			return r.parsePersistedCA(existing, ref)
-		}
-		persisted, writeErr := r.writeSecret(ctx, ref, repaired, existing)
-		if writeErr != nil {
-			return nil, nil, writeErr
-		}
-		r.pendingAction = &Action{Artifact: ref, Op: OpMetadataRepaired, Reason: reason}
 		return r.parsePersistedCA(persisted, ref)
 
 	default:
@@ -453,7 +475,7 @@ func (r *Reconciler) parsePersistedCA(secret *corev1.Secret, ref ArtifactRef) (*
 // the writer repairs bundle metadata.
 func (r *Reconciler) reconcileBundle(ctx context.Context, now time.Time, signerCert *x509.Certificate) (string, []*x509.Certificate, *ArtifactError) {
 	ref := r.bundleRef()
-	existing, err := r.store.GetConfigMap(ctx, r.rotation.Bundle.Namespace, r.rotation.Bundle.Name)
+	existing, err := r.getConfigMap(ctx, r.rotation.Bundle.Location)
 	if err != nil {
 		return "", nil, &ArtifactError{Artifact: ref, Phase: PhaseRead, Err: err}
 	}
@@ -472,12 +494,20 @@ func (r *Reconciler) reconcileBundle(ctx context.Context, now time.Time, signerC
 	contentDiffers := existing == nil || existing.Data[contract.CABundleConfigMapKey] != desiredPEM
 	if contentDiffers {
 		r.opts.Recorder.Eventf("CABundleUpdateRequired", "CA bundle configmap %s requires an update", ref.Location)
+		// Build over the existing configmap so foreign metadata survives.
 		desired := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: r.rotation.Bundle.Namespace,
 				Name:      r.rotation.Bundle.Name,
 			},
 			Data: map[string]string{contract.CABundleConfigMapKey: desiredPEM},
+		}
+		if existing != nil {
+			desired = existing.DeepCopy()
+			if desired.Data == nil {
+				desired.Data = map[string]string{}
+			}
+			desired.Data[contract.CABundleConfigMapKey] = desiredPEM
 		}
 		r.applyMetadata(&desired.ObjectMeta, r.rotation.Bundle.Metadata, contract.CertificateTypeCABundle, r.rotation.Owner)
 		var persisted *corev1.ConfigMap
@@ -515,6 +545,9 @@ func (r *Reconciler) reconcileBundle(ctx context.Context, now time.Time, signerC
 		if r.applyMetadata(&repaired.ObjectMeta, r.rotation.Bundle.Metadata, contract.CertificateTypeCABundle, r.rotation.Owner) {
 			repaired.ResourceVersion = existing.ResourceVersion
 			persisted, err := r.store.UpdateConfigMap(ctx, repaired)
+			if persisted == nil {
+				persisted = repaired
+			}
 			resourcehelper.ReportUpdateEvent(r.opts.Recorder, persisted, err)
 			if err != nil {
 				return "", nil, r.writeError(ref, err)
@@ -542,21 +575,11 @@ func signerNextCheck(signerCert *x509.Certificate, refresh time.Duration, now ti
 		return now.Add(refresh)
 	}
 	validity := signerCert.NotAfter.Sub(signerCert.NotBefore)
-	candidates := []time.Time{
+	return earliestFuture([]time.Time{
 		signerCert.NotBefore.Add(refresh),
 		signerCert.NotAfter.Add(-validity / 5),
 		signerCert.NotAfter,
-	}
-	next := candidates[0]
-	for _, candidate := range candidates[1:] {
-		if candidate.Before(next) {
-			next = candidate
-		}
-	}
-	if next.Before(now) {
-		return now
-	}
-	return next
+	}, now)
 }
 
 // applyMetadata applies the caller metadata, the managed-certificate-type

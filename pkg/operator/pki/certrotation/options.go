@@ -45,9 +45,12 @@ type Options struct {
 	// conditions. Optional; nil means events and logs only.
 	Reporter StatusReporter
 
-	// Clock, if set, is the time source for all rotation decisions and
-	// issuance. Optional; defaults to clock.RealClock{}. Tests inject a
-	// fake or virtual clock.
+	// Clock, if set, is the time source for rotation decisions, scheduling
+	// and the read-your-writes window. Optional; defaults to
+	// clock.RealClock{}. Certificate issuance timestamps follow the crypto
+	// package's clock support (library-go#2570) and are not yet threaded
+	// through this field. Tests inject a fake clock; synctest bubbles use
+	// the default real clock, which is virtualized inside the bubble.
 	Clock clock.PassiveClock
 }
 

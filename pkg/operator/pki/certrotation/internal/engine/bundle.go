@@ -9,7 +9,6 @@ import (
 	certutil "k8s.io/client-go/util/cert"
 
 	"github.com/openshift/library-go/pkg/crypto"
-	"github.com/openshift/library-go/pkg/operator/certrotation/contract"
 )
 
 // ParseCABundle parses the PEM content of a CA bundle configmap. An empty or
@@ -84,17 +83,13 @@ func BundleContainsSigner(bundlePEM string, currentSigner *x509.Certificate) err
 // errEmptyBundle and errMissingCurrentSigner are wrapped by callers into
 // ErrInvariant artifact errors.
 var (
-	errEmptyBundle          = &BundleError{msg: "CA bundle is empty"}
-	errMissingCurrentSigner = &BundleError{msg: "CA bundle does not contain the current signer"}
+	errEmptyBundle          = &bundleError{msg: "CA bundle is empty"}
+	errMissingCurrentSigner = &bundleError{msg: "CA bundle does not contain the current signer"}
 )
 
-// BundleError reports a CA bundle invariant violation.
-type BundleError struct {
+// bundleError reports a CA bundle invariant violation.
+type bundleError struct {
 	msg string
 }
 
-func (e *BundleError) Error() string { return e.msg }
-
-// BundlePEMKey is the data key of the bundle payload, re-exported from the
-// contract for engine-internal use.
-const BundlePEMKey = contract.CABundleConfigMapKey
+func (e *bundleError) Error() string { return e.msg }

@@ -39,13 +39,12 @@ func (r *Reconciler) reconcileTarget(ctx context.Context, target Target, now tim
 		Refresh:              target.Refresh,
 		DesiredHostnames:     hostnames,
 		SignerNotBefore:      signerCert.NotBefore,
-		SignerRefresh:        r.rotation.Signer.Refresh,
 		BundleCerts:          bundleCerts,
 		ResolvedKeyAlgorithm: keyGenAlgorithm(keyGen),
 	}, now)
 	action := engine.Decide(state, r.opts.Role)
 
-	nextCheck := targetNextCheck(parsed.cert, target.Refresh, signerCert, r.rotation.Signer.Refresh, now)
+	nextCheck := targetNextCheck(parsed.cert, target.Refresh, signerCert, now)
 
 	switch action {
 	case engine.ActionCreate, engine.ActionRegenerate:
@@ -58,16 +57,15 @@ func (r *Reconciler) reconcileTarget(ctx context.Context, target Target, now tim
 		if err != nil {
 			return nil, nextCheck, &ArtifactError{Artifact: ref, Phase: PhaseIssue, Err: err}
 		}
-		desired := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: target.Namespace,
-				Name:      target.Name,
-			},
-			Type: corev1.SecretTypeTLS,
-			Data: map[string][]byte{
-				contract.SecretCertKey: certBytes,
-				contract.SecretKeyKey:  keyBytes,
-			},
+		// Regenerate on top of the existing object so foreign metadata,
+		// labels, owner references and extra data keys survive, exactly as
+		// v1's DeepCopy-based regeneration did. Both roles preserve what is
+		// there; only the writer adds new metadata.
+		desired := regenerateOver(existing, target.Location)
+		desired.Type = corev1.SecretTypeTLS
+		desired.Data = map[string][]byte{
+			contract.SecretCertKey: certBytes,
+			contract.SecretKeyKey:  keyBytes,
 		}
 		setComputedAnnotations(&desired.ObjectMeta, issued, target.Refresh)
 		if err := r.setHostnameAnnotations(&desired.ObjectMeta, target, issued); err != nil {
@@ -80,28 +78,12 @@ func (r *Reconciler) reconcileTarget(ctx context.Context, target Target, now tim
 		}
 		// Recompute the next boundary from the issued cert.
 		refreshed := parseArtifact(persisted)
-		nextCheck = targetNextCheck(refreshed.cert, target.Refresh, signerCert, r.rotation.Signer.Refresh, now)
+		nextCheck = targetNextCheck(refreshed.cert, target.Refresh, signerCert, now)
 		op := OpRegenerated
 		if existing == nil {
 			op = OpCreated
 		}
 		return &Action{Artifact: ref, Op: op, Reason: reason}, nextCheck, nil
-
-	case engine.ActionRepairMeta:
-		repaired := existing.DeepCopy()
-		modified := r.applyMetadata(&repaired.ObjectMeta, target.Metadata, contract.CertificateTypeTarget, r.rotation.Owner)
-		if ensureSecretType(repaired) {
-			modified = true
-		}
-		if !modified {
-			return nil, nextCheck, nil
-		}
-		persisted, writeErr := r.writeSecret(ctx, ref, repaired, existing)
-		if writeErr != nil {
-			return nil, nextCheck, writeErr
-		}
-		_ = persisted
-		return &Action{Artifact: ref, Op: OpMetadataRepaired, Reason: reason}, nextCheck, nil
 
 	default:
 		if r.opts.Role == RoleWriter && existing != nil {
@@ -172,7 +154,7 @@ func hostnamesOf(config *crypto.TLSCertificateConfig) []string {
 
 // targetNextCheck computes the earliest instant the target's decision can
 // change, including the signer trust-propagation gate.
-func targetNextCheck(cert *x509.Certificate, refresh time.Duration, signerCert *x509.Certificate, signerRefresh time.Duration, now time.Time) time.Time {
+func targetNextCheck(cert *x509.Certificate, refresh time.Duration, signerCert *x509.Certificate, now time.Time) time.Time {
 	if cert == nil {
 		return now.Add(refresh)
 	}
@@ -182,16 +164,27 @@ func targetNextCheck(cert *x509.Certificate, refresh time.Duration, signerCert *
 		cert.NotAfter.Add(-validity / 5),
 		cert.NotAfter,
 		// The signer-age gate: a Due-by-refresh decision can flip once the
-		// signer is Refresh/10 into its life.
-		signerCert.NotBefore.Add(signerRefresh / 10),
+		// signer is Refresh/10 into its life (the target's refresh).
+		signerCert.NotBefore.Add(refresh / 10),
 	}
-	next := candidates[0]
-	for _, candidate := range candidates[1:] {
-		if candidate.Before(next) {
+	return earliestFuture(candidates, now)
+}
+
+// earliestFuture returns the earliest candidate after now; when every
+// candidate has passed it returns now plus the smallest unit of headroom so
+// the controller still schedules a resync rather than collapsing to the
+// past.
+func earliestFuture(candidates []time.Time, now time.Time) time.Time {
+	next := time.Time{}
+	for _, candidate := range candidates {
+		if !candidate.After(now) {
+			continue
+		}
+		if next.IsZero() || candidate.Before(next) {
 			next = candidate
 		}
 	}
-	if next.Before(now) {
+	if next.IsZero() {
 		return now
 	}
 	return next

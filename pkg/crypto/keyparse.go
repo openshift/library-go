@@ -4,13 +4,30 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"strings"
 )
+
+// pkcs8PrivateKey is the outer structure of a PKCS#8 private key encoding.
+// Parsing it independently of x509.ParsePKCS8PrivateKey lets
+// ParsePrivateKeyPEM distinguish a well-formed key with an algorithm this
+// build does not know (a future writer's certificate) from malformed data.
+type pkcs8PrivateKey struct {
+	Version    int
+	Algorithm  pkixAlgorithmIdentifier
+	PrivateKey []byte
+}
+
+type pkixAlgorithmIdentifier struct {
+	Algorithm  asn1.ObjectIdentifier
+	Parameters asn1.RawValue `asn1:"optional"`
+}
 
 // ErrUnknownKeyAlgorithm reports a private key that is well-formed PEM of a
 // recognized private key block family but whose key algorithm this build
@@ -58,6 +75,14 @@ func ParsePrivateKeyPEM(keyBytes []byte) (crypto.PrivateKey, error) {
 	case pemBlockPKCS8:
 		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
+			// New key algorithms ship as PKCS#8. When Go does not know the
+			// algorithm OID, ParsePKCS8PrivateKey fails with a generic error;
+			// parse the outer structure to tell a well-formed future key
+			// from corrupt data.
+			var outer pkcs8PrivateKey
+			if _, outerErr := asn1.Unmarshal(block.Bytes, &outer); outerErr == nil && len(outer.PrivateKey) > 0 {
+				return nil, fmt.Errorf("%w: PKCS#8 key with algorithm %s", ErrUnknownKeyAlgorithm, outer.Algorithm.Algorithm)
+			}
 			return nil, fmt.Errorf("error parsing PKCS#8 private key: %w", err)
 		}
 		switch key.(type) {
@@ -82,6 +107,11 @@ func isPrivateKeyPEMBlockType(blockType string) bool {
 	if blockType == pemBlockRSAPrivateKey || blockType == pemBlockECPrivateKey || blockType == pemBlockPKCS8 {
 		return false
 	}
+	switch blockType {
+	case "ENCRYPTED PRIVATE KEY", "DSA PRIVATE KEY", "OPENSSH PRIVATE KEY":
+		// Unusable in this context, but not a future algorithm either.
+		return false
+	}
 	return strings.HasSuffix(blockType, "PRIVATE KEY")
 }
 
@@ -99,5 +129,49 @@ func KeyAlgorithmForPrivateKey(key crypto.PrivateKey) (KeyAlgorithm, error) {
 		return "Ed25519", nil
 	default:
 		return "", fmt.Errorf("%w: key of type %T", ErrUnknownKeyAlgorithm, key)
+	}
+}
+
+// KeyDescriptionForPrivateKey describes a parsed private key including its
+// parameters: "RSA-2048", "ECDSA-P256", "Ed25519". Two keys drift apart when
+// their descriptions differ, so a key-size or curve change in resolved
+// configuration is detected, not just an algorithm-family change. Key types
+// this build cannot inspect return ErrUnknownKeyAlgorithm.
+func KeyDescriptionForPrivateKey(key crypto.PrivateKey) (string, error) {
+	switch typedKey := key.(type) {
+	case *rsa.PrivateKey:
+		return fmt.Sprintf("RSA-%d", typedKey.N.BitLen()), nil
+	case *ecdsa.PrivateKey:
+		return fmt.Sprintf("ECDSA-%s", curveName(typedKey.Curve)), nil
+	case ed25519.PrivateKey:
+		return "Ed25519", nil
+	default:
+		return "", fmt.Errorf("%w: key of type %T", ErrUnknownKeyAlgorithm, key)
+	}
+}
+
+// KeyDescriptionForGenerator describes a key pair generator in the same
+// vocabulary as KeyDescriptionForPrivateKey, for drift comparison.
+func KeyDescriptionForGenerator(gen KeyPairGenerator) string {
+	switch g := gen.(type) {
+	case RSAKeyPairGenerator:
+		return fmt.Sprintf("RSA-%d", g.Bits)
+	case ECDSAKeyPairGenerator:
+		return fmt.Sprintf("ECDSA-%s", g.Curve)
+	default:
+		return ""
+	}
+}
+
+func curveName(curve elliptic.Curve) string {
+	switch curve {
+	case elliptic.P256():
+		return "P256"
+	case elliptic.P384():
+		return "P384"
+	case elliptic.P521():
+		return "P521"
+	default:
+		return fmt.Sprintf("%v", curve)
 	}
 }

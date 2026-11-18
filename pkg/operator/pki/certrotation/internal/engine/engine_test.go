@@ -32,27 +32,23 @@ func testSigner(t *testing.T) (*crypto.CA, *x509.Certificate) {
 	return parsed, ca.Certs[0]
 }
 
-// testLeaf mints a client cert signed by ca.
-func testLeaf(t *testing.T, ca *crypto.CA) *x509.Certificate {
+// testLeaf mints a client cert signed by ca and returns its certificate
+// and the matching private key.
+func testLeaf(t *testing.T, ca *crypto.CA) (*x509.Certificate, stdcrypto.PrivateKey) {
 	t.Helper()
 	leaf, err := ca.MakeClientCertificateForDuration(testUser(), 24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return leaf.Certs[0]
-}
-
-func testKey(t *testing.T) (stdcrypto.PrivateKey, error) {
-	t.Helper()
-	config, err := crypto.MakeSelfSignedCAConfigForDuration("test-key", time.Hour)
+	_, keyBytes, err := leaf.GetPEMBytes()
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, keyBytes, err := config.GetPEMBytes()
+	key, err := crypto.ParsePrivateKeyPEM(keyBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return crypto.ParsePrivateKeyPEM(keyBytes)
+	return leaf.Certs[0], key
 }
 
 type testUserInfo struct{}
@@ -80,10 +76,7 @@ func signerInputsFrom(cert *x509.Certificate, key stdcrypto.PrivateKey, exists b
 
 func TestClassifySigner(t *testing.T) {
 	signerCA, signerCert := testSigner(t)
-	key, keyErr := testKey(t)
-	if keyErr != nil {
-		t.Fatal(keyErr)
-	}
+	key := signerCA.Config.Key
 	validity := signerCert.NotAfter.Sub(signerCert.NotBefore)
 
 	testCases := []struct {
@@ -190,11 +183,7 @@ func TestClassifySigner(t *testing.T) {
 
 func TestClassifyTarget(t *testing.T) {
 	signerCA, signerCert := testSigner(t)
-	leaf := testLeaf(t, signerCA)
-	key, keyErr := testKey(t)
-	if keyErr != nil {
-		t.Fatal(keyErr)
-	}
+	leaf, key := testLeaf(t, signerCA)
 	validity := leaf.NotAfter.Sub(leaf.NotBefore)
 	bundle := []*x509.Certificate{signerCert}
 
@@ -205,7 +194,6 @@ func TestClassifyTarget(t *testing.T) {
 			ParsedKey:          key,
 			Refresh:            12 * time.Hour,
 			SignerNotBefore:    signerCert.NotBefore,
-			SignerRefresh:      120 * time.Hour, // trust gate at 12h
 			BundleCerts:        bundle,
 			NotAfterAnnotation: contract.FormatValidityTime(leaf.NotAfter),
 		}
@@ -246,14 +234,25 @@ func TestClassifyTarget(t *testing.T) {
 		{
 			name: "not due past target refresh while signer trust has not propagated",
 			mutate: func(inputs *TargetInputs) {
-				// Trust gate at 120h, far beyond the leaf's own horizon.
-				inputs.SignerRefresh = 1200 * time.Hour
+				// A long refresh moves both the refresh boundary and the
+				// trust gate (refresh/10) far out.
+				inputs.Refresh = 130 * time.Hour
 			},
 			now: func() time.Time {
-				// Target refresh (12h) has passed, but the signer is less
-				// than SignerRefresh/10 (120h) old, and the leaf has not
-				// reached its 80% boundary (19.2h of 24h validity).
+				// At 13h: refresh boundary (130h) not reached, 80% boundary
+				// (19.2h of 24h validity) not reached, expiry not reached.
 				return leaf.NotBefore.Add(13 * time.Hour)
+			},
+			expected: StateCurrent,
+		},
+		{
+			name:   "not due when the trust gate has not opened",
+			mutate: func(inputs *TargetInputs) {},
+			now: func() time.Time {
+				// Target refresh 12h: the refresh boundary passes at 12h,
+				// but the trust gate (target refresh / 10 = 1.2h after the
+				// signer's NotBefore) has not yet opened at 1h.
+				return leaf.NotBefore.Add(1 * time.Hour)
 			},
 			expected: StateCurrent,
 		},
@@ -262,7 +261,8 @@ func TestClassifyTarget(t *testing.T) {
 			mutate: func(inputs *TargetInputs) {},
 			now: func() time.Time {
 				// Past target refresh (12h) and past the trust gate
-				// (SignerRefresh/10 = 12h), below the 80% boundary (19.2h).
+				// (target refresh / 10 = 1.2h), below the 80% boundary
+				// (19.2h).
 				return leaf.NotBefore.Add(13 * time.Hour)
 			},
 			expected: StateDue,
@@ -330,8 +330,6 @@ func TestDecide(t *testing.T) {
 		{name: "healer ignores hostname drift: unusable-only mandate", state: StateHostnameDrift, role: RoleHealer, expected: ActionNone},
 		{name: "writer regenerates key drift", state: StateKeyDrift, role: RoleWriter, expected: ActionRegenerate},
 		{name: "healer ignores key drift", state: StateKeyDrift, role: RoleHealer, expected: ActionNone},
-		{name: "writer repairs metadata drift", state: StateMetadataDrift, role: RoleWriter, expected: ActionRepairMeta},
-		{name: "healer ignores metadata drift", state: StateMetadataDrift, role: RoleHealer, expected: ActionNone},
 		{name: "writer does nothing on current", state: StateCurrent, role: RoleWriter, expected: ActionNone},
 		{name: "healer does nothing on current", state: StateCurrent, role: RoleHealer, expected: ActionNone},
 	}
