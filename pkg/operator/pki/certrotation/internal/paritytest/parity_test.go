@@ -161,7 +161,7 @@ func TestConvergenceMixedRoles(t *testing.T) {
 	}
 
 	// Repeated interleaved passes must not add writes (no ping-pong).
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		if _, err := writer.Reconcile(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -187,7 +187,7 @@ func TestConvergenceMixedRoles(t *testing.T) {
 		t.Fatal(err)
 	}
 	healed := CountWrites(client)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		if _, err := writer.Reconcile(context.Background()); err != nil {
 			t.Fatal(err)
 		}

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -593,10 +594,8 @@ func setComputedAnnotations(meta *metav1.ObjectMeta, issued *crypto.TLSCertifica
 
 // ensureOwnerReference adds the owner to the owner references if missing.
 func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference) bool {
-	for _, ref := range meta.OwnerReferences {
-		if ref == *owner {
-			return false
-		}
+	if slices.Contains(meta.OwnerReferences, *owner) {
+		return false
 	}
 	meta.OwnerReferences = append(meta.OwnerReferences, *owner)
 	return true

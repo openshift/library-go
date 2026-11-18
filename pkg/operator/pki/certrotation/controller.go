@@ -132,7 +132,7 @@ func (c *controller) rotationInformers(opts Options) []factory.Informer {
 }
 
 // filterEvents admits only the Rotation's own objects.
-func (c *controller) filterEvents(obj interface{}) bool {
+func (c *controller) filterEvents(obj any) bool {
 	switch typed := obj.(type) {
 	case *corev1.Secret:
 		if typed.Namespace == c.rotation.Signer.Namespace && typed.Name == c.rotation.Signer.Name {
@@ -215,8 +215,7 @@ func (c *controller) clearContention(targetName string) {
 
 // isConflict reports whether the error chain contains ErrConflict.
 func isConflict(err error) bool {
-	var artifactErr *ArtifactError
-	if errors.As(err, &artifactErr) {
+	if artifactErr, ok := errors.AsType[*ArtifactError](err); ok {
 		return errors.Is(artifactErr, ErrConflict)
 	}
 	return errors.Is(err, ErrConflict)

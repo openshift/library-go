@@ -35,11 +35,11 @@ type testLogger struct {
 
 func (l *testLogger) ComponentName() string        { return "test" }
 func (l *testLogger) Event(reason, message string) { l.events = append(l.events, reason) }
-func (l *testLogger) Eventf(reason, message string, args ...interface{}) {
+func (l *testLogger) Eventf(reason, message string, args ...any) {
 	l.events = append(l.events, reason)
 }
 func (l *testLogger) Warning(reason, message string) { l.events = append(l.events, reason) }
-func (l *testLogger) Warningf(reason, message string, args ...interface{}) {
+func (l *testLogger) Warningf(reason, message string, args ...any) {
 	l.events = append(l.events, reason)
 }
 func (l *testLogger) ForComponent(string) events.Recorder         { return l }
@@ -422,8 +422,7 @@ func TestReconcileConflictIsTyped(t *testing.T) {
 	if !errors.Is(err, ErrConflict) {
 		t.Fatalf("expected typed ErrConflict, got %v", err)
 	}
-	var artifactErr *ArtifactError
-	if !errors.As(err, &artifactErr) {
+	if _, ok := errors.AsType[*ArtifactError](err); !ok {
 		t.Fatalf("expected ArtifactError attribution, got %T", err)
 	}
 	if result.TargetErrors[targetName] == nil {
