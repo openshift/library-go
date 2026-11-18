@@ -402,6 +402,7 @@ func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 		refSecret        map[string][]byte
 		refCM            map[string]string
 		preflight        *fakeKMSStatusProvider // nil → newPreflightSucceededProvider for desired refs
+		disablePreflight bool
 		wantUpdate       bool
 		wantResult       inPlaceUpdateResult
 		wantErrSubstring string
@@ -420,6 +421,14 @@ func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 			refCM:      map[string]string{"ca-bundle.crt": "old-ca-cert"},
 			wantUpdate: true,
 			wantResult: inPlaceUpdateApplied,
+		},
+		{
+			name:             "bypass permits credential and CA repair without preflight status",
+			refSecret:        map[string][]byte{"role-id": []byte("new-role-id"), "secret-id": []byte("new-secret-id")},
+			refCM:            map[string]string{"ca-bundle.crt": "new-ca-cert"},
+			disablePreflight: true,
+			wantUpdate:       true,
+			wantResult:       inPlaceUpdateApplied,
 		},
 		{
 			name:             "backs off when preflight has not run",
@@ -484,10 +493,14 @@ func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 
 			syncCtx := factory.NewSyncContext("test", events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())))
 			c := &keyController{
+				operatorClient:           newTestEncryptionOperatorClient(tc.disablePreflight),
 				instanceName:             "test",
 				secretClient:             client.CoreV1(),
 				configMapClient:          client.CoreV1(),
 				encryptionStatusProvider: statusProvider,
+			}
+			if tc.disablePreflight {
+				c.encryptionStatusProvider = nil
 			}
 			snap := &KeyPlanningSnapshot{
 				CurrentMode:        state.KMS,
@@ -536,6 +549,9 @@ func TestReconcileInPlaceFieldUpdate(t *testing.T) {
 			}
 			if got := string(ks.KMS.PluginSecretData.FlatEntries()["vault-approle_role-id"]); got != "new-role-id" {
 				t.Fatalf("expected rotated role-id to be carried into the key secret, got %q", got)
+			}
+			if got := string(ks.KMS.PluginConfigMapData.FlatEntries()["vault-ca-bundle_ca-bundle.crt"]); got != tc.refCM["ca-bundle.crt"] {
+				t.Fatalf("unexpected CA bundle: %q", got)
 			}
 			if persisted.Annotations["example.com/unrelated"] != "keep-me" {
 				t.Fatalf("expected unrelated annotation to be preserved, got %#v", persisted.Annotations)
