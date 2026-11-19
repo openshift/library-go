@@ -1118,7 +1118,7 @@ func TestSetTargetCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
 	}{
 		{
 			name:      "server certificate uses defaults",
-			provider:  staticProvider(pki.DefaultCertificatePolicy()),
+			provider:  staticProvider(testCertificatePolicy()),
 			certName:  "openshift.io/test.target",
 			wantCurve: elliptic.P256(),
 		},

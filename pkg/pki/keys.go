@@ -32,8 +32,6 @@ func ResolveKeyConfig(keys configv1alpha1.PKIKeyPolicy, name string) (cfg Resolv
 	if name == "" {
 		return ResolvedKeyConfig{}, false, nil
 	}
-	logUnprefixedNameHint("Key", "namedKeys entry", name)
-
 	entry := findNamedKeyConfig(keys.NamedKeys, name)
 	if entry == nil {
 		return ResolvedKeyConfig{}, false, nil
@@ -54,7 +52,7 @@ func ResolveKeyConfig(keys configv1alpha1.PKIKeyPolicy, name string) (cfg Resolv
 // findNamedKeyConfig returns the first namedKeys entry whose name matches
 // exactly. The API validates namedKeys as a map keyed by name, so at most
 // one entry per name can be stored; the first match is the deterministic
-// fallback for invalid cached objects that contain duplicates.
+// fallback for invalid objects that contain duplicates.
 func findNamedKeyConfig(namedKeys []configv1alpha1.PKINamedKeyConfig, name string) *configv1alpha1.PKINamedKeyConfig {
 	for i := range namedKeys {
 		if namedKeys[i].Name == name {

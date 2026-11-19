@@ -33,7 +33,7 @@ func (f *fakePKILister) Get(name string) (*configv1alpha1.PKI, error) {
 
 func TestStaticConfigProvider_ReturnsSpec(t *testing.T) {
 	spec := configv1alpha1.PKISpec{
-		Certificates: DefaultCertificatePolicy(),
+		Certificates: defaultCertificatePolicy(),
 	}
 	provider := NewStaticConfigProvider(spec)
 
@@ -79,7 +79,7 @@ func TestListerConfigProvider_ReturnsSpec(t *testing.T) {
 	resource := &configv1alpha1.PKI{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: configv1alpha1.PKISpec{
-			Certificates: DefaultCertificatePolicy(),
+			Certificates: defaultCertificatePolicy(),
 		},
 	}
 	lister := &fakePKILister{pki: resource}
@@ -238,8 +238,8 @@ func TestStaticConfigProvider_NormalizesOldShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Config() error = %v", err)
 	}
-	if !reflect.DeepEqual(got.Certificates, DefaultCertificatePolicy()) {
-		t.Errorf("Certificates = %+v, want DefaultCertificatePolicy()", got.Certificates)
+	if !reflect.DeepEqual(got.Certificates, defaultCertificatePolicy()) {
+		t.Errorf("Certificates = %+v, want defaultCertificatePolicy()", got.Certificates)
 	}
 }
 
@@ -325,7 +325,7 @@ func TestStaticConfigProvider_DoesNotMutateStoredSpec(t *testing.T) {
 }
 
 func TestResolveCertificateConfig_DefaultCertificatePolicy_AllTypes(t *testing.T) {
-	policy := DefaultCertificatePolicy()
+	policy := defaultCertificatePolicy()
 
 	testCases := []struct {
 		name     string

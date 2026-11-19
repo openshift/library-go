@@ -7,15 +7,17 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 )
 
-// DefaultCertificatePolicy returns the default certificate policy for
+// defaultCertificatePolicy returns the default certificate policy for
 // OpenShift: ECDSA P-256 for all certificates, with CA certificates
 // overridden to ECDSA P-384.
 //
 // The PKI resource pins concrete values at install time, so this default is
 // an install-time seed (written into the resource by the installer), not a
 // runtime fallback: existing clusters do not track these values as they
-// evolve across releases.
-func DefaultCertificatePolicy() configv1alpha1.PKICertificatePolicy {
+// evolve across releases. It is used here only by the deprecated
+// certificateManagement translation in compat.go and by DefaultPKIProfile;
+// the seed itself belongs to the installer.
+func defaultCertificatePolicy() configv1alpha1.PKICertificatePolicy {
 	return configv1alpha1.PKICertificatePolicy{
 		Defaults: configv1alpha1.PKIDefaultCertificateConfig{
 			Key: configv1alpha1.PKIKeyConfig{
@@ -38,6 +40,8 @@ func DefaultCertificatePolicy() configv1alpha1.PKICertificatePolicy {
 // API's validation, not here.
 func KeyPairGeneratorFromAPI(apiKey configv1alpha1.PKIKeyConfig) (crypto.KeyPairGenerator, error) {
 	switch apiKey.Algorithm {
+	case "":
+		return nil, fmt.Errorf("key.algorithm is required")
 	case configv1alpha1.PKIKeyAlgorithmRSA:
 		return crypto.NewRSAKeyPairGenerator(int(apiKey.RSA.KeySize))
 	case configv1alpha1.PKIKeyAlgorithmECDSA:

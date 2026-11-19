@@ -119,7 +119,7 @@ func TestEffectiveSpec(t *testing.T) {
 					Mode: configv1alpha1.PKICertificateManagementModeUnmanaged,
 				},
 			},
-			want: DefaultCertificatePolicy(),
+			want: defaultCertificatePolicy(),
 		},
 		{
 			name: "default mode maps to default certificate policy",
@@ -128,7 +128,7 @@ func TestEffectiveSpec(t *testing.T) {
 					Mode: configv1alpha1.PKICertificateManagementModeDefault,
 				},
 			},
-			want: DefaultCertificatePolicy(),
+			want: defaultCertificatePolicy(),
 		},
 		{
 			name: "custom mode maps full profile",
@@ -168,7 +168,7 @@ func TestEffectiveSpec(t *testing.T) {
 				},
 				Keys: configv1alpha1.PKIKeyPolicy{NamedKeys: namedKeys},
 			},
-			want: DefaultCertificatePolicy(),
+			want: defaultCertificatePolicy(),
 		},
 		{
 			name: "stray custom under default mode is ignored",
@@ -178,7 +178,7 @@ func TestEffectiveSpec(t *testing.T) {
 					Custom: configv1alpha1.CustomPKIPolicy{PKIProfile: fullCustomProfile},
 				},
 			},
-			want: DefaultCertificatePolicy(),
+			want: defaultCertificatePolicy(),
 		},
 		{
 			name: "stray custom under unmanaged mode is ignored",
@@ -188,7 +188,7 @@ func TestEffectiveSpec(t *testing.T) {
 					Custom: configv1alpha1.CustomPKIPolicy{PKIProfile: fullCustomProfile},
 				},
 			},
-			want: DefaultCertificatePolicy(),
+			want: defaultCertificatePolicy(),
 		},
 		{
 			name: "empty mode is an error",
@@ -359,7 +359,7 @@ func TestEffectiveSpecCustomModeResolvesAllCertificateTypes(t *testing.T) {
 
 // TestEffectiveSpecDefaultModePinnedValues pins the old-shape Default and
 // Unmanaged mapping to literal ECDSA P-256 defaults / P-384 CA. If the
-// install-time seed (DefaultCertificatePolicy) ever changes, this test forces
+// install-time seed (defaultCertificatePolicy) ever changes, this test forces
 // a deliberate decision: operators vendoring different library-go versions
 // must agree on what an old-shape Default resource means during upgrade skew.
 func TestEffectiveSpecDefaultModePinnedValues(t *testing.T) {

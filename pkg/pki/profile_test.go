@@ -8,7 +8,7 @@ import (
 )
 
 func TestDefaultCertificatePolicy(t *testing.T) {
-	policy := DefaultCertificatePolicy()
+	policy := defaultCertificatePolicy()
 
 	// Default should be ECDSA P-256
 	if policy.Defaults.Key.Algorithm != configv1alpha1.PKIKeyAlgorithmECDSA {

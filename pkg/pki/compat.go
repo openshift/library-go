@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/klog/v2"
 )
 
@@ -15,7 +16,7 @@ import (
 //
 // The old shape's modes map as follows:
 //
-//   - Unmanaged and Default both map to DefaultCertificatePolicy(). Both
+//   - Unmanaged and Default both map to defaultCertificatePolicy(). Both
 //     modes go through the same machinery and the shim is temporary, so they
 //     act identically; the legacy per-component code path is deliberately not
 //     used because it cannot issue certificates under the ECDSA CAs the
@@ -37,8 +38,8 @@ import (
 // unchanged as well (certificate resolution then fails on the missing
 // defaults, as it does for an invalid new-shape resource).
 func effectiveSpec(spec configv1alpha1.PKISpec) (configv1alpha1.PKISpec, error) {
-	if !isZeroCertificatePolicy(spec.Certificates) {
-		if spec.CertificateManagement.Mode != "" || !isZeroCustomPolicy(spec.CertificateManagement.Custom) {
+	if !isZero(spec.Certificates) {
+		if !isZero(spec.CertificateManagement) {
 			// Both shapes set: only possible through a static provider or a
 			// stale cache, since the API enforces ExactlyOneOf. Prefer the
 			// new shape so behavior is unchanged when the old shape is
@@ -50,7 +51,7 @@ func effectiveSpec(spec configv1alpha1.PKISpec) (configv1alpha1.PKISpec, error) 
 		return out, nil
 	}
 
-	if isZeroCertificateManagement(spec.CertificateManagement) {
+	if isZero(spec.CertificateManagement) {
 		return spec, nil
 	}
 
@@ -76,7 +77,7 @@ func certificatePolicyFromCertificateManagement(cm configv1alpha1.PKICertificate
 		// component's pre-feature hardcoded behavior, but that code path
 		// cannot issue under the ECDSA CAs the installer creates, so the
 		// default policy is used for both while the shim exists.
-		return DefaultCertificatePolicy(), nil
+		return defaultCertificatePolicy(), nil
 	case configv1alpha1.PKICertificateManagementModeCustom:
 		return certificatePolicyFromProfile(cm.Custom.PKIProfile), nil
 	default:
@@ -96,22 +97,10 @@ func certificatePolicyFromProfile(p configv1alpha1.PKIProfile) configv1alpha1.PK
 	}
 }
 
-// isZeroCertificatePolicy reports whether policy is the zero value.
-// PKICertificatePolicy contains a slice, so it cannot be compared with ==;
-// its members are all comparable and use ==, so a future field that is not
-// comparable stops compiling here rather than being silently ignored.
-func isZeroCertificatePolicy(policy configv1alpha1.PKICertificatePolicy) bool {
-	return policy.Defaults == configv1alpha1.PKIDefaultCertificateConfig{} &&
-		policy.CACertificates == configv1alpha1.PKICertificateConfig{} &&
-		policy.ServerCertificates == configv1alpha1.PKICertificateConfig{} &&
-		policy.ClientCertificates == configv1alpha1.PKICertificateConfig{} &&
-		len(policy.NamedCertificates) == 0
-}
-
-func isZeroCustomPolicy(custom configv1alpha1.CustomPKIPolicy) bool {
-	return custom == configv1alpha1.CustomPKIPolicy{}
-}
-
-func isZeroCertificateManagement(cm configv1alpha1.PKICertificateManagement) bool {
-	return cm == configv1alpha1.PKICertificateManagement{}
+// isZero reports whether v is semantically equal to its zero value. Semantic
+// equality covers every field, including ones added later, and treats an
+// empty slice like a nil one.
+func isZero[T any](v T) bool {
+	var zero T
+	return equality.Semantic.DeepEqual(v, zero)
 }

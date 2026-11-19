@@ -3,11 +3,9 @@ package pki
 import (
 	gocrypto "crypto"
 	"fmt"
-	"strings"
 
 	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
 	"github.com/openshift/library-go/pkg/crypto"
-	"k8s.io/klog/v2"
 )
 
 // ResolvedCertificateConfig holds the resolved configuration for a specific
@@ -47,7 +45,6 @@ func ResolveCertificateConfig(policy configv1alpha1.PKICertificatePolicy, certTy
 		}
 	}()
 
-	logUnprefixedNameHint("Certificate", "namedCertificates override", name)
 	if policy.Defaults.Key.Algorithm == "" {
 		return ResolvedCertificateConfig{}, fmt.Errorf("resolving %s certificate %q: certificates.defaults.key.algorithm is required", certType, name)
 	}
@@ -64,7 +61,11 @@ func ResolveCertificateConfig(policy configv1alpha1.PKICertificatePolicy, certTy
 	// through to the category override, then the defaults.
 	if name != "" {
 		if named := findNamedCertificateConfig(policy.NamedCertificates, name); named != nil && named.Key.Algorithm != "" {
-			return certificateConfigFromKeyConfig(named.Key)
+			g, err := KeyPairGeneratorFromAPI(named.Key)
+			if err != nil {
+				return ResolvedCertificateConfig{}, err
+			}
+			return ResolvedCertificateConfig{Key: g}, nil
 		}
 	}
 
@@ -89,7 +90,11 @@ func resolveKeyConfig(defaults configv1alpha1.PKIDefaultCertificateConfig, overr
 	if override.Key.Algorithm != "" {
 		apiKey = override.Key
 	}
-	return certificateConfigFromKeyConfig(apiKey)
+	g, err := KeyPairGeneratorFromAPI(apiKey)
+	if err != nil {
+		return ResolvedCertificateConfig{}, err
+	}
+	return ResolvedCertificateConfig{Key: g}, nil
 }
 
 // resolvePeerKeyConfig resolves both the server and client configs and
@@ -115,7 +120,7 @@ func resolvePeerKeyConfig(policy configv1alpha1.PKICertificatePolicy) (ResolvedC
 // findNamedCertificateConfig returns the first namedCertificates entry whose
 // name matches exactly. The API validates namedCertificates as a map keyed by
 // name, so at most one entry per name can be stored; the first match is the
-// deterministic fallback for invalid cached objects that contain duplicates.
+// deterministic fallback for invalid objects that contain duplicates.
 func findNamedCertificateConfig(namedCertificates []configv1alpha1.PKINamedCertificateConfig, name string) *configv1alpha1.PKINamedCertificateConfig {
 	for i := range namedCertificates {
 		if namedCertificates[i].Name == name {
@@ -123,20 +128,6 @@ func findNamedCertificateConfig(namedCertificates []configv1alpha1.PKINamedCerti
 		}
 	}
 	return nil
-}
-
-// certificateConfigFromKeyConfig converts an API KeyConfig to a
-// ResolvedCertificateConfig. It is the shared conversion for every resolution
-// tier and rejects an unset algorithm with an explicit error.
-func certificateConfigFromKeyConfig(apiKey configv1alpha1.PKIKeyConfig) (ResolvedCertificateConfig, error) {
-	if apiKey.Algorithm == "" {
-		return ResolvedCertificateConfig{}, fmt.Errorf("no key configuration: key.algorithm is required")
-	}
-	g, err := KeyPairGeneratorFromAPI(apiKey)
-	if err != nil {
-		return ResolvedCertificateConfig{}, err
-	}
-	return ResolvedCertificateConfig{Key: g}, nil
 }
 
 // selfCheckingKeyPairGenerator wraps a KeyPairGenerator and returns an error if a generated key
@@ -161,14 +152,4 @@ func (g selfCheckingKeyPairGenerator) GenerateKeyPair() (gocrypto.PublicKey, goc
 
 func (g selfCheckingKeyPairGenerator) Matches(pub gocrypto.PublicKey) error {
 	return g.inner.Matches(pub)
-}
-
-// logUnprefixedNameHint logs at V(2) when name is not a prefixed qualified
-// name and therefore cannot match any named entry. target names what the
-// name would have matched, for example "namedCertificates override".
-func logUnprefixedNameHint(noun, target, name string) {
-	if name == "" || strings.Contains(name, "/") {
-		return
-	}
-	klog.V(2).Infof("%s name %q is not a prefixed qualified name (expected a format like \"openshift.io/component.purpose\"); it cannot match any %s", noun, name, target)
 }

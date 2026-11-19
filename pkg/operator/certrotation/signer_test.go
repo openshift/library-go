@@ -384,7 +384,7 @@ func TestSetSigningCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
 				CertificateName: "openshift.io/test.signer",
 			}
 			if tc.configurePKI {
-				policy := pki.DefaultCertificatePolicy()
+				policy := testCertificatePolicy()
 				policy.CACertificates.Key.Algorithm = configv1alpha1.PKIKeyAlgorithm(tc.caAlgorithm)
 				policy.CACertificates.Key.ECDSA.Curve = configv1alpha1.PKIECDSACurve(tc.caECDSACurve)
 				if tc.namedCurve != "" {
@@ -501,7 +501,7 @@ func TestSetSigningCertKeyPairSecret_MissingPKIResource(t *testing.T) {
 			EventRecorder:   recorder,
 			CertificateName: "openshift.io/test.signer",
 			PKIConfigProvider: pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
-				Certificates: pki.DefaultCertificatePolicy(),
+				Certificates: testCertificatePolicy(),
 			}),
 		}
 
@@ -532,7 +532,7 @@ func TestSetSigningCertKeyPairSecret_MissingPKIResource(t *testing.T) {
 }
 
 func TestEnsureSigningCertKeyPair_WithKeyConfig(t *testing.T) {
-	policy := pki.DefaultCertificatePolicy()
+	policy := testCertificatePolicy()
 
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	client := kubefake.NewClientset()
@@ -571,7 +571,7 @@ func TestEnsureSigningCertKeyPair_WithKeyConfig(t *testing.T) {
 	if cert.PublicKeyAlgorithm != x509.ECDSA {
 		t.Errorf("expected ECDSA public key, got %v", cert.PublicKeyAlgorithm)
 	}
-	// DefaultCertificatePolicy overrides CA certificates to ECDSA P-384;
+	// testCertificatePolicy overrides CA certificates to ECDSA P-384;
 	// assert the curve so the CA override is actually verified.
 	publicKey, ok := cert.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
