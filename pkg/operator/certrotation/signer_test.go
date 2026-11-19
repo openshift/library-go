@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -333,44 +334,101 @@ func verifyKeyPair(t testing.TB, certPEM, keyPEM []byte) {
 }
 
 func TestSetSigningCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
+	const certName = "openshift.io/test.signer"
+
 	testCases := []struct {
-		name         string
-		configurePKI bool
-		caAlgorithm  string
-		caECDSACurve string
-		namedCurve   string
-		wantCurve    elliptic.Curve
-		wantAlg      x509.PublicKeyAlgorithm
+		name string
+		// policy is the PKI resource's certificates section; nil means no
+		// PKI provider is wired.
+		policy *configv1alpha1.PKICertificatePolicy
+		want   configv1alpha1.PKIKeyConfig
 	}{
 		{
-			name:         "no PKI configured uses legacy RSA-2048",
-			configurePKI: false,
-			wantAlg:      x509.RSA,
+			name:   "no PKI configured uses legacy RSA-2048",
+			policy: nil,
+			want:   rsaKey(2048),
 		},
 		{
-			name:         "ECDSA-P256 via CA override",
-			configurePKI: true,
-			caAlgorithm:  "ECDSA",
-			caECDSACurve: "P256",
-			wantCurve:    elliptic.P256(),
-			wantAlg:      x509.ECDSA,
+			name: "defaults apply without a CA override",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults: configv1alpha1.PKIDefaultCertificateConfig{Key: rsaKey(3072)},
+			},
+			want: rsaKey(3072),
 		},
 		{
-			name:         "ECDSA-P384 via CA override",
-			configurePKI: true,
-			caAlgorithm:  "ECDSA",
-			caECDSACurve: "P384",
-			wantCurve:    elliptic.P384(),
-			wantAlg:      x509.ECDSA,
+			name: "ECDSA-P256 CA override",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults:       configv1alpha1.PKIDefaultCertificateConfig{Key: rsaKey(2048)},
+				CACertificates: configv1alpha1.PKICertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+			},
+			want: ecdsaKey(configv1alpha1.PKIECDSACurveP256),
 		},
 		{
-			name:         "named override keyed by certificate name wins over CA override",
-			configurePKI: true,
-			caAlgorithm:  "ECDSA",
-			caECDSACurve: "P384",
-			namedCurve:   "P521",
-			wantCurve:    elliptic.P521(),
-			wantAlg:      x509.ECDSA,
+			name: "ECDSA-P384 CA override",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults:       configv1alpha1.PKIDefaultCertificateConfig{Key: rsaKey(2048)},
+				CACertificates: configv1alpha1.PKICertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP384)},
+			},
+			want: ecdsaKey(configv1alpha1.PKIECDSACurveP384),
+		},
+		{
+			name: "ECDSA-P521 CA override",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults:       configv1alpha1.PKIDefaultCertificateConfig{Key: rsaKey(2048)},
+				CACertificates: configv1alpha1.PKICertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP521)},
+			},
+			want: ecdsaKey(configv1alpha1.PKIECDSACurveP521),
+		},
+		{
+			name: "RSA-2048 CA override",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults:       configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				CACertificates: configv1alpha1.PKICertificateConfig{Key: rsaKey(2048)},
+			},
+			want: rsaKey(2048),
+		},
+		{
+			name: "RSA-3072 CA override",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults:       configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				CACertificates: configv1alpha1.PKICertificateConfig{Key: rsaKey(3072)},
+			},
+			want: rsaKey(3072),
+		},
+		{
+			name: "RSA-4096 CA override",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults:       configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				CACertificates: configv1alpha1.PKICertificateConfig{Key: rsaKey(4096)},
+			},
+			want: rsaKey(4096),
+		},
+		{
+			name: "named ECDSA override wins over RSA CA override",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults:          configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				CACertificates:    configv1alpha1.PKICertificateConfig{Key: rsaKey(3072)},
+				NamedCertificates: []configv1alpha1.PKINamedCertificateConfig{namedCertificate(certName, ecdsaKey(configv1alpha1.PKIECDSACurveP521))},
+			},
+			want: ecdsaKey(configv1alpha1.PKIECDSACurveP521),
+		},
+		{
+			name: "named RSA override wins over ECDSA CA override",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults:          configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				CACertificates:    configv1alpha1.PKICertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP384)},
+				NamedCertificates: []configv1alpha1.PKINamedCertificateConfig{namedCertificate(certName, rsaKey(4096))},
+			},
+			want: rsaKey(4096),
+		},
+		{
+			name: "named override for another certificate is ignored",
+			policy: &configv1alpha1.PKICertificatePolicy{
+				Defaults:          configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				CACertificates:    configv1alpha1.PKICertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP384)},
+				NamedCertificates: []configv1alpha1.PKINamedCertificateConfig{namedCertificate("openshift.io/other.signer", rsaKey(2048))},
+			},
+			want: ecdsaKey(configv1alpha1.PKIECDSACurveP384),
 		},
 	}
 	for _, tc := range testCases {
@@ -381,25 +439,11 @@ func TestSetSigningCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
 
 			c := RotatedSigningCASecret{
 				Validity:        24 * time.Hour,
-				CertificateName: "openshift.io/test.signer",
+				CertificateName: certName,
 			}
-			if tc.configurePKI {
-				policy := testCertificatePolicy()
-				policy.CACertificates.Key.Algorithm = configv1alpha1.PKIKeyAlgorithm(tc.caAlgorithm)
-				policy.CACertificates.Key.ECDSA.Curve = configv1alpha1.PKIECDSACurve(tc.caECDSACurve)
-				if tc.namedCurve != "" {
-					policy.NamedCertificates = append(policy.NamedCertificates, configv1alpha1.PKINamedCertificateConfig{
-						Name: "openshift.io/test.signer",
-						PKICertificateConfig: configv1alpha1.PKICertificateConfig{
-							Key: configv1alpha1.PKIKeyConfig{
-								Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
-								ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurve(tc.namedCurve)},
-							},
-						},
-					})
-				}
+			if tc.policy != nil {
 				c.PKIConfigProvider = pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
-					Certificates: policy,
+					Certificates: *tc.policy,
 				})
 			}
 
@@ -421,18 +465,7 @@ func TestSetSigningCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
 			if !cert.IsCA {
 				t.Error("expected IsCA to be true")
 			}
-			if cert.PublicKeyAlgorithm != tc.wantAlg {
-				t.Errorf("expected %v public key, got %v", tc.wantAlg, cert.PublicKeyAlgorithm)
-			}
-			if tc.wantCurve != nil {
-				publicKey, ok := cert.PublicKey.(*ecdsa.PublicKey)
-				if !ok {
-					t.Fatalf("expected *ecdsa.PublicKey, got %T", cert.PublicKey)
-				}
-				if publicKey.Curve != tc.wantCurve {
-					t.Errorf("expected curve %v, got %v", tc.wantCurve, publicKey.Curve)
-				}
-			}
+			assertPublicKeyMatches(t, cert.PublicKey, tc.want)
 		})
 	}
 }
@@ -485,49 +518,79 @@ func TestSetSigningCertKeyPairSecret_MissingPKIResource(t *testing.T) {
 	})
 
 	t.Run("rotate path", func(t *testing.T) {
-		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-		client := kubefake.NewClientset()
-		recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+		// The bubble's fake clock lets the test move past the refresh time
+		// deterministically instead of relying on wall-clock time passing.
+		synctest.Test(t, func(t *testing.T) {
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			client := kubefake.NewClientset()
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
 
-		// Refresh of one nanosecond makes the freshly created secret
-		// immediately due for rotation on the next sync.
-		c := &RotatedSigningCASecret{
-			Namespace:       "ns",
-			Name:            "signer",
-			Validity:        24 * time.Hour,
-			Refresh:         time.Nanosecond,
-			Client:          client.CoreV1(),
-			Lister:          corev1listers.NewSecretLister(indexer),
-			EventRecorder:   recorder,
-			CertificateName: "openshift.io/test.signer",
-			PKIConfigProvider: pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
-				Certificates: testCertificatePolicy(),
-			}),
-		}
+			c := &RotatedSigningCASecret{
+				Namespace:       "ns",
+				Name:            "signer",
+				Validity:        24 * time.Hour,
+				Refresh:         12 * time.Hour,
+				Client:          client.CoreV1(),
+				Lister:          corev1listers.NewSecretLister(indexer),
+				EventRecorder:   recorder,
+				CertificateName: "openshift.io/test.signer",
+				PKIConfigProvider: pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
+					Certificates: testCertificatePolicy(),
+				}),
+			}
 
-		if _, _, err := c.EnsureSigningCertKeyPair(t.Context()); err != nil {
-			t.Fatalf("initial EnsureSigningCertKeyPair() error = %v", err)
-		}
-		createActions := len(client.Actions())
-		if createActions != 1 {
-			t.Fatalf("expected 1 create action after initial ensure, got %d", createActions)
-		}
+			if _, _, err := c.EnsureSigningCertKeyPair(t.Context()); err != nil {
+				t.Fatalf("initial EnsureSigningCertKeyPair() error = %v", err)
+			}
+			createActions := len(client.Actions())
+			if createActions != 1 {
+				t.Fatalf("expected 1 create action after initial ensure, got %d", createActions)
+			}
 
-		// Swap in a provider whose resource is missing: the rotation due on
-		// this sync must fail without updating the existing valid secret.
-		c.PKIConfigProvider = &errorConfigProvider{
-			err: apierrors.NewNotFound(schema.GroupResource{Group: "config.openshift.io", Resource: "pkis"}, "cluster"),
-		}
-		_, _, err := c.EnsureSigningCertKeyPair(t.Context())
-		if err == nil {
-			t.Fatal("expected error for missing PKI resource during rotation")
-		}
-		if !apierrors.IsNotFound(err) {
-			t.Errorf("expected apierrors.IsNotFound to match, got %v", err)
-		}
-		if actions := client.Actions(); len(actions) != createActions {
-			t.Errorf("expected no additional client actions during failed rotation, got %v", actions)
-		}
+			// The fake client does not feed the lister's indexer; add the
+			// created secret as a synced informer would, so the next sync
+			// takes the rotation path rather than the creation path.
+			created, err := client.CoreV1().Secrets("ns").Get(t.Context(), "signer", metav1.GetOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := indexer.Add(created); err != nil {
+				t.Fatal(err)
+			}
+			baselineActions := len(client.Actions())
+
+			// Move past Refresh (12h) but not the 80% threshold (19.2h), so
+			// rotation is due only because of the configured refresh.
+			time.Sleep(13 * time.Hour)
+
+			// Swap in a provider whose resource is missing: the rotation due
+			// on this sync must fail without updating the existing valid
+			// secret.
+			c.PKIConfigProvider = &errorConfigProvider{
+				err: apierrors.NewNotFound(schema.GroupResource{Group: "config.openshift.io", Resource: "pkis"}, "cluster"),
+			}
+			_, _, err = c.EnsureSigningCertKeyPair(t.Context())
+			if err == nil {
+				t.Fatal("expected error for missing PKI resource during rotation")
+			}
+			if !apierrors.IsNotFound(err) {
+				t.Errorf("expected apierrors.IsNotFound to match, got %v", err)
+			}
+			if actions := client.Actions(); len(actions) != baselineActions {
+				t.Errorf("expected no additional client actions during failed rotation, got %v", actions[baselineActions:])
+			}
+
+			// Guard against the sync silently taking the creation path.
+			var sawRefresh bool
+			for _, e := range recorder.Events() {
+				if e.Reason == "SignerUpdateRequired" && strings.Contains(e.Message, "past its refresh time") {
+					sawRefresh = true
+				}
+			}
+			if !sawRefresh {
+				t.Errorf("expected a SignerUpdateRequired event for the refresh time, got %v", recorder.Events())
+			}
+		})
 	})
 }
 
