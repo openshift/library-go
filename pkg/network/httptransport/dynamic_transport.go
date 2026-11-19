@@ -11,9 +11,11 @@ import (
 
 type dynamicTransport struct {
 	config *Config
-	// rebuildMu serializes rebuilds so concurrent provider notifications cannot
-	// race to publish transports. RoundTrip reads transport without the lock.
+	// rebuildMu serializes rebuilds so that a slower rebuild that read stale CA
+	// content can't overwrite a newer one. RoundTrip doesn't take it.
 	rebuildMu sync.Mutex
+	// transport is never nil: NewRoundTripper stores it before registering
+	// for any notifications.
 	transport atomic.Pointer[http.Transport]
 }
 
@@ -32,24 +34,27 @@ func (t *dynamicTransport) CloseIdleConnections() {
 }
 
 // Enqueue is the dynamiccertificates.Listener callback invoked when a CA content
-// provider reports a change. CA rotations are rare and never bursty, so a single
-// serialized rebuild per notification is sufficient.
+// provider reports a change. It rebuilds asynchronously so the provider's
+// notification goroutine isn't blocked. Each notification starts one rebuild;
+// rebuilds are serialized and read the provider content only once holding the
+// lock, so the last one always reflects the newest content. Redundant rebuilds
+// are cheap and CA changes are rare.
 func (t *dynamicTransport) Enqueue() {
-	t.rebuildMu.Lock()
-	defer t.rebuildMu.Unlock()
-	t.rebuild()
+	go t.rebuild()
 }
 
+// rebuild builds a new transport from the current configuration and swaps it in.
+// On failure the current transport is kept.
 func (t *dynamicTransport) rebuild() {
+	t.rebuildMu.Lock()
+	defer t.rebuildMu.Unlock()
+
 	transport, err := t.config.newHTTPTransport()
 	if err != nil {
 		klog.ErrorS(err, "Unable to rebuild outbound HTTP transport after CA content changed; continuing with the last known-good transport")
 		return
 	}
 
-	oldTransport := t.transport.Swap(transport)
-	if oldTransport != nil {
-		oldTransport.CloseIdleConnections()
-	}
+	t.transport.Swap(transport).CloseIdleConnections()
 	klog.V(2).InfoS("Rebuilt outbound HTTP transport after CA content changed")
 }
