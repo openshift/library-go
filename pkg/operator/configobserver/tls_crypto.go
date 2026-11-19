@@ -80,6 +80,39 @@ func CurvePreferencesToTLSGroups[T int64 | string](
 	return unrecognizedCurveIDs, nil
 }
 
+// cipherIDsEqual checks if existing values match both the numeric values AND the expected type for T.
+// This is important because existingValue may have the correct numeric values but wrong type
+// (e.g., int64 when T is string), and we need to convert them to the correct type if there's any mismatch.
+func cipherIDsEqual[T int64 | string](existingValue interface{}, observedValue int32) bool {
+	var t T
+	switch any(t).(type) {
+	case string:
+		// Target type is string - existing values must be strings with correct values
+		strVal, ok := existingValue.(string)
+		if !ok || strVal != strconv.Itoa(int(observedValue)) {
+			return false
+		}
+	case int64:
+		// Target type is int64 - existing values can be int64 or float64 (from JSON)
+		var existingInt64 int64
+		switch v := existingValue.(type) {
+		case int64:
+			existingInt64 = v
+		case float64:
+			if v != float64(int64(v)) {
+				return false
+			}
+			existingInt64 = int64(v)
+		default:
+			return false
+		}
+		if existingInt64 != int64(observedValue) {
+			return false
+		}
+	}
+	return true
+}
+
 // TLSGroupsToCurvePreferences reads TLS group names from sourcePath in config,
 // converts them to curve preference IDs, and writes them to targetPath.
 // Returns a list of unrecognized group names that were skipped during conversion.
@@ -108,26 +141,11 @@ func TLSGroupsToCurvePreferences[T int64 | string](
 		return unrecognizedGroups, nil
 	}
 
-	// Normalize existing values to int64 for comparison (they may be float64 from YAML unmarshaling).
 	existingPrefs, existingFound, _ := unstructured.NestedSlice(config, targetPath...)
 	if existingFound && len(existingPrefs) == len(curvePreferences) {
 		allMatch := true
 		for i, cp := range curvePreferences {
-			var existingInt64 int64
-			switch v := existingPrefs[i].(type) {
-			case int64:
-				existingInt64 = v
-			case float64:
-				if v != float64(int64(v)) {
-					allMatch = false
-					break
-				}
-				existingInt64 = int64(v)
-			default:
-				allMatch = false
-				break
-			}
-			if existingInt64 != int64(cp) {
+			if !cipherIDsEqual[T](existingPrefs[i], cp) {
 				allMatch = false
 				break
 			}
