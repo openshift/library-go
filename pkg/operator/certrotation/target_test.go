@@ -1,9 +1,6 @@
 package certrotation
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"slices"
@@ -987,22 +984,10 @@ func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 // TargetCertCreator's CertificateType() selects the matching category
 // override: distinct values per category make a wrong wiring fail loudly.
 func TestSetTargetCertKeyPairSecret_CertificateTypeWiring(t *testing.T) {
-	ecdsaP256 := configv1alpha1.PKIKeyConfig{
-		Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
-		ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurveP256},
-	}
-	ecdsaP384 := configv1alpha1.PKIKeyConfig{
-		Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
-		ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurveP384},
-	}
-	ecdsaP521 := configv1alpha1.PKIKeyConfig{
-		Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
-		ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurveP521},
-	}
-	rsa3072 := configv1alpha1.PKIKeyConfig{
-		Algorithm: configv1alpha1.PKIKeyAlgorithmRSA,
-		RSA:       configv1alpha1.PKIRSAKeyConfig{KeySize: 3072},
-	}
+	ecdsaP256 := ecdsaKey(configv1alpha1.PKIECDSACurveP256)
+	ecdsaP384 := ecdsaKey(configv1alpha1.PKIECDSACurveP384)
+	ecdsaP521 := ecdsaKey(configv1alpha1.PKIECDSACurveP521)
+	rsa3072 := rsaKey(3072)
 
 	// defaults P256, CA P521, server P384, client RSA-3072: every category
 	// resolves to a distinguishable key.
@@ -1016,47 +1001,45 @@ func TestSetTargetCertKeyPairSecret_CertificateTypeWiring(t *testing.T) {
 	hostnames := func() []string { return []string{"localhost"} }
 
 	testCases := []struct {
-		name        string
-		certCreator TargetCertCreator
-		certName    string
-		wantRSA     bool
-		wantRSABits int
-		wantCurve   elliptic.Curve
+		name              string
+		certCreator       TargetCertCreator
+		certName          string
+		namedCertificates []configv1alpha1.PKINamedCertificateConfig
+		want              crypto.KeyPairGenerator
 	}{
 		{
 			name:        "serving rotation resolves the server override",
 			certCreator: &ServingRotation{Hostnames: hostnames},
 			certName:    "openshift.io/test.target",
-			wantCurve:   elliptic.P384(),
+			want:        mustECDSA(crypto.P384),
 		},
 		{
 			name:        "client rotation resolves the client override",
 			certCreator: &ClientRotation{UserInfo: &user.DefaultInfo{Name: "test-user"}},
 			certName:    "openshift.io/test.target",
-			wantRSA:     true,
-			wantRSABits: 3072,
+			want:        mustRSA(3072),
 		},
 		{
 			name:        "signer rotation resolves the CA override",
 			certCreator: &SignerRotation{SignerName: "lower-signer"},
 			certName:    "openshift.io/test.target",
-			wantCurve:   elliptic.P521(),
+			want:        mustECDSA(crypto.P521),
 		},
 		{
 			// P-384 (192 bits) is stronger than RSA-3072 (128 bits).
 			name:        "peer rotation resolves the stronger of server and client",
 			certCreator: &PeerRotation{Hostnames: hostnames, UserInfo: &user.DefaultInfo{Name: "test-user"}},
 			certName:    "openshift.io/test.target",
-			wantCurve:   elliptic.P384(),
+			want:        mustECDSA(crypto.P384),
 		},
 		{
 			// Explicit beats derived: a matching named override wins even
 			// though the peer synthesis would pick the stronger P-384.
-			name:        "peer rotation with named override wins over synthesis",
-			certCreator: &PeerRotation{Hostnames: hostnames, UserInfo: &user.DefaultInfo{Name: "test-user"}},
-			certName:    "openshift.io/test.peer",
-			wantRSA:     true,
-			wantRSABits: 2048,
+			name:              "peer rotation with named override wins over synthesis",
+			certCreator:       &PeerRotation{Hostnames: hostnames, UserInfo: &user.DefaultInfo{Name: "test-user"}},
+			certName:          "openshift.io/test.peer",
+			namedCertificates: []configv1alpha1.PKINamedCertificateConfig{namedCertificate("openshift.io/test.peer", rsaKey(2048))},
+			want:              mustRSA(2048),
 		},
 	}
 	for _, tc := range testCases {
@@ -1067,19 +1050,7 @@ func TestSetTargetCertKeyPairSecret_CertificateTypeWiring(t *testing.T) {
 			}
 
 			casePolicy := policy
-			if tc.wantRSABits == 2048 {
-				casePolicy.NamedCertificates = []configv1alpha1.PKINamedCertificateConfig{
-					{
-						Name: "openshift.io/test.peer",
-						PKICertificateConfig: configv1alpha1.PKICertificateConfig{
-							Key: configv1alpha1.PKIKeyConfig{
-								Algorithm: configv1alpha1.PKIKeyAlgorithmRSA,
-								RSA:       configv1alpha1.PKIRSAKeyConfig{KeySize: 2048},
-							},
-						},
-					},
-				}
-			}
+			casePolicy.NamedCertificates = tc.namedCertificates
 			c := &RotatedSelfSignedCertKeySecret{
 				Validity:        24 * time.Hour,
 				CertificateName: tc.certName,
@@ -1096,7 +1067,9 @@ func TestSetTargetCertKeyPairSecret_CertificateTypeWiring(t *testing.T) {
 			if err != nil {
 				t.Fatalf("setTargetCertKeyPairSecret() error = %v", err)
 			}
-			assertCertKey(t, certKeyPair.Certs[0], tc.wantRSA, tc.wantRSABits, tc.wantCurve)
+			if err := tc.want.Matches(certKeyPair.Certs[0].PublicKey); err != nil {
+				t.Errorf("issued key does not match %+v: %v", tc.want, err)
+			}
 		})
 	}
 }
@@ -1109,48 +1082,36 @@ func TestSetTargetCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name      string
-		provider  pki.ConfigProvider
-		certName  string
-		wantRSA   bool
-		wantCurve elliptic.Curve
-		wantErr   bool
+		name     string
+		provider pki.ConfigProvider
+		certName string
+		want     crypto.KeyPairGenerator
+		wantErr  bool
 	}{
 		{
-			name:      "server certificate uses defaults",
-			provider:  staticProvider(testCertificatePolicy()),
-			certName:  "openshift.io/test.target",
-			wantCurve: elliptic.P256(),
+			name:     "server certificate uses defaults",
+			provider: staticProvider(testCertificatePolicy()),
+			certName: "openshift.io/test.target",
+			want:     mustECDSA(crypto.P256),
+		},
+		{
+			name: "RSA server override",
+			provider: staticProvider(configv1alpha1.PKICertificatePolicy{
+				Defaults:           configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				ServerCertificates: configv1alpha1.PKICertificateConfig{Key: rsaKey(3072)},
+			}),
+			certName: "openshift.io/test.target",
+			want:     mustRSA(3072),
 		},
 		{
 			name: "named override keyed by certificate name wins over category override",
 			provider: staticProvider(configv1alpha1.PKICertificatePolicy{
-				Defaults: configv1alpha1.PKIDefaultCertificateConfig{
-					Key: configv1alpha1.PKIKeyConfig{
-						Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
-						ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurveP256},
-					},
-				},
-				ServerCertificates: configv1alpha1.PKICertificateConfig{
-					Key: configv1alpha1.PKIKeyConfig{
-						Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
-						ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurveP384},
-					},
-				},
-				NamedCertificates: []configv1alpha1.PKINamedCertificateConfig{
-					{
-						Name: "openshift.io/test.target",
-						PKICertificateConfig: configv1alpha1.PKICertificateConfig{
-							Key: configv1alpha1.PKIKeyConfig{
-								Algorithm: configv1alpha1.PKIKeyAlgorithmRSA,
-								RSA:       configv1alpha1.PKIRSAKeyConfig{KeySize: 2048},
-							},
-						},
-					},
-				},
+				Defaults:           configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				ServerCertificates: configv1alpha1.PKICertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP384)},
+				NamedCertificates:  []configv1alpha1.PKINamedCertificateConfig{namedCertificate("openshift.io/test.target", rsaKey(2048))},
 			}),
 			certName: "openshift.io/test.target",
-			wantRSA:  true,
+			want:     mustRSA(2048),
 		},
 		{
 			name: "missing PKI resource fails the sync",
@@ -1193,7 +1154,9 @@ func TestSetTargetCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
 			if err != nil {
 				t.Fatalf("setTargetCertKeyPairSecret() error = %v", err)
 			}
-			assertCertKey(t, certKeyPair.Certs[0], tc.wantRSA, 2048, tc.wantCurve)
+			if err := tc.want.Matches(certKeyPair.Certs[0].PublicKey); err != nil {
+				t.Errorf("issued key does not match %+v: %v", tc.want, err)
+			}
 		})
 	}
 }
@@ -1215,19 +1178,19 @@ func TestSetTargetCertKeyPairSecret_OldShapeUnmanagedResource(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name      string
-		mode      configv1alpha1.PKICertificateManagementMode
-		wantCurve elliptic.Curve
+		name string
+		mode configv1alpha1.PKICertificateManagementMode
+		want crypto.KeyPairGenerator
 	}{
 		{
-			name:      "unmanaged mode resolves through the default policy",
-			mode:      configv1alpha1.PKICertificateManagementModeUnmanaged,
-			wantCurve: elliptic.P256(),
+			name: "unmanaged mode resolves through the default policy",
+			mode: configv1alpha1.PKICertificateManagementModeUnmanaged,
+			want: mustECDSA(crypto.P256),
 		},
 		{
-			name:      "default mode resolves through the default policy",
-			mode:      configv1alpha1.PKICertificateManagementModeDefault,
-			wantCurve: elliptic.P256(),
+			name: "default mode resolves through the default policy",
+			mode: configv1alpha1.PKICertificateManagementModeDefault,
+			want: mustECDSA(crypto.P256),
 		},
 	}
 	for _, tc := range testCases {
@@ -1252,7 +1215,9 @@ func TestSetTargetCertKeyPairSecret_OldShapeUnmanagedResource(t *testing.T) {
 			if err != nil {
 				t.Fatalf("setTargetCertKeyPairSecret() error = %v", err)
 			}
-			assertCertKey(t, certKeyPair.Certs[0], false, 0, tc.wantCurve)
+			if err := tc.want.Matches(certKeyPair.Certs[0].PublicKey); err != nil {
+				t.Errorf("issued key does not match %+v: %v", tc.want, err)
+			}
 		})
 	}
 }
@@ -1295,29 +1260,5 @@ func TestEnsureTargetCertKeyPair_MissingPKIResource(t *testing.T) {
 	}
 	if actions := client.Actions(); len(actions) != 0 {
 		t.Errorf("expected no client actions, got %v", actions)
-	}
-}
-
-func assertCertKey(t *testing.T, cert *x509.Certificate, wantRSA bool, wantRSABits int, wantCurve elliptic.Curve) {
-	t.Helper()
-	switch {
-	case wantRSA:
-		publicKey, ok := cert.PublicKey.(*rsa.PublicKey)
-		if !ok {
-			t.Fatalf("expected *rsa.PublicKey, got %T", cert.PublicKey)
-		}
-		if got := publicKey.N.BitLen(); got != wantRSABits {
-			t.Errorf("RSA key size = %d bits, want %d", got, wantRSABits)
-		}
-	case wantCurve != nil:
-		publicKey, ok := cert.PublicKey.(*ecdsa.PublicKey)
-		if !ok {
-			t.Fatalf("expected *ecdsa.PublicKey, got %T", cert.PublicKey)
-		}
-		if publicKey.Curve != wantCurve {
-			t.Errorf("expected curve %v, got %v", wantCurve, publicKey.Curve)
-		}
-	default:
-		t.Fatal("test case must specify wantRSA or wantCurve")
 	}
 }
