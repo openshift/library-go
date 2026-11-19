@@ -52,21 +52,21 @@ func TestResolveCertificateConfig(t *testing.T) {
 			policy:          defaultsOnly(ecdsaP256),
 			certType:        CertificateTypeCA,
 			certificateName: "openshift.io/test.ca",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			name:            "server uses defaults when no category override",
 			policy:          defaultsOnly(ecdsaP256),
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			name:            "client uses defaults when no category override",
 			policy:          defaultsOnly(ecdsaP256),
 			certType:        CertificateTypeClient,
 			certificateName: "openshift.io/test.client",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			name: "ca category override wins over defaults",
@@ -76,7 +76,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeCA,
 			certificateName: "openshift.io/test.ca",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:            mustECDSA(crypto.P384),
 		},
 		{
 			name: "server category override wins over defaults",
@@ -86,7 +86,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:            mustECDSA(crypto.P384),
 		},
 		{
 			name: "client category override wins over defaults",
@@ -96,7 +96,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeClient,
 			certificateName: "openshift.io/test.client",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:            mustECDSA(crypto.P384),
 		},
 		{
 			name: "named override wins over category override",
@@ -112,7 +112,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.RSAKeyPairGenerator{Bits: 2048},
+			want:            mustRSA(2048),
 		},
 		{
 			name: "named override wins over defaults when no category override",
@@ -127,7 +127,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:            mustECDSA(crypto.P384),
 		},
 		{
 			name: "named override applies to ca certificates",
@@ -143,7 +143,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeCA,
 			certificateName: "openshift.io/test.ca",
-			want:            crypto.RSAKeyPairGenerator{Bits: 2048},
+			want:            mustRSA(2048),
 		},
 		{
 			name: "named override applies to client certificates",
@@ -158,7 +158,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeClient,
 			certificateName: "openshift.io/test.client",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:            mustECDSA(crypto.P384),
 		},
 		{
 			// A named entry without a key is inert for key resolution: the
@@ -177,7 +177,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:            mustECDSA(crypto.P384),
 		},
 		{
 			name: "named entry with unset key falls through to defaults",
@@ -191,7 +191,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			name: "named entry for another certificate is ignored",
@@ -206,7 +206,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			// An empty certificate name never matches named entries, not
@@ -223,7 +223,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			name: "peer resolves stronger of server and client",
@@ -234,7 +234,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypePeer,
 			certificateName: "openshift.io/test.peer",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			name: "peer resolves stronger of server and client when server is stronger",
@@ -244,14 +244,14 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypePeer,
 			certificateName: "openshift.io/test.peer",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:            mustECDSA(crypto.P384),
 		},
 		{
 			name:            "peer with neither category override uses defaults",
 			policy:          defaultsOnly(rsa3072),
 			certType:        CertificateTypePeer,
 			certificateName: "openshift.io/test.peer",
-			want:            crypto.RSAKeyPairGenerator{Bits: 3072},
+			want:            mustRSA(3072),
 		},
 		{
 			// A named entry without a key also falls through for peer
@@ -269,7 +269,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypePeer,
 			certificateName: "openshift.io/test.peer",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:            mustECDSA(crypto.P384),
 		},
 		{
 			// An invalid named key must error, not fall through: only an
@@ -298,7 +298,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			name: "peer with invalid server category override is an error",
 			policy: configv1alpha1.PKICertificatePolicy{
 				Defaults:           configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaP256},
-				ServerCertificates: configv1alpha1.PKICertificateConfig{Key: configv1alpha1.PKIKeyConfig{Algorithm: configv1alpha1.PKIKeyAlgorithmRSA, RSA: configv1alpha1.PKIRSAKeyConfig{KeySize: 2050}}},
+				ServerCertificates: configv1alpha1.PKICertificateConfig{Key: configv1alpha1.PKIKeyConfig{Algorithm: configv1alpha1.PKIKeyAlgorithmRSA, RSA: configv1alpha1.PKIRSAKeyConfig{KeySize: 1024}}},
 			},
 			certType:        CertificateTypePeer,
 			certificateName: "openshift.io/test.peer",
@@ -330,7 +330,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			name: "named entry without a prefix is ignored",
@@ -345,7 +345,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			name: "named entry differing only in case is ignored",
@@ -360,7 +360,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:            mustECDSA(crypto.P256),
 		},
 		{
 			// The API validates namedCertificates as a map keyed by name, so
@@ -382,7 +382,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypeServer,
 			certificateName: "openshift.io/test.server",
-			want:            crypto.RSAKeyPairGenerator{Bits: 2048},
+			want:            mustRSA(2048),
 		},
 		{
 			// Explicit beats derived: a matching named override wins even
@@ -402,7 +402,7 @@ func TestResolveCertificateConfig(t *testing.T) {
 			},
 			certType:        CertificateTypePeer,
 			certificateName: "openshift.io/test.peer",
-			want:            crypto.RSAKeyPairGenerator{Bits: 2048},
+			want:            mustRSA(2048),
 		},
 		{
 			name:            "unknown certificate type is an error",
@@ -471,7 +471,7 @@ var brokenKeyPairGeneratorError = errors.New("test")
 type brokenKeyPairGenerator struct{}
 
 func (brokenKeyPairGenerator) GenerateKeyPair() (gocrypto.PublicKey, gocrypto.PrivateKey, error) {
-	return crypto.ECDSAKeyPairGenerator{Curve: crypto.P256}.GenerateKeyPair()
+	return mustECDSA(crypto.P256).GenerateKeyPair()
 }
 
 func (brokenKeyPairGenerator) Matches(pub gocrypto.PublicKey) error {

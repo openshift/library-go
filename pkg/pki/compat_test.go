@@ -283,8 +283,8 @@ func TestEffectiveSpecModesResolveAllCertificateTypes(t *testing.T) {
 				if err != nil {
 					t.Fatalf("ResolveCertificateConfig() error = %v", err)
 				}
-				wantCA := crypto.ECDSAKeyPairGenerator{Curve: crypto.P384}
-				wantDefault := crypto.ECDSAKeyPairGenerator{Curve: crypto.P256}
+				wantCA := mustECDSA(crypto.P384)
+				wantDefault := mustECDSA(crypto.P256)
 				want := wantDefault
 				if ct.certType == CertificateTypeCA {
 					want = wantCA
@@ -324,24 +324,24 @@ func TestEffectiveSpecCustomModeResolvesAllCertificateTypes(t *testing.T) {
 		{
 			name:     "ca uses signer override",
 			certType: CertificateTypeCA,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P521},
+			want:     mustECDSA(crypto.P521),
 		},
 		{
 			name:     "server uses serving override",
 			certType: CertificateTypeServer,
-			want:     crypto.RSAKeyPairGenerator{Bits: 4096},
+			want:     mustRSA(4096),
 		},
 		{
 			name:     "client uses client override",
 			certType: CertificateTypeClient,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:     mustECDSA(crypto.P384),
 		},
 		// Peer is the stronger of server (RSA 4096) and client (P-384):
 		// RSA 4096 has 128 security bits, P-384 has 192, so P-384 wins.
 		{
 			name:     "peer resolves stronger of mapped server and client",
 			certType: CertificateTypePeer,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:     mustECDSA(crypto.P384),
 		},
 	}
 	for _, tc := range testCases {
@@ -394,14 +394,14 @@ func TestEffectiveSpecDefaultModePinnedValues(t *testing.T) {
 }
 
 // TestEffectiveSpecCustomModeInvalidKey fails at resolution, not at
-// normalization: an old-Custom key valid under the old schema but rejected now
-// (RSA > 4096) surfaces through ResolveCertificateConfig's existing
-// per-category validation.
+// normalization: an old-Custom key that resolution rejects (RSA below the
+// 2048-bit floor) passes through translation unchanged and surfaces through
+// ResolveCertificateConfig's existing per-category validation.
 func TestEffectiveSpecCustomModeInvalidKey(t *testing.T) {
 	spec, err := effectiveSpec(customSpec(configv1alpha1.PKIProfile{
 		Defaults: configv1alpha1.PKIDefaultCertificateConfig{Key: keyRSA(2048)},
 		SignerCertificates: configv1alpha1.PKICertificateConfig{
-			Key: keyRSA(8192),
+			Key: keyRSA(1024),
 		},
 	}))
 	if err != nil {
@@ -411,7 +411,7 @@ func TestEffectiveSpecCustomModeInvalidKey(t *testing.T) {
 	if err == nil {
 		t.Fatal("ResolveCertificateConfig() error = nil, want error mentioning the key size")
 	}
-	if !strings.Contains(err.Error(), "8192") {
-		t.Errorf("ResolveCertificateConfig() error = %q, want it to mention the key size 8192", err.Error())
+	if !strings.Contains(err.Error(), "1024") {
+		t.Errorf("ResolveCertificateConfig() error = %q, want it to mention the key size 1024", err.Error())
 	}
 }

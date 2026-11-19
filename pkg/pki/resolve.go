@@ -105,7 +105,7 @@ func resolvePeerKeyConfig(policy configv1alpha1.PKICertificatePolicy) (ResolvedC
 	if err != nil {
 		return ResolvedCertificateConfig{}, fmt.Errorf("resolving client config for peer: %w", err)
 	}
-	key, err := strongerKeyPairGenerator(serverCfg.Key, clientCfg.Key)
+	key, err := crypto.StrongerKeyPairGenerator(serverCfg.Key, clientCfg.Key)
 	if err != nil {
 		return ResolvedCertificateConfig{}, fmt.Errorf("resolving peer key: %w", err)
 	}

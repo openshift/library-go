@@ -726,17 +726,17 @@ func TestClientRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:    "RSA-4096",
-			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			keyGen:  mustRSA(4096),
 			wantAlg: x509.RSA,
 		},
 		{
 			name:    "ECDSA-P256",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:  mustECDSA(crypto.P256),
 			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			keyGen:  mustECDSA(crypto.P384),
 			wantAlg: x509.ECDSA,
 		},
 	}
@@ -779,17 +779,17 @@ func TestServingRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:    "RSA-4096",
-			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			keyGen:  mustRSA(4096),
 			wantAlg: x509.RSA,
 		},
 		{
 			name:    "ECDSA-P256",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:  mustECDSA(crypto.P256),
 			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			keyGen:  mustECDSA(crypto.P384),
 			wantAlg: x509.ECDSA,
 		},
 	}
@@ -837,7 +837,7 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:      "ECDSA keyGen with UserInfo",
-			keyGen:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:    mustECDSA(crypto.P256),
 			userInfo:  &user.DefaultInfo{Name: "peer-user", Groups: []string{"peer-group"}},
 			hostnames: []string{"localhost", "127.0.0.1"},
 			wantAlg:   x509.ECDSA,
@@ -851,7 +851,7 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:      "nil UserInfo with keyGen errors",
-			keyGen:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:    mustECDSA(crypto.P256),
 			userInfo:  nil,
 			hostnames: []string{"localhost"},
 			wantErr:   "requires UserInfo",
@@ -939,17 +939,17 @@ func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:    "RSA-4096",
-			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			keyGen:  mustRSA(4096),
 			wantAlg: x509.RSA,
 		},
 		{
 			name:    "ECDSA-P256",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:  mustECDSA(crypto.P256),
 			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			keyGen:  mustECDSA(crypto.P384),
 			wantAlg: x509.ECDSA,
 		},
 	}
@@ -1205,7 +1205,7 @@ func TestSetTargetCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
 // ECDSA CA. The legacy per-component path is not used for old-shape
 // resources because it cannot issue under ECDSA CAs.
 func TestSetTargetCertKeyPairSecret_OldShapeUnmanagedResource(t *testing.T) {
-	caConfig, err := crypto.NewSigningCertificate("test-ca", crypto.ECDSAKeyPairGenerator{Curve: crypto.P384})
+	caConfig, err := crypto.NewSigningCertificate("test-ca", mustECDSA(crypto.P384))
 	if err != nil {
 		t.Fatal(err)
 	}

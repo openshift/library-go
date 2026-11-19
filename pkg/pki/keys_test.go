@@ -42,14 +42,14 @@ func TestResolveKeyConfig(t *testing.T) {
 			name:    "configured key resolves to its generator",
 			keys:    keys(namedKey("openshift.io/test.signer", ecdsaP384)),
 			keyName: "openshift.io/test.signer",
-			want:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:    mustECDSA(crypto.P384),
 			wantOK:  true,
 		},
 		{
 			name:    "rsa key resolves to its generator",
 			keys:    keys(namedKey("openshift.io/test.signer", rsa3072)),
 			keyName: "openshift.io/test.signer",
-			want:    crypto.RSAKeyPairGenerator{Bits: 3072},
+			want:    mustRSA(3072),
 			wantOK:  true,
 		},
 		{
@@ -86,7 +86,7 @@ func TestResolveKeyConfig(t *testing.T) {
 			name:    "invalid non-matching entry is ignored",
 			keys:    keys(namedKey("openshift.io/other.signer", rsa1024), namedKey("openshift.io/test.signer", ecdsaP384)),
 			keyName: "openshift.io/test.signer",
-			want:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:    mustECDSA(crypto.P384),
 			wantOK:  true,
 		},
 		{
@@ -96,7 +96,7 @@ func TestResolveKeyConfig(t *testing.T) {
 			name:    "duplicate names use the first match",
 			keys:    keys(namedKey("openshift.io/test.signer", rsa3072), namedKey("openshift.io/test.signer", ecdsaP384)),
 			keyName: "openshift.io/test.signer",
-			want:    crypto.RSAKeyPairGenerator{Bits: 3072},
+			want:    mustRSA(3072),
 			wantOK:  true,
 		},
 		{

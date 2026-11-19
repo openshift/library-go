@@ -335,22 +335,22 @@ func TestResolveCertificateConfig_DefaultCertificatePolicy_AllTypes(t *testing.T
 		{
 			name:     "ca uses ECDSA P-384",
 			certType: CertificateTypeCA,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:     mustECDSA(crypto.P384),
 		},
 		{
 			name:     "server falls back to ECDSA P-256",
 			certType: CertificateTypeServer,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:     mustECDSA(crypto.P256),
 		},
 		{
 			name:     "client falls back to ECDSA P-256",
 			certType: CertificateTypeClient,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:     mustECDSA(crypto.P256),
 		},
 		{
 			name:     "peer picks stronger of server and client",
 			certType: CertificateTypePeer,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:     mustECDSA(crypto.P256),
 		},
 	}
 	for _, tc := range testCases {
