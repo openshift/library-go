@@ -370,6 +370,10 @@ func TestRequestToken_ChallengeHandlerCodeFlow(t *testing.T) {
 	}{
 		{name: "json token response", tokenContentType: "application/json", tokenBody: jsonBody},
 		{name: "json token response labeled text/plain", tokenContentType: "text/plain", tokenBody: jsonBody},
+		// osincli decoded the token response as JSON regardless of Content-Type, so a
+		// JSON body mislabeled as a form media type must still be accepted; x/oauth2
+		// would otherwise parse it as a form and report a missing access_token.
+		{name: "json token response labeled application/x-www-form-urlencoded", tokenContentType: "application/x-www-form-urlencoded", tokenBody: jsonBody},
 		// a genuine form response under text/plain must still be parsed natively by
 		// x/oauth2 (i.e. not wrongly relabeled as JSON), proving the discriminator.
 		{name: "form token response labeled text/plain", tokenContentType: "text/plain", tokenBody: formBody},

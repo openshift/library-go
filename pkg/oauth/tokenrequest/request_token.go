@@ -429,12 +429,37 @@ func (o *RequestTokenOptions) newOauthClient() (http.RoundTripper, context.Conte
 		return nil, nil, nil, err
 	}
 
+	if err := o.validateOAuthConfig(); err != nil {
+		return nil, nil, nil, err
+	}
+
 	authorizeURL, err := o.authorizeURL()
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	return rt, oauthHTTPContext(rt), authorizeURL, nil
+}
+
+// validateOAuthConfig rejects an OAuth client that is missing required
+// configuration, preserving the check osincli.NewClient performed before the
+// migration (golang.org/x/oauth2 does not validate the config itself).
+func (o *RequestTokenOptions) validateOAuthConfig() error {
+	if o.OAuthConfig == nil ||
+		o.OAuthConfig.ClientID == "" ||
+		o.OAuthConfig.Endpoint.AuthURL == "" ||
+		o.OAuthConfig.Endpoint.TokenURL == "" ||
+		o.OAuthConfig.RedirectURL == "" {
+		return errors.New("missing configuration")
+	}
+
+	if _, err := url.Parse(o.OAuthConfig.Endpoint.AuthURL); err != nil {
+		return err
+	}
+	if _, err := url.Parse(o.OAuthConfig.Endpoint.TokenURL); err != nil {
+		return err
+	}
+	return nil
 }
 
 // authorizeURL builds the OAuth authorization URL for the configured flow.
@@ -466,15 +491,16 @@ func oauthHTTPContext(rt http.RoundTripper) context.Context {
 //
 //   - it advertises "Accept: application/json" on the token request, and
 //   - it treats a token response whose body is JSON but is labeled "text/plain"
-//     as JSON.
+//     or "application/x-www-form-urlencoded" as JSON.
 //
 // osincli always sent "Accept: application/json" and always parsed the token
 // response as JSON regardless of the advertised Content-Type. golang.org/x/oauth2
 // sends no Accept header and selects its parser from the response Content-Type
-// (parsing "text/plain" as a URL-encoded form). Preserving the old behavior keeps
-// the migration compatible with token endpoints that relied on it.
+// (parsing "text/plain" and "application/x-www-form-urlencoded" as a URL-encoded
+// form). Preserving the old behavior keeps the migration compatible with token
+// endpoints that relied on it.
 // maxTokenResponseBytes caps how much of the token response we buffer when
-// re-labeling a text/plain body. It matches the 1 MiB limit that
+// re-labeling a form-style body. It matches the 1 MiB limit that
 // golang.org/x/oauth2 applies when reading the token response, so our read passes
 // through exactly the bytes x/oauth2 would otherwise have read itself.
 const maxTokenResponseBytes = 1024 * 1024 // 1 MiB
@@ -492,13 +518,13 @@ func (t *tokenExchangeTransport) RoundTrip(req *http.Request) (*http.Response, e
 		return nil, err
 	}
 
-	// golang.org/x/oauth2 parses a "text/plain" response as a URL-encoded form.
-	// osincli instead always decoded the token response as JSON regardless of the
-	// Content-Type, so if a text/plain body is valid JSON, relabel it as JSON to
-	// preserve that behavior. A body that is not valid JSON is left untouched so
-	// x/oauth2's native form handling still applies.
+	// golang.org/x/oauth2 parses "text/plain" and "application/x-www-form-urlencoded"
+	// responses as URL-encoded forms. osincli instead always decoded the token response
+	// as JSON regardless of the Content-Type, so if such a body is valid JSON, relabel
+	// it as JSON to preserve that behavior. A body that is not valid JSON is left
+	// untouched so x/oauth2's native form handling still applies.
 	mediaType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
-	if mediaType != "text/plain" {
+	if mediaType != "text/plain" && mediaType != "application/x-www-form-urlencoded" {
 		return resp, nil
 	}
 
@@ -554,14 +580,14 @@ func (o *RequestTokenOptions) oauthCodeFlow(ctx context.Context, location string
 		return "", err
 	}
 
+	// oauthCodeFlow may be handed an arbitrary redirect (e.g. from an authenticating
+	// proxy) that is not part of the OAuth flow. Matching the pre-migration behavior,
+	// a ParseForm error is not fatal: ParseForm still populates req.Form with whatever
+	// parsed, so we continue and let the checks below decide whether this is the OAuth
+	// redirect (and otherwise the caller keeps following the redirect). The redirect
+	// URL is not logged because it may carry an authorization code.
 	if err := req.ParseForm(); err != nil {
-		// oauthCodeFlow may be handed an arbitrary redirect (e.g. from an
-		// authenticating proxy) that is not part of the OAuth flow. A query we
-		// cannot parse is treated as "not the OAuth redirect" so the caller keeps
-		// following redirects, matching the pre-migration behavior that ignored
-		// this parse error.
-		klog.V(4).Infof("ignoring redirect with unparseable query %q: %v", location, err)
-		return "", nil
+		klog.V(4).Infof("ignoring unparseable redirect query: %v", err)
 	}
 	if oauthErr := oauthErrFromValues(req.Form); oauthErr != nil {
 		return "", oauthErr
