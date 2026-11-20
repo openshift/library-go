@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/go-logr/logr/funcr"
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 )
@@ -332,6 +334,174 @@ func TestApplyConfigMap(t *testing.T) {
 				t.Errorf("expected %v, got %v", test.expectedModified, actualModified)
 			}
 			test.verifyActions(client.Actions(), t)
+		})
+	}
+}
+
+func TestApplyConfigMapImprovedWithDiffFunc(t *testing.T) {
+	existing := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+		Data:       map[string]string{"configmap": "old"},
+	}
+	updated := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+		Data:       map[string]string{"configmap": "new"},
+	}
+
+	tests := []struct {
+		name      string
+		verbosity int
+		existing  []runtime.Object
+		input     *corev1.ConfigMap
+
+		expectedModified bool
+		expectedLogs     []string
+	}{
+		{
+			name:             "create does not log the diff",
+			verbosity:        2,
+			input:            updated,
+			expectedModified: true,
+		},
+		{
+			name:      "no change does not log the diff",
+			verbosity: 2,
+			existing:  []runtime.Object{updated.DeepCopy()},
+			input:     updated,
+		},
+		{
+			name:             "update logs the custom diff",
+			verbosity:        2,
+			existing:         []runtime.Object{existing.DeepCopy()},
+			input:            updated,
+			expectedModified: true,
+			expectedLogs:     []string{`"level"=2 "msg"="ConfigMap changed" "namespace"="one-ns" "name"="foo" "diff"="custom diff"`},
+		},
+		{
+			name:             "update does not log the diff when verbosity is too low",
+			verbosity:        1,
+			existing:         []runtime.Object{existing.DeepCopy()},
+			input:            updated,
+			expectedModified: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var logs []string
+			logger := funcr.New(func(prefix, args string) { logs = append(logs, args) }, funcr.Options{Verbosity: test.verbosity})
+			ctx := klog.NewContext(context.TODO(), logger)
+
+			client := fake.NewSimpleClientset(test.existing...)
+			diffFunc := func(gotExisting, gotRequired *corev1.ConfigMap) string {
+				if gotExisting.Data["configmap"] != "old" {
+					t.Errorf("unexpected existing data: %v", gotExisting.Data)
+				}
+				if gotRequired.Data["configmap"] != "new" {
+					t.Errorf("unexpected required data: %v", gotRequired.Data)
+				}
+				return "custom diff"
+			}
+
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+			actual, modified, err := ApplyConfigMapImprovedWithDiffFunc(ctx, client.CoreV1(), recorder, test.input, noCache, diffFunc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if modified != test.expectedModified {
+				t.Errorf("expected modified %v, got %v", test.expectedModified, modified)
+			}
+			if actual == nil || actual.Data["configmap"] != "new" {
+				t.Errorf("unexpected result: %v", spew.Sdump(actual))
+			}
+			if diff := cmp.Diff(test.expectedLogs, logs); diff != "" {
+				t.Errorf("unexpected log entries (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestApplySecretImprovedWithDiffFunc(t *testing.T) {
+	existing := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+		Type:       corev1.SecretTypeOpaque,
+		Data:       map[string][]byte{"secret": []byte("old")},
+	}
+	updated := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "one-ns", Name: "foo"},
+		Type:       corev1.SecretTypeOpaque,
+		Data:       map[string][]byte{"secret": []byte("new")},
+	}
+
+	tests := []struct {
+		name      string
+		verbosity int
+		existing  []runtime.Object
+		input     *corev1.Secret
+
+		expectedModified bool
+		expectedLogs     []string
+	}{
+		{
+			name:             "create does not log the diff",
+			verbosity:        4,
+			input:            updated,
+			expectedModified: true,
+		},
+		{
+			name:      "no change does not log the diff",
+			verbosity: 4,
+			existing:  []runtime.Object{updated.DeepCopy()},
+			input:     updated,
+		},
+		{
+			name:             "update logs the custom diff",
+			verbosity:        4,
+			existing:         []runtime.Object{existing.DeepCopy()},
+			input:            updated,
+			expectedModified: true,
+			expectedLogs:     []string{`"level"=4 "msg"="Secret changed" "namespace"="one-ns" "name"="foo" "diff"="custom diff"`},
+		},
+		{
+			name:             "update does not log the diff when verbosity is too low",
+			verbosity:        3,
+			existing:         []runtime.Object{existing.DeepCopy()},
+			input:            updated,
+			expectedModified: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var logs []string
+			logger := funcr.New(func(prefix, args string) { logs = append(logs, args) }, funcr.Options{Verbosity: test.verbosity})
+			ctx := klog.NewContext(context.TODO(), logger)
+
+			client := fake.NewSimpleClientset(test.existing...)
+			diffFunc := func(gotExisting, gotModified *corev1.Secret) string {
+				if string(gotExisting.Data["secret"]) != "old" {
+					t.Errorf("unexpected existing data: %v", gotExisting.Data)
+				}
+				if string(gotModified.Data["secret"]) != "new" {
+					t.Errorf("unexpected modified data: %v", gotModified.Data)
+				}
+				return "custom diff"
+			}
+
+			recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+			actual, modified, err := ApplySecretImprovedWithDiffFunc(ctx, client.CoreV1(), recorder, test.input, noCache, diffFunc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if modified != test.expectedModified {
+				t.Errorf("expected modified %v, got %v", test.expectedModified, modified)
+			}
+			if actual == nil || string(actual.Data["secret"]) != "new" {
+				t.Errorf("unexpected result: %v", spew.Sdump(actual))
+			}
+			if diff := cmp.Diff(test.expectedLogs, logs); diff != "" {
+				t.Errorf("unexpected log entries (-want +got):\n%s", diff)
+			}
 		})
 	}
 }
