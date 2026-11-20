@@ -5,7 +5,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ensureOwnerRefAndTLSAnnotations(secret *corev1.Secret, owner *metav1.OwnerReference, additionalAnnotations AdditionalAnnotations) bool {
+func EnsureOwnerRefAndTLSAnnotations(secret *corev1.Secret, owner *metav1.OwnerReference, additionalAnnotations AdditionalAnnotations) bool {
 	needsMetadataUpdate := false
 	// no ownerReference set
 	if owner != nil {
@@ -15,7 +15,7 @@ func ensureOwnerRefAndTLSAnnotations(secret *corev1.Secret, owner *metav1.OwnerR
 	return additionalAnnotations.EnsureTLSMetadataUpdate(&secret.ObjectMeta) || needsMetadataUpdate
 }
 
-func ensureSecretTLSTypeSet(secret *corev1.Secret) bool {
+func EnsureSecretTLSTypeSet(secret *corev1.Secret) bool {
 	// Existing secret not found - no need to update metadata (will be done by needNewSigningCertKeyPair / NeedNewTargetCertKeyPair)
 	if len(secret.ResourceVersion) == 0 {
 		return false

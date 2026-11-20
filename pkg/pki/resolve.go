@@ -1,6 +1,7 @@
 package pki
 
 import (
+	"errors"
 	"fmt"
 
 	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
@@ -29,7 +30,7 @@ func ResolveCertificateConfig(provider PKIProfileProvider, certType CertificateT
 		return nil, fmt.Errorf("resolving PKI profile for %s certificate %q: %w", certType, name, err)
 	}
 	if profile == nil {
-		return nil, nil
+		return nil, errors.New("no PKI profile resolved")
 	}
 
 	switch certType {

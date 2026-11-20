@@ -2,11 +2,13 @@ package certrotation
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -45,6 +47,22 @@ func (s *StaticPodConditionStatusReporter) Report(ctx context.Context, controlle
 	return updated, updateErr
 }
 
+// TODO: Add new implementations of the below interfaces to perform Configurable PKI behaviors with cross-signing (except for CABundleConfigMapRotator).
+
+type SigningCertKeyPairSecretRotator interface {
+	EnsureSigningCertKeyPair(context.Context) (*crypto.CA, bool, error)
+	NamespaceName() string
+}
+
+type CABundleConfigMapRotator interface {
+	EnsureConfigMapCABundle(context.Context, *crypto.CA, string) ([]*x509.Certificate, error)
+}
+
+type TargetCertKeySecretRotator interface {
+	EnsureTargetCertKeyPair(context.Context, *crypto.CA, []*x509.Certificate) (*corev1.Secret, error)
+	RecheckChannel() <-chan struct{}
+}
+
 // CertRotationController does:
 //
 // 1) continuously create a self-signed signing CA (via RotatedSigningCASecret) and store it in a secret.
@@ -54,11 +72,11 @@ type CertRotationController struct {
 	// controller name
 	Name string
 	// RotatedSigningCASecret rotates a self-signed signing CA stored in a secret.
-	RotatedSigningCASecret RotatedSigningCASecret
+	RotatedSigningCASecret SigningCertKeyPairSecretRotator
 	// CABundleConfigMap maintains a CA bundle config map, by adding new CA certs coming from rotatedSigningCASecret, and by removing expired old ones.
-	CABundleConfigMap CABundleConfigMap
+	CABundleConfigMap CABundleConfigMapRotator
 	// RotatedSelfSignedCertKeySecret rotates a key and cert signed by a signing CA and stores it in a secret.
-	RotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret
+	RotatedSelfSignedCertKeySecret TargetCertKeySecretRotator
 
 	// Plumbing:
 	StatusReporter StatusReporter
@@ -132,10 +150,6 @@ func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncCo
 	return syncErr
 }
 
-func (c CertRotationController) getSigningCertKeyPairLocation() string {
-	return fmt.Sprintf("%s/%s", c.RotatedSelfSignedCertKeySecret.Namespace, c.RotatedSelfSignedCertKeySecret.Name)
-}
-
 func (c CertRotationController) SyncWorker(ctx context.Context) error {
 	signingCertKeyPair, _, err := c.RotatedSigningCASecret.EnsureSigningCertKeyPair(ctx)
 	if err != nil {
@@ -146,7 +160,7 @@ func (c CertRotationController) SyncWorker(ctx context.Context) error {
 		return fmt.Errorf("signingCertKeyPair is nil")
 	}
 
-	cabundleCerts, err := c.CABundleConfigMap.EnsureConfigMapCABundle(ctx, signingCertKeyPair, c.getSigningCertKeyPairLocation())
+	cabundleCerts, err := c.CABundleConfigMap.EnsureConfigMapCABundle(ctx, signingCertKeyPair, c.RotatedSigningCASecret.NamespaceName())
 	if err != nil {
 		return err
 	}
@@ -164,11 +178,11 @@ func (c CertRotationController) SyncWorker(ctx context.Context) error {
 
 func (c CertRotationController) targetCertRecheckerPostRunHook(ctx context.Context, syncCtx factory.SyncContext) error {
 	// If we have a need to force rechecking the cert, use this channel to do it.
-	refresher, ok := c.RotatedSelfSignedCertKeySecret.CertCreator.(TargetCertRechecker)
-	if !ok {
+	targetRefresh := c.RotatedSelfSignedCertKeySecret.RecheckChannel()
+	if targetRefresh == nil {
 		return nil
 	}
-	targetRefresh := refresher.RecheckChannel()
+
 	go wait.Until(func() {
 		for {
 			select {
