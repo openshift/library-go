@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -124,4 +125,70 @@ func (g combinedSecretInterface) List(_ context.Context, options metav1.ListOpti
 		ret.Items = append(ret.Items, *(list[i].DeepCopy()))
 	}
 	return ret, nil
+}
+
+// namespacedConfigMapGetter implements corev1client.ConfigMapsGetter for a single
+// target namespace, backed by a namespace-scoped shared informer for cached reads.
+// Reads in any other namespace, and all writes, are delegated to the live client.
+type namespacedConfigMapGetter struct {
+	client          corev1client.ConfigMapsGetter
+	informerFactory informers.SharedInformerFactory
+	namespace       string
+}
+
+// NewNamespacedCachedConfigMapGetter returns a corev1client.ConfigMapsGetter whose
+// reads in the target namespace are served from the given informer factory's cache,
+// while reads in any other namespace and all writes go to the live client. Unlike
+// CachedConfigMapGetter it has no dependency on a cluster-scoped informer, so
+// undecodable objects stored outside the target namespace cannot break it.
+func NewNamespacedCachedConfigMapGetter(client corev1client.ConfigMapsGetter, informerFactory informers.SharedInformerFactory, namespace string) corev1client.ConfigMapsGetter {
+	return &namespacedConfigMapGetter{
+		client:          client,
+		informerFactory: informerFactory,
+		namespace:       namespace,
+	}
+}
+
+func (g *namespacedConfigMapGetter) ConfigMaps(namespace string) corev1client.ConfigMapInterface {
+	if namespace != g.namespace {
+		return g.client.ConfigMaps(namespace)
+	}
+	return combinedConfigMapInterface{
+		ConfigMapInterface: g.client.ConfigMaps(namespace),
+		lister:             g.informerFactory.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace),
+		namespace:          namespace,
+	}
+}
+
+// namespacedSecretGetter implements corev1client.SecretsGetter for a single target
+// namespace, backed by a namespace-scoped shared informer for cached reads.
+// Reads in any other namespace, and all writes, are delegated to the live client.
+type namespacedSecretGetter struct {
+	client          corev1client.SecretsGetter
+	informerFactory informers.SharedInformerFactory
+	namespace       string
+}
+
+// NewNamespacedCachedSecretGetter returns a corev1client.SecretsGetter whose reads
+// in the target namespace are served from the given informer factory's cache, while
+// reads in any other namespace and all writes go to the live client. Unlike
+// CachedSecretGetter it has no dependency on a cluster-scoped informer, so
+// undecodable objects stored outside the target namespace cannot break it.
+func NewNamespacedCachedSecretGetter(client corev1client.SecretsGetter, informerFactory informers.SharedInformerFactory, namespace string) corev1client.SecretsGetter {
+	return &namespacedSecretGetter{
+		client:          client,
+		informerFactory: informerFactory,
+		namespace:       namespace,
+	}
+}
+
+func (g *namespacedSecretGetter) Secrets(namespace string) corev1client.SecretInterface {
+	if namespace != g.namespace {
+		return g.client.Secrets(namespace)
+	}
+	return combinedSecretInterface{
+		SecretInterface: g.client.Secrets(namespace),
+		lister:          g.informerFactory.Core().V1().Secrets().Lister().Secrets(namespace),
+		namespace:       namespace,
+	}
 }
