@@ -33,13 +33,47 @@ const (
 	P521 ECDSACurve = "P521"
 )
 
-// RSAKeyPairGenerator generates RSA key pairs.
-type RSAKeyPairGenerator struct {
-	// Bits is the RSA key size in bits. Must be >= 2048.
-	Bits int
+// MinRSAKeySize is the smallest RSA key size, in bits, that the generators in
+// this package produce.
+const MinRSAKeySize = 2048
+
+// NewRSAKeyPairGenerator returns a KeyPairGenerator for RSA keys of the given
+// size in bits. It rejects sizes below MinRSAKeySize; which sizes above the
+// floor are allowed is left to the caller's configuration validation.
+func NewRSAKeyPairGenerator(bits int) (KeyPairGenerator, error) {
+	if err := validateRSAKeySize(bits); err != nil {
+		return nil, err
+	}
+	return rsaKeyPairGenerator{bits: bits}, nil
 }
 
-func (g RSAKeyPairGenerator) Matches(pub crypto.PublicKey) error {
+// NewECDSAKeyPairGenerator returns a KeyPairGenerator for ECDSA keys on the
+// given named curve.
+func NewECDSAKeyPairGenerator(curve ECDSACurve) (KeyPairGenerator, error) {
+	g := ecdsaKeyPairGenerator{curve: curve}
+	if _, err := g.ellipticCurve(); err != nil {
+		return nil, err
+	}
+	return g, nil
+}
+
+func validateRSAKeySize(bits int) error {
+	if bits < MinRSAKeySize {
+		return fmt.Errorf("invalid RSA key size %d: must be at least %d bits", bits, MinRSAKeySize)
+	}
+	return nil
+}
+
+// rsaKeyPairGenerator generates RSA key pairs. Construct it with
+// NewRSAKeyPairGenerator.
+type rsaKeyPairGenerator struct {
+	bits int
+}
+
+func (g rsaKeyPairGenerator) Matches(pub crypto.PublicKey) error {
+	if err := validateRSAKeySize(g.bits); err != nil {
+		return fmt.Errorf("generator has invalid key size: %w", err)
+	}
 	rsaPub, ok := pub.(*rsa.PublicKey)
 	if !ok {
 		return fmt.Errorf("public key is %T, not *rsa.PublicKey", pub)
@@ -50,38 +84,35 @@ func (g RSAKeyPairGenerator) Matches(pub crypto.PublicKey) error {
 	if rsaPub.N == nil {
 		return fmt.Errorf("RSA public key has nil modulus")
 	}
-	bits := g.Bits
-	if bits == 0 {
-		bits = keyBits
-	}
-	if rsaPub.N.BitLen() != bits {
-		return fmt.Errorf("RSA key size is %d bits, not %d", rsaPub.N.BitLen(), bits)
+	if rsaPub.N.BitLen() != g.bits {
+		return fmt.Errorf("RSA key size is %d bits, not %d", rsaPub.N.BitLen(), g.bits)
 	}
 	return nil
 }
 
-func (g RSAKeyPairGenerator) GenerateKeyPair() (crypto.PublicKey, crypto.PrivateKey, error) {
-	bits := g.Bits
-	if bits == 0 {
-		bits = keyBits
+func (g rsaKeyPairGenerator) GenerateKeyPair() (crypto.PublicKey, crypto.PrivateKey, error) {
+	// Re-checked here so that a generator that bypassed the constructor (for
+	// example the zero value) can never produce a weak key.
+	if err := validateRSAKeySize(g.bits); err != nil {
+		return nil, nil, err
 	}
-	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
+	privateKey, err := rsa.GenerateKey(rand.Reader, g.bits)
 	if err != nil {
 		return nil, nil, err
 	}
 	return &privateKey.PublicKey, privateKey, nil
 }
 
-// ECDSAKeyPairGenerator generates ECDSA key pairs.
-type ECDSAKeyPairGenerator struct {
-	// Curve is the named ECDSA curve.
-	Curve ECDSACurve
+// ecdsaKeyPairGenerator generates ECDSA key pairs. Construct it with
+// NewECDSAKeyPairGenerator.
+type ecdsaKeyPairGenerator struct {
+	curve ECDSACurve
 }
 
-func (g ECDSAKeyPairGenerator) Matches(pub crypto.PublicKey) error {
+func (g ecdsaKeyPairGenerator) Matches(pub crypto.PublicKey) error {
 	curve, err := g.ellipticCurve()
 	if err != nil {
-		return fmt.Errorf("generator has invalid curve %q: %w", g.Curve, err)
+		return fmt.Errorf("generator has invalid curve %q: %w", g.curve, err)
 	}
 
 	ecPub, ok := pub.(*ecdsa.PublicKey)
@@ -100,7 +131,7 @@ func (g ECDSAKeyPairGenerator) Matches(pub crypto.PublicKey) error {
 	return nil
 }
 
-func (g ECDSAKeyPairGenerator) GenerateKeyPair() (crypto.PublicKey, crypto.PrivateKey, error) {
+func (g ecdsaKeyPairGenerator) GenerateKeyPair() (crypto.PublicKey, crypto.PrivateKey, error) {
 	curve, err := g.ellipticCurve()
 	if err != nil {
 		return nil, nil, err
@@ -112,8 +143,8 @@ func (g ECDSAKeyPairGenerator) GenerateKeyPair() (crypto.PublicKey, crypto.Priva
 	return &privateKey.PublicKey, privateKey, nil
 }
 
-func (g ECDSAKeyPairGenerator) ellipticCurve() (elliptic.Curve, error) {
-	switch g.Curve {
+func (g ecdsaKeyPairGenerator) ellipticCurve() (elliptic.Curve, error) {
+	switch g.curve {
 	case P256:
 		return elliptic.P256(), nil
 	case P384:
@@ -121,7 +152,7 @@ func (g ECDSAKeyPairGenerator) ellipticCurve() (elliptic.Curve, error) {
 	case P521:
 		return elliptic.P521(), nil
 	default:
-		return nil, fmt.Errorf("unsupported ECDSA curve: %q", g.Curve)
+		return nil, fmt.Errorf("unsupported ECDSA curve: %q", g.curve)
 	}
 }
 

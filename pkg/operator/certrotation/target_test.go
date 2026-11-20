@@ -13,12 +13,16 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	"github.com/openshift/api/annotations"
+	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/pki"
 	"k8s.io/apiserver/pkg/authentication/user"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	clienttesting "k8s.io/client-go/testing"
@@ -719,17 +723,17 @@ func TestClientRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:    "RSA-4096",
-			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			keyGen:  mustRSA(4096),
 			wantAlg: x509.RSA,
 		},
 		{
 			name:    "ECDSA-P256",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:  mustECDSA(crypto.P256),
 			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			keyGen:  mustECDSA(crypto.P384),
 			wantAlg: x509.ECDSA,
 		},
 	}
@@ -772,17 +776,17 @@ func TestServingRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:    "RSA-4096",
-			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			keyGen:  mustRSA(4096),
 			wantAlg: x509.RSA,
 		},
 		{
 			name:    "ECDSA-P256",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:  mustECDSA(crypto.P256),
 			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			keyGen:  mustECDSA(crypto.P384),
 			wantAlg: x509.ECDSA,
 		},
 	}
@@ -830,7 +834,7 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:      "ECDSA keyGen with UserInfo",
-			keyGen:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:    mustECDSA(crypto.P256),
 			userInfo:  &user.DefaultInfo{Name: "peer-user", Groups: []string{"peer-group"}},
 			hostnames: []string{"localhost", "127.0.0.1"},
 			wantAlg:   x509.ECDSA,
@@ -844,7 +848,7 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:      "nil UserInfo with keyGen errors",
-			keyGen:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:    mustECDSA(crypto.P256),
 			userInfo:  nil,
 			hostnames: []string{"localhost"},
 			wantErr:   "requires UserInfo",
@@ -932,17 +936,17 @@ func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:    "RSA-4096",
-			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			keyGen:  mustRSA(4096),
 			wantAlg: x509.RSA,
 		},
 		{
 			name:    "ECDSA-P256",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:  mustECDSA(crypto.P256),
 			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			keyGen:  mustECDSA(crypto.P384),
 			wantAlg: x509.ECDSA,
 		},
 	}
@@ -973,5 +977,282 @@ func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 				t.Errorf("expected cert chain with at least 2 certs, got %d", len(certConfig.Certs))
 			}
 		})
+	}
+}
+
+// TestSetTargetCertKeyPairSecret_CertificateTypeWiring pins that each
+// TargetCertCreator's CertificateType() selects the matching category
+// override: distinct values per category make a wrong wiring fail loudly.
+func TestSetTargetCertKeyPairSecret_CertificateTypeWiring(t *testing.T) {
+	ecdsaP256 := ecdsaKey(configv1alpha1.PKIECDSACurveP256)
+	ecdsaP384 := ecdsaKey(configv1alpha1.PKIECDSACurveP384)
+	ecdsaP521 := ecdsaKey(configv1alpha1.PKIECDSACurveP521)
+	rsa3072 := rsaKey(3072)
+
+	// defaults P256, CA P521, server P384, client RSA-3072: every category
+	// resolves to a distinguishable key.
+	policy := configv1alpha1.PKICertificatePolicy{
+		Defaults:           configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaP256},
+		CACertificates:     configv1alpha1.PKICertificateConfig{Key: ecdsaP521},
+		ServerCertificates: configv1alpha1.PKICertificateConfig{Key: ecdsaP384},
+		ClientCertificates: configv1alpha1.PKICertificateConfig{Key: rsa3072},
+	}
+
+	hostnames := func() []string { return []string{"localhost"} }
+
+	testCases := []struct {
+		name              string
+		certCreator       TargetCertCreator
+		certName          string
+		namedCertificates []configv1alpha1.PKINamedCertificateConfig
+		want              configv1alpha1.PKIKeyConfig
+	}{
+		{
+			name:        "serving rotation resolves the server override",
+			certCreator: &ServingRotation{Hostnames: hostnames},
+			certName:    "openshift.io/test.target",
+			want:        ecdsaP384,
+		},
+		{
+			name:        "client rotation resolves the client override",
+			certCreator: &ClientRotation{UserInfo: &user.DefaultInfo{Name: "test-user"}},
+			certName:    "openshift.io/test.target",
+			want:        rsa3072,
+		},
+		{
+			name:        "signer rotation resolves the CA override",
+			certCreator: &SignerRotation{SignerName: "lower-signer"},
+			certName:    "openshift.io/test.target",
+			want:        ecdsaP521,
+		},
+		{
+			// P-384 (192 bits) is stronger than RSA-3072 (128 bits).
+			name:        "peer rotation resolves the stronger of server and client",
+			certCreator: &PeerRotation{Hostnames: hostnames, UserInfo: &user.DefaultInfo{Name: "test-user"}},
+			certName:    "openshift.io/test.target",
+			want:        ecdsaP384,
+		},
+		{
+			// Explicit beats derived: a matching named override wins even
+			// though the peer synthesis would pick the stronger P-384.
+			name:              "peer rotation with named override wins over synthesis",
+			certCreator:       &PeerRotation{Hostnames: hostnames, UserInfo: &user.DefaultInfo{Name: "test-user"}},
+			certName:          "openshift.io/test.peer",
+			namedCertificates: []configv1alpha1.PKINamedCertificateConfig{namedCertificate("openshift.io/test.peer", rsaKey(2048))},
+			want:              rsaKey(2048),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ca, err := newTestCACertificate(pkix.Name{CommonName: "test-ca"}, int64(1), metav1.Duration{Duration: time.Hour * 24}, time.Now)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			casePolicy := policy
+			casePolicy.NamedCertificates = tc.namedCertificates
+			c := &RotatedSelfSignedCertKeySecret{
+				Validity:        24 * time.Hour,
+				CertificateName: tc.certName,
+				CertCreator:     tc.certCreator,
+				PKIConfigProvider: pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
+					Certificates: casePolicy,
+				}),
+			}
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret"},
+			}
+			certKeyPair, err := c.setTargetCertKeyPairSecret(secret, ca)
+			if err != nil {
+				t.Fatalf("setTargetCertKeyPairSecret() error = %v", err)
+			}
+			assertPublicKeyMatches(t, certKeyPair.Certs[0].PublicKey, tc.want)
+		})
+	}
+}
+
+func TestSetTargetCertKeyPairSecret_WithPKIConfigProvider(t *testing.T) {
+	staticProvider := func(policy configv1alpha1.PKICertificatePolicy) pki.ConfigProvider {
+		return pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
+			Certificates: policy,
+		})
+	}
+
+	testCases := []struct {
+		name     string
+		provider pki.ConfigProvider
+		certName string
+		want     configv1alpha1.PKIKeyConfig
+		wantErr  bool
+	}{
+		{
+			name:     "server certificate uses defaults",
+			provider: staticProvider(testCertificatePolicy()),
+			certName: "openshift.io/test.target",
+			want:     ecdsaKey(configv1alpha1.PKIECDSACurveP256),
+		},
+		{
+			name: "RSA server override",
+			provider: staticProvider(configv1alpha1.PKICertificatePolicy{
+				Defaults:           configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				ServerCertificates: configv1alpha1.PKICertificateConfig{Key: rsaKey(3072)},
+			}),
+			certName: "openshift.io/test.target",
+			want:     rsaKey(3072),
+		},
+		{
+			name: "named override keyed by certificate name wins over category override",
+			provider: staticProvider(configv1alpha1.PKICertificatePolicy{
+				Defaults:           configv1alpha1.PKIDefaultCertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP256)},
+				ServerCertificates: configv1alpha1.PKICertificateConfig{Key: ecdsaKey(configv1alpha1.PKIECDSACurveP384)},
+				NamedCertificates:  []configv1alpha1.PKINamedCertificateConfig{namedCertificate("openshift.io/test.target", rsaKey(2048))},
+			}),
+			certName: "openshift.io/test.target",
+			want:     rsaKey(2048),
+		},
+		{
+			name: "missing PKI resource fails the sync",
+			provider: &errorConfigProvider{
+				err: apierrors.NewNotFound(schema.GroupResource{Group: "config.openshift.io", Resource: "pkis"}, "cluster"),
+			},
+			certName: "openshift.io/test.target",
+			wantErr:  true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ca, err := newTestCACertificate(pkix.Name{CommonName: "test-ca"}, int64(1), metav1.Duration{Duration: time.Hour * 24}, time.Now)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			c := &RotatedSelfSignedCertKeySecret{
+				Validity:        24 * time.Hour,
+				CertificateName: tc.certName,
+				CertCreator: &ServingRotation{
+					Hostnames: func() []string { return []string{"localhost"} },
+				},
+				PKIConfigProvider: tc.provider,
+			}
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret"},
+			}
+			certKeyPair, err := c.setTargetCertKeyPairSecret(secret, ca)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("setTargetCertKeyPairSecret() error = nil, want error")
+				}
+				if !apierrors.IsNotFound(err) {
+					t.Errorf("expected apierrors.IsNotFound to match, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("setTargetCertKeyPairSecret() error = %v", err)
+			}
+			assertPublicKeyMatches(t, certKeyPair.Certs[0].PublicKey, tc.want)
+		})
+	}
+}
+
+// TestSetTargetCertKeyPairSecret_OldShapeUnmanagedResource pins the
+// dual-shape fallback end to end: a provider backed by an old-shape
+// certificateManagement resource with mode Unmanaged must resolve through
+// the default policy (ECDSA P-256) and issue a target certificate under an
+// ECDSA CA. The legacy per-component path is not used for old-shape
+// resources because it cannot issue under ECDSA CAs.
+func TestSetTargetCertKeyPairSecret_OldShapeUnmanagedResource(t *testing.T) {
+	caConfig, err := crypto.NewSigningCertificate("test-ca", mustECDSA(crypto.P384))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca := &crypto.CA{
+		Config:          caConfig,
+		SerialGenerator: &crypto.RandomSerialGenerator{},
+	}
+
+	testCases := []struct {
+		name string
+		mode configv1alpha1.PKICertificateManagementMode
+		want configv1alpha1.PKIKeyConfig
+	}{
+		{
+			name: "unmanaged mode resolves through the default policy",
+			mode: configv1alpha1.PKICertificateManagementModeUnmanaged,
+			want: ecdsaKey(configv1alpha1.PKIECDSACurveP256),
+		},
+		{
+			name: "default mode resolves through the default policy",
+			mode: configv1alpha1.PKICertificateManagementModeDefault,
+			want: ecdsaKey(configv1alpha1.PKIECDSACurveP256),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &RotatedSelfSignedCertKeySecret{
+				Validity:        24 * time.Hour,
+				CertificateName: "openshift.io/test.target",
+				CertCreator: &ServingRotation{
+					Hostnames: func() []string { return []string{"localhost"} },
+				},
+				PKIConfigProvider: pki.NewStaticConfigProvider(configv1alpha1.PKISpec{
+					CertificateManagement: configv1alpha1.PKICertificateManagement{
+						Mode: tc.mode,
+					},
+				}),
+			}
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "target-secret"},
+			}
+			certKeyPair, err := c.setTargetCertKeyPairSecret(secret, ca)
+			if err != nil {
+				t.Fatalf("setTargetCertKeyPairSecret() error = %v", err)
+			}
+			assertPublicKeyMatches(t, certKeyPair.Certs[0].PublicKey, tc.want)
+		})
+	}
+}
+
+// TestEnsureTargetCertKeyPair_MissingPKIResource pins the controller path:
+// a wired provider whose resource is missing fails the sync without writing
+// a secret (no fallback to legacy generation).
+func TestEnsureTargetCertKeyPair_MissingPKIResource(t *testing.T) {
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	client := kubefake.NewClientset()
+
+	c := &RotatedSelfSignedCertKeySecret{
+		Namespace: "ns",
+		Name:      "target-secret",
+		Validity:  24 * time.Hour,
+		Refresh:   12 * time.Hour,
+		CertCreator: &ServingRotation{
+			Hostnames: func() []string { return []string{"localhost"} },
+		},
+		CertificateName: "openshift.io/test.target",
+		Client:          client.CoreV1(),
+		Lister:          corev1listers.NewSecretLister(indexer),
+		EventRecorder:   events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())),
+		PKIConfigProvider: &errorConfigProvider{
+			err: apierrors.NewNotFound(schema.GroupResource{Group: "config.openshift.io", Resource: "pkis"}, "cluster"),
+		},
+	}
+
+	ca, err := newTestCACertificate(pkix.Name{CommonName: "test-ca"}, int64(1), metav1.Duration{Duration: time.Hour * 24}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = c.EnsureTargetCertKeyPair(t.Context(), ca, ca.Config.Certs)
+	if err == nil {
+		t.Fatal("expected error for missing PKI resource")
+	}
+	if !apierrors.IsNotFound(err) {
+		t.Errorf("expected apierrors.IsNotFound to match, got %v", err)
+	}
+	if actions := client.Actions(); len(actions) != 0 {
+		t.Errorf("expected no client actions, got %v", actions)
 	}
 }

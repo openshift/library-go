@@ -16,25 +16,25 @@ import (
 )
 
 var allKeyPairGenerators = []KeyPairGenerator{
-	RSAKeyPairGenerator{Bits: 2048},
-	RSAKeyPairGenerator{Bits: 4096},
-	ECDSAKeyPairGenerator{Curve: P256},
-	ECDSAKeyPairGenerator{Curve: P384},
-	ECDSAKeyPairGenerator{Curve: P521},
+	rsaKeyPairGenerator{bits: 2048},
+	rsaKeyPairGenerator{bits: 4096},
+	ecdsaKeyPairGenerator{curve: P256},
+	ecdsaKeyPairGenerator{curve: P384},
+	ecdsaKeyPairGenerator{curve: P521},
 }
 
 func keyGenName(g KeyPairGenerator) string {
 	switch g := g.(type) {
-	case RSAKeyPairGenerator:
-		return fmt.Sprintf("RSA-%d", g.Bits)
-	case ECDSAKeyPairGenerator:
-		return "ECDSA-" + string(g.Curve)
+	case rsaKeyPairGenerator:
+		return fmt.Sprintf("RSA-%d", g.bits)
+	case ecdsaKeyPairGenerator:
+		return "ECDSA-" + string(g.curve)
 	}
 	return "unknown"
 }
 
 func TestKeyUsageForPublicKey(t *testing.T) {
-	rsaGen := RSAKeyPairGenerator{Bits: 2048}
+	rsaGen := rsaKeyPairGenerator{bits: 2048}
 	rsaPub, _, err := rsaGen.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +44,7 @@ func TestKeyUsageForPublicKey(t *testing.T) {
 		t.Errorf("RSA KeyUsage = %v, want KeyEncipherment|DigitalSignature", rsaUsage)
 	}
 
-	ecdsaGen := ECDSAKeyPairGenerator{Curve: P256}
+	ecdsaGen := ecdsaKeyPairGenerator{curve: P256}
 	ecdsaPub, _, err := ecdsaGen.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -65,23 +65,23 @@ func TestGenerateKeyPair(t *testing.T) {
 	}{
 		{
 			name: "RSA-2048",
-			gen:  RSAKeyPairGenerator{Bits: 2048},
+			gen:  rsaKeyPairGenerator{bits: 2048},
 		},
 		{
 			name: "RSA-4096",
-			gen:  RSAKeyPairGenerator{Bits: 4096},
+			gen:  rsaKeyPairGenerator{bits: 4096},
 		},
 		{
 			name: "ECDSA-P256",
-			gen:  ECDSAKeyPairGenerator{Curve: P256},
+			gen:  ecdsaKeyPairGenerator{curve: P256},
 		},
 		{
 			name: "ECDSA-P384",
-			gen:  ECDSAKeyPairGenerator{Curve: P384},
+			gen:  ecdsaKeyPairGenerator{curve: P384},
 		},
 		{
 			name: "ECDSA-P521",
-			gen:  ECDSAKeyPairGenerator{Curve: P521},
+			gen:  ecdsaKeyPairGenerator{curve: P521},
 		},
 	}
 	for _, tc := range testCases {
@@ -95,20 +95,20 @@ func TestGenerateKeyPair(t *testing.T) {
 			}
 
 			switch g := tc.gen.(type) {
-			case RSAKeyPairGenerator:
+			case rsaKeyPairGenerator:
 				rsaPub, ok := pub.(*rsa.PublicKey)
 				if !ok {
 					t.Fatalf("expected *rsa.PublicKey, got %T", pub)
 				}
-				if rsaPub.N.BitLen() != g.Bits {
-					t.Errorf("RSA key size = %d, want %d", rsaPub.N.BitLen(), g.Bits)
+				if rsaPub.N.BitLen() != g.bits {
+					t.Errorf("RSA key size = %d, want %d", rsaPub.N.BitLen(), g.bits)
 				}
-			case ECDSAKeyPairGenerator:
+			case ecdsaKeyPairGenerator:
 				ecPub, ok := pub.(*ecdsa.PublicKey)
 				if !ok {
 					t.Fatalf("expected *ecdsa.PublicKey, got %T", pub)
 				}
-				wantCurve := curveForName(g.Curve)
+				wantCurve := curveForName(g.curve)
 				if ecPub.Curve != wantCurve {
 					t.Errorf("ECDSA curve = %v, want %v", ecPub.Curve.Params().Name, wantCurve.Params().Name)
 				}
@@ -173,7 +173,7 @@ func TestNewSigningCertificate(t *testing.T) {
 }
 
 func TestNewSigningCertificate_WithSubject(t *testing.T) {
-	g := RSAKeyPairGenerator{Bits: 2048}
+	g := rsaKeyPairGenerator{bits: 2048}
 	config, err := NewSigningCertificate("ignored-name", g,
 		WithSubject(x509pkixName("custom-cn", "custom-org")),
 	)
@@ -197,23 +197,23 @@ func TestNewSigningCertificate_WithSigner(t *testing.T) {
 	}{
 		{
 			name:   "RSA root, RSA intermediate",
-			rootKG: RSAKeyPairGenerator{Bits: 2048},
-			intKG:  RSAKeyPairGenerator{Bits: 4096},
+			rootKG: rsaKeyPairGenerator{bits: 2048},
+			intKG:  rsaKeyPairGenerator{bits: 4096},
 		},
 		{
 			name:   "RSA root, ECDSA intermediate",
-			rootKG: RSAKeyPairGenerator{Bits: 4096},
-			intKG:  ECDSAKeyPairGenerator{Curve: P256},
+			rootKG: rsaKeyPairGenerator{bits: 4096},
+			intKG:  ecdsaKeyPairGenerator{curve: P256},
 		},
 		{
 			name:   "ECDSA root, RSA intermediate",
-			rootKG: ECDSAKeyPairGenerator{Curve: P384},
-			intKG:  RSAKeyPairGenerator{Bits: 2048},
+			rootKG: ecdsaKeyPairGenerator{curve: P384},
+			intKG:  rsaKeyPairGenerator{bits: 2048},
 		},
 		{
 			name:   "ECDSA root, ECDSA intermediate",
-			rootKG: ECDSAKeyPairGenerator{Curve: P256},
-			intKG:  ECDSAKeyPairGenerator{Curve: P384},
+			rootKG: ecdsaKeyPairGenerator{curve: P256},
+			intKG:  ecdsaKeyPairGenerator{curve: P384},
 		},
 	}
 	for _, tc := range testCases {
@@ -401,7 +401,7 @@ func TestNewPeerCertificate(t *testing.T) {
 }
 
 func TestNewServerCertificate_WithExtensions(t *testing.T) {
-	g := RSAKeyPairGenerator{Bits: 2048}
+	g := rsaKeyPairGenerator{bits: 2048}
 	caConfig, err := NewSigningCertificate("test-ca", g)
 	if err != nil {
 		t.Fatalf("NewSigningCertificate() error = %v", err)
@@ -436,22 +436,22 @@ func TestNewServerCertificate_WithExtensions(t *testing.T) {
 func assertKeyType(t *testing.T, key any, g KeyPairGenerator) {
 	t.Helper()
 	switch g := g.(type) {
-	case RSAKeyPairGenerator:
+	case rsaKeyPairGenerator:
 		rsaKey, ok := key.(*rsa.PrivateKey)
 		if !ok {
 			t.Errorf("expected *rsa.PrivateKey, got %T", key)
 			return
 		}
-		if rsaKey.N.BitLen() != g.Bits {
-			t.Errorf("RSA key size = %d, want %d", rsaKey.N.BitLen(), g.Bits)
+		if rsaKey.N.BitLen() != g.bits {
+			t.Errorf("RSA key size = %d, want %d", rsaKey.N.BitLen(), g.bits)
 		}
-	case ECDSAKeyPairGenerator:
+	case ecdsaKeyPairGenerator:
 		ecKey, ok := key.(*ecdsa.PrivateKey)
 		if !ok {
 			t.Errorf("expected *ecdsa.PrivateKey, got %T", key)
 			return
 		}
-		wantCurve := curveForName(g.Curve)
+		wantCurve := curveForName(g.curve)
 		if ecKey.Curve != wantCurve {
 			t.Errorf("ECDSA curve = %v, want %v", ecKey.Curve.Params().Name, wantCurve.Params().Name)
 		}

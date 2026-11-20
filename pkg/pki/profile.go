@@ -7,108 +7,64 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 )
 
-// DefaultPKIProfile returns the default PKIProfile for OpenShift.
-func DefaultPKIProfile() configv1alpha1.PKIProfile {
-	return configv1alpha1.PKIProfile{
-		Defaults: configv1alpha1.DefaultCertificateConfig{
-			Key: configv1alpha1.KeyConfig{
-				Algorithm: configv1alpha1.KeyAlgorithmECDSA,
-				ECDSA:     configv1alpha1.ECDSAKeyConfig{Curve: configv1alpha1.ECDSACurveP256},
+// defaultCertificatePolicy returns the default certificate policy for
+// OpenShift: ECDSA P-256 for all certificates, with CA certificates
+// overridden to ECDSA P-384.
+//
+// The PKI resource pins concrete values at install time, so this default is
+// an install-time seed (written into the resource by the installer), not a
+// runtime fallback: existing clusters do not track these values as they
+// evolve across releases. It is used here only by the deprecated
+// certificateManagement translation in compat.go and by DefaultPKIProfile;
+// the seed itself belongs to the installer.
+func defaultCertificatePolicy() configv1alpha1.PKICertificatePolicy {
+	return configv1alpha1.PKICertificatePolicy{
+		Defaults: configv1alpha1.PKIDefaultCertificateConfig{
+			Key: configv1alpha1.PKIKeyConfig{
+				Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
+				ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurveP256},
 			},
 		},
-		SignerCertificates: configv1alpha1.CertificateConfig{
-			Key: configv1alpha1.KeyConfig{
-				Algorithm: configv1alpha1.KeyAlgorithmECDSA,
-				ECDSA:     configv1alpha1.ECDSAKeyConfig{Curve: configv1alpha1.ECDSACurveP384},
+		CACertificates: configv1alpha1.PKICertificateConfig{
+			Key: configv1alpha1.PKIKeyConfig{
+				Algorithm: configv1alpha1.PKIKeyAlgorithmECDSA,
+				ECDSA:     configv1alpha1.PKIECDSAKeyConfig{Curve: configv1alpha1.PKIECDSACurveP384},
 			},
 		},
 	}
 }
 
-// KeyPairGeneratorFromAPI converts a configv1alpha1.KeyConfig to a
-// crypto.KeyPairGenerator.
-func KeyPairGeneratorFromAPI(apiKey configv1alpha1.KeyConfig) (crypto.KeyPairGenerator, error) {
+// KeyPairGeneratorFromAPI converts a configv1alpha1.PKIKeyConfig to a
+// crypto.KeyPairGenerator. RSA key sizes below crypto.MinRSAKeySize are
+// rejected; which sizes above that floor are allowed is enforced by the PKI
+// API's validation, not here.
+func KeyPairGeneratorFromAPI(apiKey configv1alpha1.PKIKeyConfig) (crypto.KeyPairGenerator, error) {
 	switch apiKey.Algorithm {
-	case configv1alpha1.KeyAlgorithmRSA:
-		return crypto.RSAKeyPairGenerator{
-			Bits: int(apiKey.RSA.KeySize),
-		}, nil
-	case configv1alpha1.KeyAlgorithmECDSA:
+	case "":
+		return nil, fmt.Errorf("key.algorithm is required")
+	case configv1alpha1.PKIKeyAlgorithmRSA:
+		return crypto.NewRSAKeyPairGenerator(int(apiKey.RSA.KeySize))
+	case configv1alpha1.PKIKeyAlgorithmECDSA:
 		curve, err := ecdsaCurveFromAPI(apiKey.ECDSA.Curve)
 		if err != nil {
 			return nil, err
 		}
-		return crypto.ECDSAKeyPairGenerator{
-			Curve: curve,
-		}, nil
+		return crypto.NewECDSAKeyPairGenerator(curve)
 	default:
 		return nil, fmt.Errorf("unknown key algorithm: %q", apiKey.Algorithm)
 	}
 }
 
 // ecdsaCurveFromAPI converts an API ECDSA curve name to the crypto package's ECDSACurve.
-func ecdsaCurveFromAPI(c configv1alpha1.ECDSACurve) (crypto.ECDSACurve, error) {
+func ecdsaCurveFromAPI(c configv1alpha1.PKIECDSACurve) (crypto.ECDSACurve, error) {
 	switch c {
-	case configv1alpha1.ECDSACurveP256:
+	case configv1alpha1.PKIECDSACurveP256:
 		return crypto.P256, nil
-	case configv1alpha1.ECDSACurveP384:
+	case configv1alpha1.PKIECDSACurveP384:
 		return crypto.P384, nil
-	case configv1alpha1.ECDSACurveP521:
+	case configv1alpha1.PKIECDSACurveP521:
 		return crypto.P521, nil
 	default:
 		return "", fmt.Errorf("unknown ECDSA curve: %q", c)
 	}
-}
-
-// securityBits returns the NIST security strength in bits for a given
-// KeyPairGenerator. For RSA, values come from the rsaSecurityStrength table.
-// For ECDSA, security strength is half the key size (fixed per curve).
-func securityBits(g crypto.KeyPairGenerator) int {
-	switch g := g.(type) {
-	case crypto.RSAKeyPairGenerator:
-		return rsaSecurityStrength[g.Bits]
-	case crypto.ECDSAKeyPairGenerator:
-		switch g.Curve {
-		case crypto.P256:
-			return 128
-		case crypto.P384:
-			return 192
-		case crypto.P521:
-			return 256
-		}
-	}
-	return 0
-}
-
-// rsaSecurityStrength maps RSA key sizes (2048-8192 in 1024-bit increments)
-// to their security strengths from NIST SP 800-56B Rev 2 Table 2 or
-// pre-calculated from the GNFS complexity estimate.
-var rsaSecurityStrength = map[int]int{
-	2048: 112,
-	3072: 128,
-	4096: 152,
-	5120: 168,
-	6144: 176,
-	7168: 192,
-	8192: 200,
-}
-
-// strongerKeyPairGenerator returns whichever of a or b provides higher NIST
-// security strength. In case of a tie, ECDSA is preferred over RSA.
-func strongerKeyPairGenerator(a, b crypto.KeyPairGenerator) crypto.KeyPairGenerator {
-	sa, sb := securityBits(a), securityBits(b)
-	if sb > sa {
-		return b
-	}
-	if sa > sb {
-		return a
-	}
-	// Equal strength: prefer ECDSA over RSA.
-	if _, ok := a.(crypto.ECDSAKeyPairGenerator); ok {
-		return a
-	}
-	if _, ok := b.(crypto.ECDSAKeyPairGenerator); ok {
-		return b
-	}
-	return a
 }
