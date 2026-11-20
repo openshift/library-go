@@ -11,6 +11,8 @@ import (
 	"k8s.io/client-go/util/cert"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/clock"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 func TestValidateCertificates(t *testing.T) {
@@ -56,6 +58,51 @@ func TestValidateCertificatesExpired(t *testing.T) {
 	if len(validCerts) != 1 {
 		t.Fatalf("expected 1 valid certificate in the chain, but got %d", len(validCerts))
 	}
+}
+
+func TestFilterExpiredCertsWithClock(t *testing.T) {
+	fixedTime := time.Now()
+	fakeClock := clocktesting.NewFakeClock(fixedTime)
+
+	// Expired relative to the fake clock: window ends before fixedTime+1h.
+	expired, err := newTestCACertificate(pkix.Name{CommonName: "expired"}, int64(1), metav1.Duration{Duration: time.Hour}, fakeClock.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Advance so the first cert's window (fixedTime-1s .. fixedTime+1h) is past.
+	fakeClock.Step(2 * time.Hour)
+
+	valid, err := newTestCACertificate(pkix.Name{CommonName: "valid"}, int64(2), metav1.Duration{Duration: 24 * time.Hour}, fakeClock.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testCases := []struct {
+		name string
+		clk  clock.PassiveClock
+		want int
+	}{
+		{
+			name: "fake clock at advance time keeps only the valid cert",
+			clk:  fakeClock,
+			want: 1,
+		},
+		{
+			name: "fake clock past both windows keeps neither",
+			clk:  clocktesting.NewFakePassiveClock(fixedTime.Add(72 * time.Hour)),
+			want: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := FilterExpiredCertsWithClock(tc.clk, expired.Config.Certs[0], valid.Config.Certs[0])
+			if len(got) != tc.want {
+				t.Fatalf("expected %d valid certificates, got %d", tc.want, len(got))
+			}
+		})
+	}
+
 }
 
 // NewCACertificate generates and signs new CA certificate and key.
