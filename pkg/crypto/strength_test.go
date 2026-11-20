@@ -3,6 +3,7 @@ package crypto
 import (
 	stdcrypto "crypto"
 	"fmt"
+	"math"
 	"testing"
 )
 
@@ -17,6 +18,63 @@ func (unknownGenerator) GenerateKeyPair() (stdcrypto.PublicKey, stdcrypto.Privat
 
 func (unknownGenerator) Matches(stdcrypto.PublicKey) error {
 	return fmt.Errorf("unknownGenerator matches no key")
+}
+
+// TestRSASecurityBitsMatchesNIST pins the calculated RSA strengths to the
+// values NIST publishes in SP 800-56B Rev. 2, Appendix D, Table 4
+// ("Estimated Security Strengths of Common RSA Moduli"), which lists both the
+// unrounded estimate E and the maximum security strength ES(nBits). The same
+// ES values appear in Section 6.3, Table 2.
+func TestRSASecurityBitsMatchesNIST(t *testing.T) {
+	testCases := []struct {
+		nBits int
+		// wantE is E as printed by NIST, to one or two decimal places.
+		wantE float64
+		// wantES is ES(nBits), E rounded to the nearest multiple of 8.
+		wantES int
+	}{
+		{
+			nBits:  2048,
+			wantE:  110.1,
+			wantES: 112,
+		},
+		{
+			nBits:  3072,
+			wantE:  131.97,
+			wantES: 128,
+		},
+		{
+			nBits:  4096,
+			wantE:  149.73,
+			wantES: 152,
+		},
+		{
+			nBits:  6144,
+			wantE:  178.42,
+			wantES: 176,
+		},
+		{
+			nBits:  8192,
+			wantE:  201.7,
+			wantES: 200,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("RSA-%d", tc.nBits), func(t *testing.T) {
+			// NIST prints E to at most two decimals and sometimes one, so
+			// allow half of the coarser precision.
+			if got := rsaStrengthEstimate(tc.nBits); math.Abs(got-tc.wantE) >= 0.05 {
+				t.Errorf("rsaStrengthEstimate(%d) = %.4f, want %.2f (NIST SP 800-56B Rev. 2 Table 4)", tc.nBits, got, tc.wantE)
+			}
+			got, err := rsaSecurityBits(tc.nBits)
+			if err != nil {
+				t.Fatalf("rsaSecurityBits(%d) error = %v", tc.nBits, err)
+			}
+			if got != tc.wantES {
+				t.Errorf("rsaSecurityBits(%d) = %d, want %d (NIST SP 800-56B Rev. 2 Table 4)", tc.nBits, got, tc.wantES)
+			}
+		})
+	}
 }
 
 func TestSecurityBits(t *testing.T) {
@@ -62,14 +120,14 @@ func TestSecurityBits(t *testing.T) {
 			want: 200,
 		},
 		{
-			name: "RSA between table entries rounds down",
+			name: "RSA size not listed by NIST is calculated",
 			g:    rsaKeyPairGenerator{bits: 3000},
-			want: 112,
+			want: 128,
 		},
 		{
-			name: "RSA above the table caps at the largest entry",
+			name: "RSA size above the NIST list is calculated",
 			g:    rsaKeyPairGenerator{bits: 16384},
-			want: 200,
+			want: 272,
 		},
 		{
 			name:    "RSA-1024 below floor",

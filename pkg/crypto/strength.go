@@ -1,6 +1,9 @@
 package crypto
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // StrongerKeyPairGenerator returns whichever of a or b provides the higher
 // NIST security strength. On a tie, ECDSA is preferred over RSA, and
@@ -53,34 +56,22 @@ func securityBits(g KeyPairGenerator) (int, error) {
 	return 0, fmt.Errorf("cannot determine security strength of key generator %T", g)
 }
 
-// rsaSecurityStrength lists RSA key sizes in ascending order with their
-// security strengths from NIST SP 800-56B Rev 2 Table 2 or pre-calculated
-// from the GNFS complexity estimate.
-var rsaSecurityStrength = []struct {
-	bits, strength int
-}{
-	{bits: 2048, strength: 112},
-	{bits: 3072, strength: 128},
-	{bits: 4096, strength: 152},
-	{bits: 5120, strength: 168},
-	{bits: 6144, strength: 176},
-	{bits: 7168, strength: 192},
-	{bits: 8192, strength: 200},
-}
-
-// rsaSecurityBits returns the security strength of the largest tabulated RSA
-// key size not exceeding bits. Rounding down keeps the estimate conservative
-// for sizes between table entries and caps it at the largest entry.
+// rsaSecurityBits returns the estimated maximum security strength of an RSA
+// modulus of the given bit length, ES(nBits) from NIST SP 800-56B Rev. 2
+// Appendix D: the GNFS-based estimate E rounded to the nearest multiple of
+// eight. Sizes below MinRSAKeySize are an error.
 func rsaSecurityBits(bits int) (int, error) {
 	if err := validateRSAKeySize(bits); err != nil {
 		return 0, err
 	}
-	strength := 0
-	for _, e := range rsaSecurityStrength {
-		if e.bits > bits {
-			break
-		}
-		strength = e.strength
-	}
-	return strength, nil
+	return int(math.Round(rsaStrengthEstimate(bits)/8) * 8), nil
+}
+
+// rsaStrengthEstimate returns E, the unrounded security strength estimate
+// for an RSA modulus of nBits bits from NIST SP 800-56B Rev. 2 Appendix D:
+//
+//	E = (1.923 * cbrt(nBits*ln2) * cbrt(ln(nBits*ln2)^2) - 4.69) / ln2
+func rsaStrengthEstimate(nBits int) float64 {
+	x := float64(nBits) * math.Ln2
+	return (1.923*math.Cbrt(x)*math.Cbrt(math.Pow(math.Log(x), 2)) - 4.69) / math.Ln2
 }
