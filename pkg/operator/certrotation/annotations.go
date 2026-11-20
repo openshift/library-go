@@ -5,24 +5,30 @@ import (
 	"github.com/openshift/api/annotations"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
+
+	"github.com/openshift/library-go/pkg/operator/certrotation/contract"
 )
 
+// The on-cluster annotation contract is defined once, in the contract
+// package, and shared with external readers and writers (oc, origin tests,
+// consumers). The constants here are aliases so that existing references keep
+// compiling and stay byte-identical.
 const (
 	// CertificateNotBeforeAnnotation contains the certificate expiration date in RFC3339 format.
-	CertificateNotBeforeAnnotation = "auth.openshift.io/certificate-not-before"
+	CertificateNotBeforeAnnotation = contract.CertificateNotBeforeAnnotation
 	// CertificateNotAfterAnnotation contains the certificate expiration date in RFC3339 format.
-	CertificateNotAfterAnnotation = "auth.openshift.io/certificate-not-after"
+	CertificateNotAfterAnnotation = contract.CertificateNotAfterAnnotation
 	// CertificateIssuer contains the common name of the certificate that signed another certificate.
-	CertificateIssuer = "auth.openshift.io/certificate-issuer"
+	CertificateIssuer = contract.CertificateIssuer
 	// CertificateHostnames contains the hostnames used by a signer.
-	CertificateHostnames = "auth.openshift.io/certificate-hostnames"
+	CertificateHostnames = contract.CertificateHostnames
 	// CertificateTestNameAnnotation is an e2e test name which verifies that TLS artifact is created and used correctly
-	CertificateTestNameAnnotation string = "certificates.openshift.io/test-name"
+	CertificateTestNameAnnotation string = contract.CertificateTestNameAnnotation
 	// CertificateAutoRegenerateAfterOfflineExpiryAnnotation contains a link to PR adding this annotation which verifies
 	// that TLS artifact is correctly regenerated after it has expired
-	CertificateAutoRegenerateAfterOfflineExpiryAnnotation string = "certificates.openshift.io/auto-regenerate-after-offline-expiry"
+	CertificateAutoRegenerateAfterOfflineExpiryAnnotation string = contract.CertificateAutoRegenerateAfterOfflineExpiryAnnotation
 	// CertificateRefreshPeriodAnnotation is the interval at which the certificate should be refreshed.
-	CertificateRefreshPeriodAnnotation string = "certificates.openshift.io/refresh-period"
+	CertificateRefreshPeriodAnnotation string = contract.CertificateRefreshPeriodAnnotation
 )
 
 type AdditionalAnnotations struct {

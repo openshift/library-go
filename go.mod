@@ -18,9 +18,9 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/selinux v1.13.0
-	github.com/openshift/api v0.0.0-20261023091600-9809689a2448
+	github.com/openshift/api v0.0.0-20261109181719-0a8bc04b7618
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
-	github.com/openshift/client-go v0.0.0-20261026144452-41e357d76bc8
+	github.com/openshift/client-go v0.0.0-20261109191322-505de3dc15d7
 	github.com/openshift/osincli v0.0.0-20160924135400-fababb0555f2
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.7.0
