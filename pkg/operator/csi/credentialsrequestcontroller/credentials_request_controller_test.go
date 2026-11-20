@@ -325,6 +325,10 @@ func (fake *fakeDynamicClient) ApplyStatus(ctx context.Context, name string, obj
 	return nil, errors.New("not implemented")
 }
 
+func (fake *fakeDynamicClient) DeleteWithResult(ctx context.Context, name string, options metav1.DeleteOptions, subresources ...string) (metav1.APIResult, error) {
+	return nil, errors.New("not implemented")
+}
+
 func TestShouldSync(t *testing.T) {
 	defaultCRManifest := makeFakeManifest(operandName, credentialRequestNamespace, operandNamespace)
 	defaultCR := resourceread.ReadCredentialRequestsOrDie(defaultCRManifest)
