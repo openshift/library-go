@@ -36,9 +36,13 @@ type combinedConfigMapInterface struct {
 }
 
 func (g combinedConfigMapGetter) ConfigMaps(namespace string) corev1client.ConfigMapInterface {
+	informer := g.listers.InformersFor(namespace)
+	if informer == nil {
+		panic(fmt.Sprintf("namespace %q is missing", namespace))
+	}
 	return combinedConfigMapInterface{
 		ConfigMapInterface: g.client.ConfigMaps(namespace),
-		lister:             g.listers.InformersFor(namespace).Core().V1().ConfigMaps().Lister().ConfigMaps(namespace),
+		lister:             informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace),
 		namespace:          namespace,
 	}
 }
@@ -90,9 +94,13 @@ type combinedSecretInterface struct {
 }
 
 func (g combinedSecretGetter) Secrets(namespace string) corev1client.SecretInterface {
+	informer := g.listers.InformersFor(namespace)
+	if informer == nil {
+		panic(fmt.Sprintf("namespace %q is missing", namespace))
+	}
 	return combinedSecretInterface{
 		SecretInterface: g.client.Secrets(namespace),
-		lister:          g.listers.InformersFor(namespace).Core().V1().Secrets().Lister().Secrets(namespace),
+		lister:          informer.Core().V1().Secrets().Lister().Secrets(namespace),
 		namespace:       namespace,
 	}
 }
