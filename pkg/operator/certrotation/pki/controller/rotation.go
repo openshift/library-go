@@ -12,15 +12,15 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type (
-	RotationFn func(*corev1.Secret) (bool, string, error)
-	MetadataFn func(*corev1.Secret) bool
+	CertificateRotationRotationFn func(*corev1.Secret) (bool, string, error)
+	CertificateRotationMetadataFn func(*corev1.Secret) bool
 )
 
 type CertificateCreator interface {
@@ -32,8 +32,8 @@ func NewCertificateRotationController(
 	name string,
 	namespace string,
 	certificateCreator CertificateCreator,
-	metadataFn MetadataFn,
-	rotationFn RotationFn,
+	metadataFn CertificateRotationMetadataFn,
+	rotationFn CertificateRotationRotationFn,
 	client corev1client.SecretsGetter,
 	informer corev1informers.SecretInformer,
 	recorder events.Recorder,
@@ -74,8 +74,8 @@ type CertificateRotation struct {
 
 	certificateCreator CertificateCreator
 
-	metadataFn MetadataFn
-	rotationFn RotationFn
+	metadataFn CertificateRotationMetadataFn
+	rotationFn CertificateRotationRotationFn
 }
 
 func (r *CertificateRotation) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -93,6 +93,21 @@ func (r *CertificateRotation) Sync(ctx context.Context, syncCtx factory.SyncCont
 		return fmt.Errorf("determining if secret %q needs rotation: %w", fmt.Sprintf("%s/%s", r.namespace, r.name), err)
 	}
 
+	if !needsRotation && existingCopy.Data == nil {
+		needsRotation = true
+		rotationReason = "no content"
+	}
+
+	if !needsRotation && existingCopy.Data != nil {
+		_, hasCerts := existingCopy.Data["tls.crt"]
+		_, hasKey := existingCopy.Data["tls.key"]
+
+		if !hasCerts || !hasKey {
+			needsRotation = true
+			rotationReason = "missing content"
+		}
+	}
+
 	if needsRotation {
 		r.eventRecorder.Eventf("RotationRequired", "%q in %q requires rotation: %v", r.name, r.namespace, rotationReason)
 
@@ -108,7 +123,18 @@ func (r *CertificateRotation) Sync(ctx context.Context, syncCtx factory.SyncCont
 	needsMetadataUpdate := r.metadataFn(existingCopy)
 
 	if needsRotation || needsMetadataUpdate {
-		actual, err := r.client.Secrets(r.namespace).Update(ctx, existingCopy, v1.UpdateOptions{})
+		// TODO: Do we need to have some kind of pre-update hook here?
+		// Having one would allow for callers to configure a CertificateRotation
+		// controller for a target certificate to wait until certain pre-requisites are met.
+		// An example where it might be useful:
+		// - Signer certificate is deleted, cross-signing does not occur
+		// - Target needs re-generation because a new signer CA is in place
+		// - Target certificate chain does not contain a bridge for older clients trust
+		// - Caller can configure a pre-update hook to wait for an update until either:
+		//    - Older target cert has expired
+		//    - Certificate chain contains trust bridge
+		//    - Label/annotation is present that signals it is OK to rotate (i.e admin-ack)
+		actual, err := r.client.Secrets(r.namespace).Update(ctx, existingCopy, metav1.UpdateOptions{})
 		resourcehelper.ReportUpdateEvent(r.eventRecorder, actual, err)
 		if err != nil {
 			return fmt.Errorf("updating secret %q: %w", fmt.Sprintf("%s/%s", r.namespace, r.name), err)
@@ -125,7 +151,7 @@ func (r *CertificateRotation) createSecret(ctx context.Context) error {
 	}
 
 	secret := &corev1.Secret{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.namespace,
 			Name:      r.name,
 		},
@@ -138,7 +164,7 @@ func (r *CertificateRotation) createSecret(ctx context.Context) error {
 
 	_ = r.metadataFn(secret)
 
-	actual, err := r.client.Secrets(r.namespace).Create(ctx, secret, v1.CreateOptions{})
+	actual, err := r.client.Secrets(r.namespace).Create(ctx, secret, metav1.CreateOptions{})
 	resourcehelper.ReportCreateEvent(r.eventRecorder, actual, err)
 	if err != nil {
 		return fmt.Errorf("creating secret %q: %w", fmt.Sprintf("%s/%s", r.namespace, r.name), err)
