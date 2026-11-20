@@ -244,13 +244,16 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 
 	// ensure that all controllers that need the secret/configmap informer-based clients
 	// need to wait for their synchronization before starting using WithInformer
-	configMapClient := v1helpers.CachedConfigMapGetter(b.kubeClient.CoreV1(), b.kubeNamespaceInformers)
-	secretClient := v1helpers.CachedSecretGetter(b.kubeClient.CoreV1(), b.kubeNamespaceInformers)
+	operandInformers := b.kubeNamespaceInformers.InformersFor(b.operandNamespace)
+	// the getters are scoped to the operand namespace: cached reads come from the
+	// operand-namespace informer, everything else falls back to the live client, so
+	// undecodable objects outside the operand namespace cannot break the controllers
+	configMapClient := v1helpers.NewNamespacedCachedConfigMapGetter(b.kubeClient.CoreV1(), operandInformers, b.operandNamespace)
+	secretClient := v1helpers.NewNamespacedCachedSecretGetter(b.kubeClient.CoreV1(), operandInformers, b.operandNamespace)
 	podClient := b.kubeClient.CoreV1()
 	eventsClient := b.kubeClient.CoreV1()
 	pdbClient := b.kubeClient.PolicyV1()
 	saClient := b.kubeClient.CoreV1()
-	operandInformers := b.kubeNamespaceInformers.InformersFor(b.operandNamespace)
 	clusterInformers := b.kubeClusterInformers
 	infraInformers := b.configInformers.Config().V1().Infrastructures()
 
