@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp"
 
 	"github.com/openshift/library-go/pkg/verify/store"
 	"github.com/openshift/library-go/pkg/verify/store/memory"
@@ -212,7 +212,7 @@ func Test_ReleaseVerifier_String(t *testing.T) {
 			verifiers: map[string]openpgp.EntityList{
 				"redhat": redhatPublic,
 			},
-			want: "All release image digests must have GPG signatures from redhat (567E347AD0044ADE55BA8A5F199E2F91FD431D51: Red Hat, Inc. (release key 2) <security@redhat.com>) - will check for signatures in containers/image format at <ERROR: no store>",
+			want: "All release image digests must have GPG signatures from redhat (6969B107B199FB55A04CFE2D445111C45FECB14E: Red Hat Inc (release key 2) <security@redhat.com>) - will check for signatures in containers/image format at <ERROR: no store>",
 		},
 	}
 	for _, tt := range tests {

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp"
 
 	"github.com/openshift/library-go/pkg/verify/store/sigstore"
 )
