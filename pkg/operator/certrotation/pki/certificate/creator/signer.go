@@ -29,14 +29,14 @@ func NewIntermediateSigner(name string, keyPairGetter KeyPairGeneratorGetter, si
 
 func (c *IntermediateSigner) CreateCertificate(ctx context.Context) (*crypto.TLSCertificateConfig, error) {
 	now := c.clock.Now()
-	name := fmt.Sprintf("%s_%d", c.name, now)
+	name := fmt.Sprintf("%s@%d", c.name, now.Unix())
 
 	signer, err := c.signerGetter.GetSigner(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting signer: %w", err)
 	}
 
-	kpg, err := c.keyPairGetter.GetKeyPairGenerator()
+	kpg, err := c.keyPairGetter.GetKeyPairGenerator(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting key pair generator: %w", err)
 	}
@@ -62,11 +62,11 @@ func NewSelfSignedSigner(name string, keyPairGetter KeyPairGeneratorGetter, life
 
 func (c *SelfSignedSigner) CreateCertificate(ctx context.Context) (*crypto.TLSCertificateConfig, error) {
 	now := c.clock.Now()
-	name := fmt.Sprintf("%s_%d", c.name, now)
+	name := fmt.Sprintf("%s@%d", c.name, now.Unix())
 
 	// TODO: if signer is specified, do cross-signing.
 
-	kpg, err := c.keyPairGetter.GetKeyPairGenerator()
+	kpg, err := c.keyPairGetter.GetKeyPairGenerator(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting key pair generator: %w", err)
 	}

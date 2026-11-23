@@ -39,7 +39,7 @@ func (c *Peer) CreateCertificate(ctx context.Context) (*crypto.TLSCertificateCon
 		return nil, fmt.Errorf("getting signer: %w", err)
 	}
 
-	kpg, err := c.keyPairGetter.GetKeyPairGenerator()
+	kpg, err := c.keyPairGetter.GetKeyPairGenerator(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting key pair generator: %w", err)
 	}

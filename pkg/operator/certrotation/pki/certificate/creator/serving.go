@@ -33,7 +33,7 @@ func (c *Serving) CreateCertificate(ctx context.Context) (*crypto.TLSCertificate
 		return nil, fmt.Errorf("getting signer: %w", err)
 	}
 
-	kpg, err := c.keyPairGetter.GetKeyPairGenerator()
+	kpg, err := c.keyPairGetter.GetKeyPairGenerator(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting key pair generator: %w", err)
 	}
