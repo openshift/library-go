@@ -13,6 +13,33 @@ github.com/Azure/go-ntlmssp
 # github.com/NYTimes/gziphandler v1.1.1
 ## explicit; go 1.11
 github.com/NYTimes/gziphandler
+# github.com/ProtonMail/go-crypto v1.5.2
+## explicit; go 1.23.0
+github.com/ProtonMail/go-crypto/bitcurves
+github.com/ProtonMail/go-crypto/brainpool
+github.com/ProtonMail/go-crypto/eax
+github.com/ProtonMail/go-crypto/internal/byteutil
+github.com/ProtonMail/go-crypto/ocb
+github.com/ProtonMail/go-crypto/openpgp
+github.com/ProtonMail/go-crypto/openpgp/aes/keywrap
+github.com/ProtonMail/go-crypto/openpgp/armor
+github.com/ProtonMail/go-crypto/openpgp/ecdh
+github.com/ProtonMail/go-crypto/openpgp/ecdsa
+github.com/ProtonMail/go-crypto/openpgp/ed25519
+github.com/ProtonMail/go-crypto/openpgp/ed448
+github.com/ProtonMail/go-crypto/openpgp/eddsa
+github.com/ProtonMail/go-crypto/openpgp/elgamal
+github.com/ProtonMail/go-crypto/openpgp/errors
+github.com/ProtonMail/go-crypto/openpgp/internal/algorithm
+github.com/ProtonMail/go-crypto/openpgp/internal/ecc
+github.com/ProtonMail/go-crypto/openpgp/internal/encoding
+github.com/ProtonMail/go-crypto/openpgp/mldsa_eddsa
+github.com/ProtonMail/go-crypto/openpgp/mlkem_ecdh
+github.com/ProtonMail/go-crypto/openpgp/packet
+github.com/ProtonMail/go-crypto/openpgp/s2k
+github.com/ProtonMail/go-crypto/openpgp/slhdsa
+github.com/ProtonMail/go-crypto/openpgp/x25519
+github.com/ProtonMail/go-crypto/openpgp/x448
 # github.com/antlr4-go/antlr/v4 v4.13.1
 ## explicit; go 1.22
 github.com/antlr4-go/antlr/v4
@@ -28,6 +55,39 @@ github.com/cenkalti/backoff/v5
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
+# github.com/cloudflare/circl v1.6.3
+## explicit; go 1.22.0
+github.com/cloudflare/circl/dh/x25519
+github.com/cloudflare/circl/dh/x448
+github.com/cloudflare/circl/ecc/goldilocks
+github.com/cloudflare/circl/internal/conv
+github.com/cloudflare/circl/internal/sha3
+github.com/cloudflare/circl/kem
+github.com/cloudflare/circl/kem/mlkem/mlkem1024
+github.com/cloudflare/circl/kem/mlkem/mlkem768
+github.com/cloudflare/circl/math
+github.com/cloudflare/circl/math/fp25519
+github.com/cloudflare/circl/math/fp448
+github.com/cloudflare/circl/math/mlsbset
+github.com/cloudflare/circl/pke/kyber/internal/common
+github.com/cloudflare/circl/pke/kyber/internal/common/params
+github.com/cloudflare/circl/pke/kyber/kyber1024
+github.com/cloudflare/circl/pke/kyber/kyber1024/internal
+github.com/cloudflare/circl/pke/kyber/kyber768
+github.com/cloudflare/circl/pke/kyber/kyber768/internal
+github.com/cloudflare/circl/sign
+github.com/cloudflare/circl/sign/ed25519
+github.com/cloudflare/circl/sign/ed448
+github.com/cloudflare/circl/sign/internal/dilithium
+github.com/cloudflare/circl/sign/internal/dilithium/params
+github.com/cloudflare/circl/sign/mldsa/mldsa65
+github.com/cloudflare/circl/sign/mldsa/mldsa65/internal
+github.com/cloudflare/circl/sign/mldsa/mldsa87
+github.com/cloudflare/circl/sign/mldsa/mldsa87/internal
+github.com/cloudflare/circl/sign/slhdsa
+github.com/cloudflare/circl/simd/keccakf1600
+github.com/cloudflare/circl/xof
+github.com/cloudflare/circl/xof/k12
 # github.com/coreos/go-semver v0.3.1
 ## explicit; go 1.8
 github.com/coreos/go-semver/semver
@@ -667,7 +727,10 @@ go.yaml.in/yaml/v2
 go.yaml.in/yaml/v3
 # golang.org/x/crypto v0.54.0
 ## explicit; go 1.25.0
+golang.org/x/crypto/argon2
 golang.org/x/crypto/bcrypt
+golang.org/x/crypto/blake2b
+golang.org/x/crypto/blake2s
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
 golang.org/x/crypto/cryptobyte
@@ -677,13 +740,8 @@ golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/md4
 golang.org/x/crypto/nacl/secretbox
-golang.org/x/crypto/openpgp
-golang.org/x/crypto/openpgp/armor
-golang.org/x/crypto/openpgp/elgamal
-golang.org/x/crypto/openpgp/errors
-golang.org/x/crypto/openpgp/packet
-golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/salsa20/salsa
+golang.org/x/crypto/sha3
 # golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
 ## explicit; go 1.25.0
 golang.org/x/exp/slices
