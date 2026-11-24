@@ -415,6 +415,28 @@ func TestSync_endpointFailures(t *testing.T) {
 	}
 }
 
+// TestSync_nilEndpoint checks that a nil endpoint returned by a callback is reported as an error
+// instead of panicking, and that the warning probes ignore it without degrading.
+func TestSync_nilEndpoint(t *testing.T) {
+	p := &proxyConfigChecker{proxyResolver: &fakeResolver{
+		proxy:      ResolvedProxy{HTTPSProxy: "http://proxy:3128"},
+		transports: []http.RoundTripper{ok, ok, ok},
+	}}
+	WithEndpoints(DegradeOnFailure, endpoints(mustParse(t, "https://a.example.com"), nil))(p)
+
+	_, err := runSync(t, p)
+	require.ErrorContains(t, err, "endpoint #1 is nil")
+
+	p = &proxyConfigChecker{proxyResolver: &fakeResolver{
+		proxy:      ResolvedProxy{HTTPSProxy: "http://proxy:3128"},
+		transports: []http.RoundTripper{ok, ok, ok},
+	}}
+	WithEndpointWarnings("R", endpoints(nil))(p)
+	recorder, err := runSync(t, p)
+	require.NoError(t, err)
+	require.Empty(t, recorder.Events())
+}
+
 // barrierRoundTripper succeeds only when all the expected requests are in flight at the same time.
 type barrierRoundTripper struct {
 	expected int

@@ -186,7 +186,10 @@ func (p *proxyConfigChecker) sync(ctx context.Context, syncCtx factory.SyncConte
 		if err != nil {
 			return fmt.Errorf("failed to get endpoints for proxy validation: %w", err)
 		}
-		for _, u := range urls {
+		for i, u := range urls {
+			if u == nil {
+				return fmt.Errorf("failed to get endpoints for proxy validation: endpoint #%d is nil", i)
+			}
 			endpoints = append(endpoints, policyEndpoint{url: u, policy: group.policy})
 		}
 	}
@@ -235,6 +238,12 @@ func (p *proxyConfigChecker) warnIfUnreachable(ctx context.Context, recorder eve
 	if err != nil {
 		klog.Warningf("unable to get endpoints for proxy validation: %v", err)
 		return
+	}
+	for i, endpoint := range endpoints {
+		if endpoint == nil {
+			klog.Warningf("unable to get endpoints for proxy validation: endpoint #%d is nil", i)
+			return
+		}
 	}
 	if len(endpoints) == 0 {
 		group.lastValidationHash = ""
