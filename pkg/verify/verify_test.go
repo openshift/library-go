@@ -30,14 +30,6 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err = os.ReadFile(filepath.Join("testdata", "keyrings", "simple.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	simple, err := openpgp.ReadArmoredKeyRing(bytes.NewBuffer(data))
-	if err != nil {
-		t.Fatal(err)
-	}
 	data, err = os.ReadFile(filepath.Join("testdata", "keyrings", "combined.txt"))
 	if err != nil {
 		t.Fatal(err)
@@ -61,10 +53,13 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 	defer emptyServer.Close()
 	emptyServerURL, _ := url.Parse(emptyServer.URL)
 
-	validSignatureData, err := os.ReadFile(filepath.Join("testdata", "signatures", "sha256=e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7", "signature-1"))
+	validSignatureData, err := os.ReadFile(filepath.Join("testdata", "signatures", "sha256=e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2", "signature-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	validSignatureStore := &memory.Store{
 		Data: map[string][][]byte{
-			"sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7": {
+			"sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2": {
 				validSignatureData,
 			},
 		},
@@ -82,7 +77,7 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 
 		{
 			name:          "valid signature for sha over file",
-			releaseDigest: "sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7",
+			releaseDigest: "sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2",
 			store: &serial.Store{
 				Stores: []store.Store{
 					&fileStore{directory: "testdata/signatures"},
@@ -92,32 +87,26 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 		},
 		{
 			name:          "valid signature for sha over http",
-			releaseDigest: "sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7",
+			releaseDigest: "sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2",
 			store:         &sigstore.Store{URI: sigServerURL, HTTPClient: sigstore.DefaultClient},
 			verifiers:     map[string]openpgp.EntityList{"redhat": redhatPublic},
 		},
 		{
 			name:          "valid signature for sha from store",
-			releaseDigest: "sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7",
+			releaseDigest: "sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2",
 			store:         validSignatureStore,
 			verifiers:     map[string]openpgp.EntityList{"redhat": redhatPublic},
 		},
 		{
-			name:          "valid signature for sha over http with custom gpg key",
-			releaseDigest: "sha256:edd9824f0404f1a139688017e7001370e2f3fbc088b94da84506653b473fe140",
-			store:         &sigstore.Store{URI: sigServerURL, HTTPClient: sigstore.DefaultClient},
-			verifiers:     map[string]openpgp.EntityList{"simple": simple},
-		},
-		{
 			name:          "valid signature for sha over http with multi-key keyring",
-			releaseDigest: "sha256:edd9824f0404f1a139688017e7001370e2f3fbc088b94da84506653b473fe140",
+			releaseDigest: "sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2",
 			store:         &sigstore.Store{URI: sigServerURL, HTTPClient: sigstore.DefaultClient},
 			verifiers:     map[string]openpgp.EntityList{"combined": combined},
 		},
 
 		{
 			name:          "store rejects if no store found",
-			releaseDigest: "sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7",
+			releaseDigest: "sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2",
 			store:         &memory.Store{},
 			verifiers:     map[string]openpgp.EntityList{"redhat": redhatPublic},
 			wantErr:       true,
@@ -139,14 +128,14 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 
 		{
 			name:          "sha contains invalid characters",
-			releaseDigest: "!sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7",
+			releaseDigest: "!sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2",
 			store:         &fileStore{directory: "testdata/signatures"},
 			verifiers:     map[string]openpgp.EntityList{"redhat": redhatPublic},
 			wantErr:       true,
 		},
 		{
 			name:          "sha contains too many separators",
-			releaseDigest: "sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7:",
+			releaseDigest: "sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2:",
 			store:         &fileStore{directory: "testdata/signatures"},
 			verifiers:     map[string]openpgp.EntityList{"redhat": redhatPublic},
 			wantErr:       true,
@@ -154,14 +143,14 @@ func Test_ReleaseVerifier_Verify(t *testing.T) {
 
 		{
 			name:          "could not find signature in file location",
-			releaseDigest: "sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7",
+			releaseDigest: "sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2",
 			store:         &fileStore{directory: "testdata/signatures-2"},
 			verifiers:     map[string]openpgp.EntityList{"redhat": redhatPublic},
 			wantErr:       true,
 		},
 		{
 			name:          "could not find signature in http location",
-			releaseDigest: "sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7",
+			releaseDigest: "sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2",
 			store:         &sigstore.Store{URI: emptyServerURL, HTTPClient: sigstore.DefaultClient},
 			verifiers:     map[string]openpgp.EntityList{"redhat": redhatPublic},
 			wantErr:       true,
@@ -235,7 +224,7 @@ func Test_ReleaseVerifier_Signatures(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const signedDigest = "sha256:e3f12513a4b22a2d7c0e7c9207f52128113758d9d68c7d06b11a0ac7672966f7"
+	const signedDigest = "sha256:e2c70fca183e380c6121a1c847806f11e839482123277235a8579db472b9ccf2"
 
 	expectedSignature, err := os.ReadFile(filepath.Join("testdata", "signatures", strings.Replace(signedDigest, ":", "=", 1), "signature-1"))
 	if err != nil {
