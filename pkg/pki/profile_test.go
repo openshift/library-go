@@ -133,17 +133,12 @@ func TestSecurityLevel(t *testing.T) {
 			g:    selfCheckingKeyPairGenerator{inner: crypto.ECDSAKeyPairGenerator{Curve: crypto.P521}},
 			want: crypto.SecurityLevel{ClassicalBits: 256},
 		},
-		{
-			name: "generator without a security level gets the zero level",
-			g:    brokenKeyPairGenerator{},
-			want: crypto.SecurityLevel{},
-		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := securityLevel(tc.g)
+			got := tc.g.SecurityLevel()
 			if got != tc.want {
-				t.Errorf("securityLevel(%s) = %+v, want %+v", tc.name, got, tc.want)
+				t.Errorf("SecurityLevel(%s) = %+v, want %+v", tc.name, got, tc.want)
 			}
 		})
 	}

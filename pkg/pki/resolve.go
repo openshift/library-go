@@ -109,5 +109,5 @@ func (g selfCheckingKeyPairGenerator) Matches(pub gocrypto.PublicKey) error {
 
 // SecurityLevel returns the security level of the wrapped generator.
 func (g selfCheckingKeyPairGenerator) SecurityLevel() crypto.SecurityLevel {
-	return securityLevel(g.inner)
+	return g.inner.SecurityLevel()
 }

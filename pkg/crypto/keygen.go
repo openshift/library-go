@@ -21,4 +21,9 @@ type KeyPairGenerator interface {
 	// produce. Returns a non-nil error describing the mismatch
 	// otherwise.
 	Matches(pub crypto.PublicKey) error
+
+	// SecurityLevel returns the cryptographic strength of the key pairs
+	// this generator produces, under both classical and quantum threat
+	// models.
+	SecurityLevel() SecurityLevel
 }

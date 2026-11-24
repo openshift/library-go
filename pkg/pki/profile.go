@@ -60,26 +60,10 @@ func ecdsaCurveFromAPI(c configv1alpha1.ECDSACurve) (crypto.ECDSACurve, error) {
 	}
 }
 
-// securityLevelReporter is implemented by key pair generators that report
-// the security strength of the keys they produce. A generator without the
-// method reports the zero level, which loses every comparison.
-type securityLevelReporter interface {
-	SecurityLevel() crypto.SecurityLevel
-}
-
-// securityLevel returns the security strength of the keys g produces.
-// Generators that do not report a security level get the zero level.
-func securityLevel(g crypto.KeyPairGenerator) crypto.SecurityLevel {
-	if r, ok := g.(securityLevelReporter); ok {
-		return r.SecurityLevel()
-	}
-	return crypto.SecurityLevel{}
-}
-
 // strongerKeyPairGenerator returns whichever of a or b provides higher
 // security strength. In case of a tie, ECDSA is preferred over RSA.
 func strongerKeyPairGenerator(a, b crypto.KeyPairGenerator) crypto.KeyPairGenerator {
-	sa, sb := securityLevel(a), securityLevel(b)
+	sa, sb := a.SecurityLevel(), b.SecurityLevel()
 	if sb.Compare(sa) > 0 {
 		return b
 	}
