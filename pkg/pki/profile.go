@@ -25,25 +25,30 @@ func DefaultPKIProfile() configv1alpha1.PKIProfile {
 	}
 }
 
-// KeyPairGeneratorFromAPI converts a configv1alpha1.KeyConfig to a
-// crypto.KeyPairGenerator.
-func KeyPairGeneratorFromAPI(apiKey configv1alpha1.KeyConfig) (crypto.KeyPairGenerator, error) {
+// KeySpecFromAPI converts a configv1alpha1.KeyConfig to a crypto.KeySpec.
+// The returned spec is validated: RSA key sizes below crypto.MinRSAKeySize
+// are rejected. Which sizes above that floor are allowed is enforced by the
+// PKI API's validation, not here.
+func KeySpecFromAPI(apiKey configv1alpha1.KeyConfig) (crypto.KeySpec, error) {
+	var spec crypto.KeySpec
 	switch apiKey.Algorithm {
 	case configv1alpha1.KeyAlgorithmRSA:
-		return crypto.RSAKeyPairGenerator{
-			Bits: int(apiKey.RSA.KeySize),
-		}, nil
+		spec = crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: int(apiKey.RSA.KeySize)}
 	case configv1alpha1.KeyAlgorithmECDSA:
 		curve, err := ecdsaCurveFromAPI(apiKey.ECDSA.Curve)
 		if err != nil {
-			return nil, err
+			return crypto.KeySpec{}, err
 		}
-		return crypto.ECDSAKeyPairGenerator{
-			Curve: curve,
-		}, nil
+		spec = crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: curve}
+	case "":
+		return crypto.KeySpec{}, fmt.Errorf("key.algorithm is required")
 	default:
-		return nil, fmt.Errorf("unknown key algorithm: %q", apiKey.Algorithm)
+		return crypto.KeySpec{}, fmt.Errorf("unknown key algorithm: %q", apiKey.Algorithm)
 	}
+	if err := spec.Validate(); err != nil {
+		return crypto.KeySpec{}, err
+	}
+	return spec, nil
 }
 
 // ecdsaCurveFromAPI converts an API ECDSA curve name to the crypto package's ECDSACurve.
@@ -58,24 +63,4 @@ func ecdsaCurveFromAPI(c configv1alpha1.ECDSACurve) (crypto.ECDSACurve, error) {
 	default:
 		return "", fmt.Errorf("unknown ECDSA curve: %q", c)
 	}
-}
-
-// strongerKeyPairGenerator returns whichever of a or b provides higher
-// security strength. In case of a tie, ECDSA is preferred over RSA.
-func strongerKeyPairGenerator(a, b crypto.KeyPairGenerator) crypto.KeyPairGenerator {
-	sa, sb := a.SecurityLevel(), b.SecurityLevel()
-	if sb.Compare(sa) > 0 {
-		return b
-	}
-	if sa.Compare(sb) > 0 {
-		return a
-	}
-	// Equal strength: prefer ECDSA over RSA.
-	if _, ok := a.(crypto.ECDSAKeyPairGenerator); ok {
-		return a
-	}
-	if _, ok := b.(crypto.ECDSAKeyPairGenerator); ok {
-		return b
-	}
-	return a
 }

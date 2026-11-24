@@ -2,16 +2,16 @@ package crypto
 
 import "testing"
 
-func TestRSAKeyPairGeneratorSecurityLevel(t *testing.T) {
+func TestKeySpecSecurityLevelRSA(t *testing.T) {
 	testCases := []struct {
 		name string
 		bits int
 		want SecurityLevel
 	}{
 		{
-			name: "zero value defaults to the minimum size",
+			name: "zero value has no strength",
 			bits: 0,
-			want: SecurityLevel{ClassicalBits: 112},
+			want: SecurityLevel{},
 		},
 		{
 			name: "RSA-2048",
@@ -67,7 +67,7 @@ func TestRSAKeyPairGeneratorSecurityLevel(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := RSAKeyPairGenerator{Bits: tc.bits}.SecurityLevel()
+			got := KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: tc.bits}.SecurityLevel()
 			if got != tc.want {
 				t.Errorf("SecurityLevel() = %+v, want %+v", got, tc.want)
 			}

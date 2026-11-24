@@ -1,24 +1,36 @@
 package crypto
 
 import (
-	"crypto"
+	gocrypto "crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"testing"
 )
 
-func TestMatchesCrossProduct(t *testing.T) {
-	generators := []KeyPairGenerator{
-		RSAKeyPairGenerator{Bits: 2048},
-		RSAKeyPairGenerator{Bits: 3072},
-		RSAKeyPairGenerator{Bits: 4096},
-		ECDSAKeyPairGenerator{Curve: P256},
-		ECDSAKeyPairGenerator{Curve: P384},
-		ECDSAKeyPairGenerator{Curve: P521},
+// mustGenerator returns the generator for spec, panicking if spec is invalid.
+// It is for tests whose specs are known valid.
+func mustGenerator(spec KeySpec) KeyPairGenerator {
+	g, err := spec.KeyPairGenerator()
+	if err != nil {
+		panic(err)
 	}
-	keys := make([]crypto.PublicKey, len(generators))
-	for i, g := range generators {
-		pub, _, err := g.GenerateKeyPair()
+	return g
+}
+
+func TestMatchesCrossProduct(t *testing.T) {
+	specs := []KeySpec{
+		{Algorithm: RSAKeyAlgorithm, RSABits: 2048},
+		{Algorithm: RSAKeyAlgorithm, RSABits: 3072},
+		{Algorithm: RSAKeyAlgorithm, RSABits: 4096},
+		{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P256},
+		{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P384},
+		{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P521},
+	}
+	generators := make([]KeyPairGenerator, len(specs))
+	keys := make([]gocrypto.PublicKey, len(specs))
+	for i, spec := range specs {
+		generators[i] = mustGenerator(spec)
+		pub, _, err := generators[i].GenerateKeyPair()
 		if err != nil {
 			t.Fatalf("generators[%d].GenerateKeyPair() error = %v", i, err)
 		}
@@ -30,12 +42,12 @@ func TestMatchesCrossProduct(t *testing.T) {
 			if i == j {
 				if err != nil {
 					t.Errorf("%s.Matches(key from %s) = %v, want nil",
-						keyGenName(generators[i]), keyGenName(generators[j]), err)
+						specs[i], specs[j], err)
 				}
 			} else {
 				if err == nil {
 					t.Errorf("%s.Matches(key from %s) = nil, want error",
-						keyGenName(generators[i]), keyGenName(generators[j]))
+						specs[i], specs[j])
 				}
 			}
 		}
@@ -44,38 +56,38 @@ func TestMatchesCrossProduct(t *testing.T) {
 
 func TestMatchesMalformedKeys(t *testing.T) {
 	for _, tc := range []struct {
-		generator KeyPairGenerator
-		key       crypto.PublicKey
-		wantErr   string
+		spec    KeySpec
+		key     gocrypto.PublicKey
+		wantErr string
 	}{
 		{
-			generator: RSAKeyPairGenerator{Bits: 2048},
-			key:       (*rsa.PublicKey)(nil),
-			wantErr:   "RSA public key is nil",
+			spec:    KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 2048},
+			key:     (*rsa.PublicKey)(nil),
+			wantErr: "RSA public key is nil",
 		},
 		{
-			generator: RSAKeyPairGenerator{Bits: 2048},
-			key:       &rsa.PublicKey{},
-			wantErr:   "RSA public key has nil modulus",
+			spec:    KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 2048},
+			key:     &rsa.PublicKey{},
+			wantErr: "RSA public key has nil modulus",
 		},
 		{
-			generator: ECDSAKeyPairGenerator{Curve: P256},
-			key:       (*ecdsa.PublicKey)(nil),
-			wantErr:   "ECDSA public key is nil",
+			spec:    KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P256},
+			key:     (*ecdsa.PublicKey)(nil),
+			wantErr: "ECDSA public key is nil",
 		},
 		{
-			generator: ECDSAKeyPairGenerator{Curve: P256},
-			key:       &ecdsa.PublicKey{},
-			wantErr:   "ECDSA public key has nil curve",
+			spec:    KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P256},
+			key:     &ecdsa.PublicKey{},
+			wantErr: "ECDSA public key has nil curve",
 		},
 		{
-			generator: ECDSAKeyPairGenerator{Curve: "bogus"},
-			key:       &ecdsa.PublicKey{},
-			wantErr:   `generator has invalid curve "bogus": unsupported ECDSA curve: "bogus"`,
+			spec:    KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: "bogus"},
+			key:     &ecdsa.PublicKey{},
+			wantErr: `key spec is invalid: invalid ECDSA key spec: unsupported ECDSA curve: "bogus"`,
 		},
 	} {
 		t.Run(tc.wantErr, func(t *testing.T) {
-			err := tc.generator.Matches(tc.key)
+			err := tc.spec.Matches(tc.key)
 			if err == nil {
 				t.Fatal("expected error")
 			}

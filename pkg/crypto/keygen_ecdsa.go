@@ -1,10 +1,7 @@
 package crypto
 
 import (
-	"crypto"
-	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/rand"
 	"fmt"
 )
 
@@ -20,48 +17,9 @@ const (
 	P521 ECDSACurve = "P521"
 )
 
-// ECDSAKeyPairGenerator generates ECDSA key pairs.
-type ECDSAKeyPairGenerator struct {
-	// Curve is the named ECDSA curve.
-	Curve ECDSACurve
-}
-
-func (g ECDSAKeyPairGenerator) Matches(pub crypto.PublicKey) error {
-	curve, err := g.ellipticCurve()
-	if err != nil {
-		return fmt.Errorf("generator has invalid curve %q: %w", g.Curve, err)
-	}
-
-	ecPub, ok := pub.(*ecdsa.PublicKey)
-	if !ok {
-		return fmt.Errorf("public key is %T, not *ecdsa.PublicKey", pub)
-	}
-	if ecPub == nil {
-		return fmt.Errorf("ECDSA public key is nil")
-	}
-	if ecPub.Curve == nil {
-		return fmt.Errorf("ECDSA public key has nil curve")
-	}
-	if ecPub.Curve != curve {
-		return fmt.Errorf("ECDSA curve is %s, not %s", ecPub.Curve.Params().Name, curve.Params().Name)
-	}
-	return nil
-}
-
-func (g ECDSAKeyPairGenerator) GenerateKeyPair() (crypto.PublicKey, crypto.PrivateKey, error) {
-	curve, err := g.ellipticCurve()
-	if err != nil {
-		return nil, nil, err
-	}
-	privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &privateKey.PublicKey, privateKey, nil
-}
-
-func (g ECDSAKeyPairGenerator) ellipticCurve() (elliptic.Curve, error) {
-	switch g.Curve {
+// ellipticCurveFor returns the standard-library curve for a named ECDSA curve.
+func ellipticCurveFor(curve ECDSACurve) (elliptic.Curve, error) {
+	switch curve {
 	case P256:
 		return elliptic.P256(), nil
 	case P384:
@@ -69,23 +27,21 @@ func (g ECDSAKeyPairGenerator) ellipticCurve() (elliptic.Curve, error) {
 	case P521:
 		return elliptic.P521(), nil
 	default:
-		return nil, fmt.Errorf("unsupported ECDSA curve: %q", g.Curve)
+		return nil, fmt.Errorf("unsupported ECDSA curve: %q", curve)
 	}
 }
 
-var _ KeyPairGenerator = ECDSAKeyPairGenerator{}
-
-// SecurityLevel returns half the curve's key size, the security strength of
-// ECDSA. An unknown curve, which GenerateKeyPair rejects, has strength 0.
-func (g ECDSAKeyPairGenerator) SecurityLevel() SecurityLevel {
-	switch g.Curve {
+// ecdsaCurveBits returns half the curve's key size: the security strength of
+// ECDSA on that curve. An unknown curve has strength 0.
+func ecdsaCurveBits(curve ECDSACurve) int {
+	switch curve {
 	case P256:
-		return SecurityLevel{ClassicalBits: 128}
+		return 128
 	case P384:
-		return SecurityLevel{ClassicalBits: 192}
+		return 192
 	case P521:
-		return SecurityLevel{ClassicalBits: 256}
+		return 256
 	default:
-		return SecurityLevel{}
+		return 0
 	}
 }

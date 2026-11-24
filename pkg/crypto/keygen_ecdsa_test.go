@@ -2,7 +2,7 @@ package crypto
 
 import "testing"
 
-func TestECDSAKeyPairGeneratorSecurityLevel(t *testing.T) {
+func TestKeySpecSecurityLevelECDSA(t *testing.T) {
 	testCases := []struct {
 		name  string
 		curve ECDSACurve
@@ -32,7 +32,7 @@ func TestECDSAKeyPairGeneratorSecurityLevel(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ECDSAKeyPairGenerator{Curve: tc.curve}.SecurityLevel()
+			got := KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: tc.curve}.SecurityLevel()
 			if got != tc.want {
 				t.Errorf("SecurityLevel() = %+v, want %+v", got, tc.want)
 			}

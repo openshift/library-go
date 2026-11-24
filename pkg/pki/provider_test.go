@@ -176,28 +176,28 @@ func TestResolveCertificateConfig_DefaultProfile_AllTypes(t *testing.T) {
 	testCases := []struct {
 		name     string
 		certType CertificateType
-		want     crypto.KeyPairGenerator
+		want     crypto.KeySpec
 	}{
 		{
 			name:     "signer uses ECDSA P-384",
 			certType: CertificateTypeSigner,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want:     crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P384},
 		},
 		{
 			name:     "serving falls back to ECDSA P-256",
 			certType: CertificateTypeServing,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:     crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256},
 		},
 		{
 			name:     "client falls back to ECDSA P-256",
 			certType: CertificateTypeClient,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:     crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256},
 		},
 		{
 			// Serving and client strength are the same in the default profile.
 			name:     "peer picks stronger of serving and client",
 			certType: CertificateTypePeer,
-			want:     crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want:     crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256},
 		},
 	}
 	for _, tc := range testCases {
@@ -209,12 +209,8 @@ func TestResolveCertificateConfig_DefaultProfile_AllTypes(t *testing.T) {
 			if cfg == nil {
 				t.Fatal("expected non-nil config")
 			}
-			pub, _, err := cfg.Key.GenerateKeyPair()
-			if err != nil {
-				t.Fatalf("GenerateKeyPair() error = %v", err)
-			}
-			if err := tc.want.Matches(pub); err != nil {
-				t.Errorf("resolved key does not match expected generator: %v", err)
+			if cfg.Key != tc.want {
+				t.Errorf("resolved key = %s, want %s", cfg.Key, tc.want)
 			}
 		})
 	}
