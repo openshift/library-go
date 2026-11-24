@@ -157,11 +157,18 @@ the whole validation surface is four error strings.
 
 ### Whether `Matches` stays on `KeyPairGenerator`
 
-**It stays.** `Matches` is upstream API (#2550); the built-in generator
-delegates to `spec.Matches`, and `KeySpec.Matches` is available as the
-data-level path for new code. `SecurityLevel()` however came *off* the
-interface — strength is a property of the spec, and keeping it off the
-interface removes #2584's breakage of out-of-tree implementers.
+**It comes off the interface** (decided after the first prototype pass).
+`KeyPairGenerator` is now opaque — `GenerateKeyPair` only — and
+`KeySpec.Matches` / `KeySpecFromPublicKey` are the query surface. This
+retracts #2550's interface method, so it needs that author's sign-off; the
+argument is that his stated use cases (rotation controllers, testing, PKI
+inventory) are all better served by the spec functions, which share one
+codepath *and* can report what a key is rather than only yes/no. Rotation on
+config change becomes a data comparison in the controller:
+`KeySpecFromPublicKey(cert.PublicKey) != cfg.Key`. `SecurityLevel()` also
+came off the interface, for the same reason — both queries are properties of
+the spec, and keeping them off the interface removes #2584's breakage of
+out-of-tree implementers and makes consumer test fakes one-method structs.
 
 ### Where it lands
 
@@ -240,9 +247,10 @@ plus `MinRSAKeySize` moved here as the floor constant.
   `resolveKeySpecWithFallback` returns a zero `KeySpec` for Unmanaged
   (checked via `Algorithm != ""`, replacing the nil-generator convention),
   and both generation sites call `keySpec.KeyPairGenerator()` inline.
-- The interface `KeyPairGenerator` shrank back to `GenerateKeyPair` +
-  `Matches`, so consumer test fakes that #2584 would have broken keep
-  compiling.
+- The interface `KeyPairGenerator` shrank to a single responsibility
+  (`GenerateKeyPair` only — `Matches` was removed in a follow-up commit on
+  top of the first prototype), so consumer test fakes that #2584 would have
+  broken keep compiling, as one-method structs.
 
 ### Behavior changes to be aware of
 

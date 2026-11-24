@@ -20,14 +20,12 @@ const (
 
 // KeyPairGenerator generates a cryptographic key pair. Obtain this package's
 // implementations through KeySpec.KeyPairGenerator.
+//
+// KeyPairGenerator is opaque: it only produces keys. To inspect or compare
+// keys against a configuration, use KeySpec.Matches and
+// KeySpecFromPublicKey.
 type KeyPairGenerator interface {
 	GenerateKeyPair() (gocrypto.PublicKey, gocrypto.PrivateKey, error)
-
-	// Matches returns nil if pub is consistent with a key pair
-	// that a generator with the same parameters would
-	// produce. Returns a non-nil error describing the mismatch
-	// otherwise.
-	Matches(pub gocrypto.PublicKey) error
 }
 
 // keyPairGenerator is the single implementation of KeyPairGenerator produced
@@ -51,10 +49,6 @@ func (g keyPairGenerator) GenerateKeyPair() (gocrypto.PublicKey, gocrypto.Privat
 		return nil, nil, fmt.Errorf("generated key does not match its own spec: %w", err)
 	}
 	return pub, priv, nil
-}
-
-func (g keyPairGenerator) Matches(pub gocrypto.PublicKey) error {
-	return g.spec.Matches(pub)
 }
 
 func generateKeyPair(spec KeySpec) (gocrypto.PublicKey, gocrypto.PrivateKey, error) {

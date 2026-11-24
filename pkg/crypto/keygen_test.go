@@ -36,9 +36,9 @@ func TestMatchesCrossProduct(t *testing.T) {
 		}
 		keys[i] = pub
 	}
-	for i, g := range generators {
+	for i, spec := range specs {
 		for j, key := range keys {
-			err := g.Matches(key)
+			err := spec.Matches(key)
 			if i == j {
 				if err != nil {
 					t.Errorf("%s.Matches(key from %s) = %v, want nil",
