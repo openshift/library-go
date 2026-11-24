@@ -8,6 +8,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/client-go/config/informers/externalversions"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/controller/manager"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -80,6 +81,8 @@ type staticPodOperatorControllerBuilder struct {
 	readyzEndpoint                string
 	pdbUnhealthyPodEvictionPolicy *v1.UnhealthyPodEvictionPolicyType
 	guardCreateConditionalFunc    func() (bool, bool, error)
+	guardNodeFilter               guard.NodeFilterFunc
+	guardNodeFilterInformers      []factory.Informer
 
 	revisionControllerPrecondition   revisioncontroller.PreconditionFunc
 	revisionControllerReadinessCheck revisioncontroller.ReadinessCheckFunc
@@ -131,9 +134,19 @@ type Builder interface {
 	// This can help to drain/maintain a node and recover without a manual intervention when multiple instances of nodes or pods are misbehaving.
 	// Use this with caution, as this option can disrupt perspective pods that have not yet had a chance to become healthy.
 	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, pdbUnhealthyPodEvictionPolicy *v1.UnhealthyPodEvictionPolicyType, createConditionalFunc func() (bool, bool, error)) Builder
+	// WithGuardNodeFilter excludes permanently retired operands from guard and
+	// PDB management. Informers must cover every additional cached input used
+	// by the filter. Existing consumers do not opt into this behavior.
+	WithGuardNodeFilter(filter guard.NodeFilterFunc, informers ...factory.Informer) Builder
 	WithRevisionControllerPrecondition(revisionControllerPrecondition revisioncontroller.PreconditionFunc) Builder
 	WithRevisionControllerReadinessCheck(revisionControllerReadinessCheck revisioncontroller.ReadinessCheckFunc) Builder
 	ToControllers() (manager.ControllerManager, error)
+}
+
+func (b *staticPodOperatorControllerBuilder) WithGuardNodeFilter(filter guard.NodeFilterFunc, informers ...factory.Informer) Builder {
+	b.guardNodeFilter = filter
+	b.guardNodeFilterInformers = informers
+	return b
 }
 
 func (b *staticPodOperatorControllerBuilder) WithExtraNodeSelector(extraNodeSelector labels.Selector) Builder {
@@ -412,6 +425,8 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			eventRecorder,
 			b.guardCreateConditionalFunc,
 			b.extraNodeSelector,
+			guard.WithNodeFilter(b.guardNodeFilter),
+			guard.WithAdditionalInformers(b.guardNodeFilterInformers...),
 		); err == nil {
 			manager.WithController(guardController, 1)
 		} else {
