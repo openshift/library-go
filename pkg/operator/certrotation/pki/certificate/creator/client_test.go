@@ -13,6 +13,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/crypto"
 	"k8s.io/apiserver/pkg/authentication/user"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 func TestClientCertificateCreation(t *testing.T) {
@@ -126,7 +127,9 @@ func TestClientCertificateCreation(t *testing.T) {
 				Name: "homer",
 			}
 
+			fakeClock := clocktesting.NewFakeClock(time.Now())
 			client := NewClient(userInfo, tc.keyPairGeneratorGetter, tc.signerGetter, time.Hour)
+			client.clock = fakeClock
 
 			cert, err := client.CreateCertificate(t.Context())
 			if err != nil {
@@ -154,6 +157,10 @@ func TestClientCertificateCreation(t *testing.T) {
 
 			if leaf.Subject.CommonName != userInfo.Name {
 				t.Fatalf("expected leaf certificate subject common name to match %q but got %q", userInfo.Name, leaf.Subject.CommonName)
+			}
+
+			if fakeClock.Now().Add(time.Hour).Unix() != leaf.NotAfter.Unix() {
+				t.Fatalf("expected leaf certificate to have a not after unix time of %v but got %v", fakeClock.Now().Add(time.Hour).Unix(), leaf.NotAfter.Unix())
 			}
 		})
 	}

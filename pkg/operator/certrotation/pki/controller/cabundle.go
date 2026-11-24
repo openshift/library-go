@@ -14,10 +14,11 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/clock"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/cert"
@@ -41,6 +42,39 @@ type CABundle struct {
 	signerGetters []SignerGetter
 
 	metadataFn CABundleMetadataFn
+	clock      clock.PassiveClock
+}
+
+func NewCABundleController(
+	controllerName string,
+	name string,
+	namespace string,
+	metadataFn CABundleMetadataFn,
+	signerGetters []SignerGetter,
+	client corev1client.ConfigMapsGetter,
+	informer corev1informers.ConfigMapInformer,
+	recorder events.Recorder,
+	extraInformers []factory.Informer,
+) factory.Controller {
+	caBundle := &CABundle{
+		name:          name,
+		namespace:     namespace,
+		metadataFn:    metadataFn,
+		signerGetters: signerGetters,
+		client:        client,
+		lister:        informer.Lister(),
+		eventRecorder: recorder,
+		clock:         clock.RealClock{},
+	}
+
+	return factory.New().
+		ResyncEvery(time.Minute).
+		WithSync(caBundle.Sync).
+		WithInformers(append([]factory.Informer{informer.Informer()}, extraInformers...)...).
+		ToController(
+			"CABundleController",
+			recorder.WithComponentSuffix("ca-bundle-controller").WithComponentSuffix(name),
+		)
 }
 
 func (c *CABundle) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -74,7 +108,7 @@ func (c *CABundle) Sync(ctx context.Context, syncCtx factory.SyncContext) error 
 }
 
 func (c *CABundle) createConfigMap(ctx context.Context) error {
-	caCerts := sets.New[*x509.Certificate]()
+	caCerts := map[string]*x509.Certificate{}
 	for _, signerGetter := range c.signerGetters {
 		signer, err := signerGetter.GetSigner(ctx)
 		if err != nil {
@@ -85,15 +119,20 @@ func (c *CABundle) createConfigMap(ctx context.Context) error {
 			continue
 		}
 
-		// ignore any expired signing CA certificates TODO: make this a clock-based time evaluation
-		if time.Now().After(signer.Config.Certs[0].NotAfter) {
+		leaf := signer.Config.Certs[0]
+
+		// ignore any expired signing CA certificates
+		if c.clock.Now().After(leaf.NotAfter) {
 			continue
 		}
 
-		caCerts.Insert(signer.Config.Certs[0])
+		caCerts[string(leaf.Raw)] = leaf
 	}
 
-	finalCertificates := caCerts.UnsortedList()
+	finalCertificates := []*x509.Certificate{}
+	for _, value := range caCerts {
+		finalCertificates = append(finalCertificates, value)
+	}
 
 	// byte-wise stable sorting for deterministic ordering to prevent unnecessary updates
 	// due to ordering issues.
@@ -128,10 +167,10 @@ func (c *CABundle) createConfigMap(ctx context.Context) error {
 }
 
 func (c *CABundle) updateCAs(ctx context.Context, cm *corev1.ConfigMap) error {
-	caCerts := sets.New[*x509.Certificate]()
+	caCerts := map[string]*x509.Certificate{}
 
 	if cm.Data != nil {
-		if certsStr, ok := cm.Data["ca-bundle.crt"]; ok {
+		if certsStr, ok := cm.Data["ca-bundle.crt"]; ok && len(certsStr) > 0 {
 			certs, err := cert.ParseCertsPEM([]byte(certsStr))
 			if err != nil {
 				return fmt.Errorf("could not parse existing certificates: %w", err)
@@ -139,7 +178,9 @@ func (c *CABundle) updateCAs(ctx context.Context, cm *corev1.ConfigMap) error {
 
 			certs = crypto.FilterExpiredCerts(certs...)
 
-			caCerts.Insert(certs...)
+			for _, cert := range certs {
+				caCerts[string(cert.Raw)] = cert
+			}
 		}
 	}
 
@@ -153,15 +194,20 @@ func (c *CABundle) updateCAs(ctx context.Context, cm *corev1.ConfigMap) error {
 			continue
 		}
 
-		// ignore any expired signing CA certificates TODO: make this a clock-based time evaluation
-		if time.Now().After(signer.Config.Certs[0].NotAfter) {
+		leaf := signer.Config.Certs[0]
+
+		// ignore any expired signing CA certificates
+		if c.clock.Now().After(leaf.NotAfter) {
 			continue
 		}
 
-		caCerts.Insert(signer.Config.Certs[0])
+		caCerts[string(leaf.Raw)] = leaf
 	}
 
-	finalCertificates := caCerts.UnsortedList()
+	finalCertificates := []*x509.Certificate{}
+	for _, value := range caCerts {
+		finalCertificates = append(finalCertificates, value)
+	}
 
 	// byte-wise stable sorting for deterministic ordering to prevent unnecessary updates
 	// due to ordering issues.

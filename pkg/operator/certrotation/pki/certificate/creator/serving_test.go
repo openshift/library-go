@@ -12,6 +12,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/crypto"
 	"k8s.io/apimachinery/pkg/util/sets"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 func TestServingCertificateCreation(t *testing.T) {
@@ -121,6 +122,7 @@ func TestServingCertificateCreation(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
+			fakeClock := clocktesting.NewFakeClock(time.Now())
 			serving := NewServing(
 				func() sets.Set[string] {
 					return sets.New("example.com")
@@ -129,6 +131,7 @@ func TestServingCertificateCreation(t *testing.T) {
 				tc.signerGetter,
 				time.Hour,
 			)
+			serving.clock = fakeClock
 
 			cert, err := serving.CreateCertificate(t.Context())
 			if err != nil {
@@ -163,6 +166,10 @@ func TestServingCertificateCreation(t *testing.T) {
 
 			if !expectedDNSNameSet.Equal(actualDNSNameSet) {
 				t.Fatalf("expected leaf certificate to have DNSNames %v but got %v", expectedDNSNameSet, actualDNSNameSet)
+			}
+
+			if fakeClock.Now().Add(time.Hour).Unix() != leaf.NotAfter.Unix() {
+				t.Fatalf("expected leaf certificate to have a not after unix time of %v but got %v", fakeClock.Now().Add(time.Hour).Unix(), leaf.NotAfter.Unix())
 			}
 		})
 	}

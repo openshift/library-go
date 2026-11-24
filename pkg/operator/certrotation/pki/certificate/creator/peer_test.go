@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 func TestPeerCertificateCreation(t *testing.T) {
@@ -126,6 +127,8 @@ func TestPeerCertificateCreation(t *testing.T) {
 				Name: "homer",
 			}
 
+			fakeClock := clocktesting.NewFakeClock(time.Now())
+
 			peer := NewPeer(
 				func() sets.Set[string] {
 					return sets.New("example.com")
@@ -135,6 +138,7 @@ func TestPeerCertificateCreation(t *testing.T) {
 				tc.signerGetter,
 				time.Hour,
 			)
+			peer.clock = fakeClock
 
 			cert, err := peer.CreateCertificate(t.Context())
 			if err != nil {
@@ -181,6 +185,10 @@ func TestPeerCertificateCreation(t *testing.T) {
 
 			if leaf.Subject.CommonName != userInfo.Name {
 				t.Fatalf("expected leaf certificate subject common name to match %q but got %q", userInfo.Name, leaf.Subject.CommonName)
+			}
+
+			if fakeClock.Now().Add(time.Hour).Unix() != leaf.NotAfter.Unix() {
+				t.Fatalf("expected leaf certificate to have a not after unix time of %v but got %v", fakeClock.Now().Add(time.Hour).Unix(), leaf.NotAfter.Unix())
 			}
 		})
 	}

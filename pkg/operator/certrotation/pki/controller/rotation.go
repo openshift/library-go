@@ -99,10 +99,15 @@ func (r *CertificateRotation) Sync(ctx context.Context, syncCtx factory.SyncCont
 	}
 
 	if !needsRotation && existingCopy.Data != nil {
-		_, hasCerts := existingCopy.Data["tls.crt"]
-		_, hasKey := existingCopy.Data["tls.key"]
+		certs, hasCerts := existingCopy.Data["tls.crt"]
+		key, hasKey := existingCopy.Data["tls.key"]
 
 		if !hasCerts || !hasKey {
+			needsRotation = true
+			rotationReason = "missing content"
+		}
+
+		if len(string(certs)) == 0 || len(string(key)) == 0 {
 			needsRotation = true
 			rotationReason = "missing content"
 		}

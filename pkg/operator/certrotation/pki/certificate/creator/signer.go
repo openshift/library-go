@@ -41,7 +41,7 @@ func (c *IntermediateSigner) CreateCertificate(ctx context.Context) (*crypto.TLS
 		return nil, fmt.Errorf("getting key pair generator: %w", err)
 	}
 
-	return crypto.NewSigningCertificate(name, kpg, crypto.WithLifetime(c.lifetime), crypto.WithSigner(signer))
+	return crypto.NewSigningCertificate(name, kpg, crypto.WithLifetime(c.lifetime), crypto.WithSigner(signer), crypto.WithNowFunc(func() time.Time { return now }))
 }
 
 type SelfSignedSigner struct {
@@ -71,5 +71,5 @@ func (c *SelfSignedSigner) CreateCertificate(ctx context.Context) (*crypto.TLSCe
 		return nil, fmt.Errorf("getting key pair generator: %w", err)
 	}
 
-	return crypto.NewSigningCertificate(name, kpg, crypto.WithLifetime(c.lifetime))
+	return crypto.NewSigningCertificate(name, kpg, crypto.WithLifetime(c.lifetime), crypto.WithNowFunc(func() time.Time { return now }))
 }

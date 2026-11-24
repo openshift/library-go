@@ -7,7 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-func RecoveryRotationFn() controller.RotationFn {
+func RecoveryRotationFn() controller.CertificateRotationRotationFn {
 	return func(s *v1.Secret) (bool, string, error) {
 		tlsCertCfg, err := loadCertificateConfigFromSecret(s)
 		if err != nil {

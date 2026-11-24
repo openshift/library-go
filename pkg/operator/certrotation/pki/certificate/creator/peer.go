@@ -44,5 +44,5 @@ func (c *Peer) CreateCertificate(ctx context.Context) (*crypto.TLSCertificateCon
 		return nil, fmt.Errorf("getting key pair generator: %w", err)
 	}
 
-	return signer.NewPeerCertificate(c.hostnamesFn(), c.userInfo, kpg, crypto.WithLifetime(c.lifetime))
+	return signer.NewPeerCertificate(c.hostnamesFn(), c.userInfo, kpg, crypto.WithLifetime(c.lifetime), crypto.WithNowFunc(c.clock.Now))
 }

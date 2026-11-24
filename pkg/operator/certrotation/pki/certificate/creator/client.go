@@ -39,5 +39,5 @@ func (c *Client) CreateCertificate(ctx context.Context) (*crypto.TLSCertificateC
 		return nil, fmt.Errorf("getting key pair generator: %w", err)
 	}
 
-	return signer.NewClientCertificate(c.userInfo, kpg, crypto.WithLifetime(c.lifetime))
+	return signer.NewClientCertificate(c.userInfo, kpg, crypto.WithLifetime(c.lifetime), crypto.WithNowFunc(c.clock.Now))
 }
