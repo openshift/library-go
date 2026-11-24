@@ -1,6 +1,6 @@
 # Proposal: `crypto.KeySpec` — separate key parameters from key generation
 
-**Status:** Draft
+**Status:** Prototyped — see "Prototype results" below
 **Date:** 2026-11-23
 **Related:** PR #2535 (`configurable-pki`), PR #2584 (`keygenerator-rework`), PR #2550 (`KeyPairGenerator.Matches`)
 
@@ -142,43 +142,128 @@ func KeySpecFromPublicKey(pub crypto.PublicKey) (KeySpec, error)
 - **`KeyAlgorithm` earns its keep** as the spec's discriminator.
 - **ML-DSA is additive:** one more `Algorithm` value and a parameter-set field.
 
-## Design decisions to make
+## Design decisions
+
+The prototype resolved the open decisions as follows; each held up in
+practice:
 
 ### Flat struct vs. sealed interface
 
-- **Flat struct (recommended).** Mirrors the API's discriminated
-  `PKIKeyConfig`, supports `==`, and uses `KeyAlgorithm`. Cost: invalid
-  combinations are representable, so `Validate` must reject them.
-- **Sealed interface** (`RSAKeySpec{Bits}`, `ECDSAKeySpec{Curve}`). Invalid
-  combinations are unrepresentable, but this is upstream master's exported
-  generator structs renamed, and loses `==` across algorithms.
+**Flat struct.** It mirrors the API's discriminated `PKIKeyConfig`, supports
+`==` (which the resolution tests now lean on directly), and gives
+`KeyAlgorithm` its purpose. The cost — invalid combinations are
+representable — is contained by `Validate`, and turned out to be cheap:
+the whole validation surface is four error strings.
 
 ### Whether `Matches` stays on `KeyPairGenerator`
 
-`Matches` is upstream API (#2550). The low-risk path keeps it on the
-interface, with built-in generators delegating to their spec, while `KeySpec`
-becomes the primary path for new code.
+**It stays.** `Matches` is upstream API (#2550); the built-in generator
+delegates to `spec.Matches`, and `KeySpec.Matches` is available as the
+data-level path for new code. `SecurityLevel()` however came *off* the
+interface — strength is a property of the spec, and keeping it off the
+interface removes #2584's breakage of out-of-tree implementers.
 
 ### Where it lands
 
-This is a crypto-layer change, so it fits #2584 (master-based, already
-reworking `pkg/crypto`) better than #2535, which is in review. It also
-reconciles a divergence between the two branches: #2584 keeps the generator
-structs exported; `configurable-pki` unexports them. With `KeySpec`, the *spec*
-is exported and the *generators* stay unexported.
+The prototype is built on #2584's tip (`fbd35e47f`), which is where the
+change belongs: it is a crypto-layer change, #2584 is already reworking
+`pkg/crypto`, and `KeySpec` subsumes #2584's `SecurityLevel()`-on-interface
+design (the `SecurityLevel` *type* and its `Compare` are kept as-is; only
+the interface method moves to `KeySpec`).
 
-Changing `Resolved*Config.Key` from `KeyPairGenerator` to `KeySpec` is a Tech
-Preview break in the same category as the already-accepted
-`ResolveCertificateConfig` signature change. The CKAO and service-ca proof PRs
-should be checked for direct use of `cfg.Key`.
+Changing `CertificateConfig.Key` (and, on `configurable-pki`,
+`Resolved*Config.Key`) from `KeyPairGenerator` to `KeySpec` is a Tech Preview
+break in the same category as the already-accepted
+`ResolveCertificateConfig` signature change. The CKAO and service-ca proof
+PRs should still be checked for direct use of `cfg.Key`.
 
 ### Naming
 
-`KeySpec` reads well within `pkg/crypto`. `KeyParams` is the alternative if
-echoing the API's `*Spec` naming convention is a concern.
+`KeySpec`. It reads well at every call site the prototype produced
+(`cfg.Key.KeyPairGenerator()`, `crypto.StrongerKeySpec`, `keySpec.Algorithm != ""`).
+
+## Prototype results
+
+A working prototype is committed as `37aa4bb26` on branch
+`worktree-keyspec-proposal` (worktree
+`.claude/worktrees/keyspec-proposal`), based on #2584's tip. All crypto, pki,
+and certrotation tests pass; the only failure, `TestConstantMaps`, is
+pre-existing on that base (local Go toolchain newer than the branch's TLS
+constant maps).
+
+### What the API became
+
+The sketch above survived almost unchanged. The realized surface:
+
+```go
+type KeySpec struct {
+    Algorithm  KeyAlgorithm
+    RSABits    int
+    ECDSACurve ECDSACurve
+}
+func (s KeySpec) Validate() error
+func (s KeySpec) KeyPairGenerator() (KeyPairGenerator, error)
+func (s KeySpec) SecurityLevel() SecurityLevel
+func (s KeySpec) String() string
+func (s KeySpec) Matches(pub crypto.PublicKey) error
+func KeySpecFromPublicKey(pub crypto.PublicKey) (KeySpec, error)
+func StrongerKeySpec(a, b KeySpec) KeySpec
+```
+
+plus `MinRSAKeySize` moved here as the floor constant.
+
+### What collapsed
+
+- The two per-algorithm generator types became **one unexported
+  `keyPairGenerator{spec}`**: `keygen_rsa.go` went from 79 to 20 lines,
+  `keygen_ecdsa.go` from 91 to 47. The per-generator `Matches`,
+  `SecurityLevel`, zero-value-default, and constructor-validation logic
+  all reduced to spec operations.
+- `pkg/pki`'s `selfCheckingKeyPairGenerator` is **deleted** (`resolve.go`
+  went from 113 to 78 lines) — the self-check moved into
+  `KeySpec.KeyPairGenerator()`, where the generator is constructed, and now
+  covers every consumer rather than only pki resolution.
+- `pki.KeyPairGeneratorFromAPI` became `pki.KeySpecFromAPI`, a field mapping
+  with one validation call.
+- `StrongerKeySpec` is two `SecurityLevel` comparisons and a field check —
+  the closed-world type switch and the `ECDSAKeyPairGenerator`
+  type-assertion tie-break are gone.
+
+### What the consumers look like now
+
+- **Resolution is pure data.** `CertificateConfig.Key` is a `KeySpec`, so
+  `ResolveCertificateConfig` results can be compared with `==`, printed
+  (`"ECDSA P384"`), logged, and strength-ranked by any consumer. The pki
+  resolve tests shrank from "generate a key, then match it" to
+  `cfg.Key != want`.
+- **Certrotation derives the generator at the point of use.**
+  `resolveKeySpecWithFallback` returns a zero `KeySpec` for Unmanaged
+  (checked via `Algorithm != ""`, replacing the nil-generator convention),
+  and both generation sites call `keySpec.KeyPairGenerator()` inline.
+- The interface `KeyPairGenerator` shrank back to `GenerateKeyPair` +
+  `Matches`, so consumer test fakes that #2584 would have broken keep
+  compiling.
+
+### Behavior changes to be aware of
+
+- The upstream `Bits: 0 → 2048` implicit default for RSA is **gone**: a zero
+  `RSABits` is invalid at `KeyPairGenerator()`. This matches the
+  configurable-pki direction but is a real change for any master consumer
+  relying on `RSAKeyPairGenerator{}`.
+- `pki.brokenKeyPairGenerator` (the test proving the self-check catches a
+  lying generator) was removed with the wrapper: pki can no longer inject
+  generators into resolution at all, which is the point. The equivalent
+  guarantee is covered by crypto's cross-product `Matches` tests plus the
+  in-constructor self-check.
+- Net diff vs `fbd35e47f`: −493/+687 lines, of which 153 are the new
+  `keyspec_test.go` coverage (`Validate` cases, `String`, public-key
+  round-trips, `StrongerKeySpec` ordering, constructor rejection of invalid
+  specs); the rest of the additions are `keyspec.go` itself (184 lines) and
+  the spec-driven test conversions.
 
 ## Next step
 
-Prototype `KeySpec` and `KeySpecFromPublicKey` on the `keygenerator-rework`
-branch and measure how much of `strength.go`, the per-generator `Matches`
-implementations, and `KeyPairGeneratorFromAPI` collapses.
+Decide whether to fold this into #2584 (replacing its
+`SecurityLevel()`-on-interface commits) or land it as a follow-up; then check
+the CKAO and service-ca proof PRs for direct use of `cfg.Key` as a generator
+before porting the `Resolved*Config.Key` type change onto `configurable-pki`.
