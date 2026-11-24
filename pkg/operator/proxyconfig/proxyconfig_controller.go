@@ -66,7 +66,9 @@ func WithEndpointWarnings(eventReason string, endpoints func() ([]*url.URL, erro
 
 // WithTrustedCABundles adds a function returning PEM CA bundles that are trusted, in addition to the
 // CA ConfigMaps passed to the controller, when probing endpoints. The bundles are shared by all probes.
-// It can be used multiple times.
+// When CA ConfigMaps are passed to the controller, they are the base trust and replace the system roots,
+// so they are expected to be complete, like the bundle the operand uses. Without CA ConfigMaps, the bundles
+// are added to the system roots. It can be used multiple times.
 func WithTrustedCABundles(bundles func() ([][]byte, error)) Option {
 	return func(p *proxyConfigChecker) { p.trustedCABundles = append(p.trustedCABundles, bundles) }
 }
@@ -374,18 +376,27 @@ func (p *proxyConfigChecker) createHTTPClients(proxy ResolvedProxy) (probeClient
 	}
 	poolOpt := httptransport.WithCertPool(caPool)
 
-	// The resolver resolves the proxy again inside NewTransport. Override its proxy function with
-	// the one for the proxy this sync resolved, so that a change in between cannot make the probes
-	// route by settings other than the ones the results are evaluated and recorded for.
-	regularProxyFunc := proxy.ProxyFunc()
-	regular, err := p.proxyResolver.NewTransport(poolOpt, httptransport.WithProxyFunc(func(req *http.Request) (*url.URL, error) {
-		return regularProxyFunc(req.URL)
-	}))
+	// The resolver resolves the proxy again inside NewTransport. The proxy function passed here overrides
+	// its, so that a change in between cannot make the probes route by settings other than the ones the
+	// results are evaluated and recorded for.
+	newClient := func(proxyFunc func(*url.URL) (*url.URL, error)) (*http.Client, error) {
+		opt := httptransport.WithProxyFunc(nil)
+		if proxyFunc != nil {
+			opt = httptransport.WithProxyFunc(func(req *http.Request) (*url.URL, error) { return proxyFunc(req.URL) })
+		}
+		transport, err := p.proxyResolver.NewTransport(poolOpt, opt)
+		if err != nil {
+			return nil, err
+		}
+		return &http.Client{Transport: transport}, nil
+	}
+
+	regular, err := newClient(proxy.ProxyFunc())
 	if err != nil {
 		return probeClients{}, "", err
 	}
 
-	direct, err := p.proxyResolver.NewTransport(poolOpt, httptransport.WithProxyFunc(nil))
+	direct, err := newClient(nil)
 	if err != nil {
 		return probeClients{}, "", err
 	}
@@ -394,60 +405,66 @@ func (p *proxyConfigChecker) createHTTPClients(proxy ResolvedProxy) (probeClient
 	// Loopback addresses are still reached directly: they are never proxied, regardless of NO_PROXY,
 	// so there is no NO_PROXY misconfiguration to detect, and through the proxy they would hit
 	// the proxy host's own loopback interface.
-	forcedProxyFunc := ResolvedProxy{HTTPProxy: proxy.HTTPProxy, HTTPSProxy: proxy.HTTPSProxy}.ProxyFunc()
-	forcedProxy, err := p.proxyResolver.NewTransport(poolOpt, httptransport.WithProxyFunc(func(req *http.Request) (*url.URL, error) {
-		return forcedProxyFunc(req.URL)
-	}))
+	forcedProxy, err := newClient(ResolvedProxy{HTTPProxy: proxy.HTTPProxy, HTTPSProxy: proxy.HTTPSProxy}.ProxyFunc())
 	if err != nil {
 		return probeClients{}, "", err
 	}
 
-	return probeClients{
-		regular:     &http.Client{Transport: regular},
-		direct:      &http.Client{Transport: direct},
-		forcedProxy: &http.Client{Transport: forcedProxy},
-	}, trustDigest, nil
+	return probeClients{regular: regular, direct: direct, forcedProxy: forcedProxy}, trustDigest, nil
 }
 
-// getCAPool builds a certificate pool from the configured system trust ConfigMaps and the trusted
-// CA bundles, and returns it with a digest of its contents. When there are no CAs to add, the pool
-// is nil, so that the system trust pool is used.
+// getCAPool builds the pool the probe clients trust and a digest of its CAs (except the proxy trusted CA,
+// which is identified by proxy.TrustedCAName). The system trust ConfigMaps are the base trust and replace
+// the system roots, like the bundle the operand uses. The trusted CA bundles are added on top of the base,
+// which is the system roots when there are no ConfigMaps. When there are no CAs to add, the pool is nil,
+// so that the system roots are used.
 func (p *proxyConfigChecker) getCAPool() (*x509.CertPool, string, error) {
-	pool := x509.NewCertPool()
-	added := false
 	digest := sha256.New()
+	track := func(bundle []byte) []byte {
+		_, _ = fmt.Fprintf(digest, "%d:%s", len(bundle), bundle)
+		return bundle
+	}
 
-	namespaces := slices.Sorted(maps.Keys(p.caConfigMaps))
-	for _, ns := range namespaces {
+	base := x509.NewCertPool()
+	hasBase := false
+	for _, ns := range slices.Sorted(maps.Keys(p.caConfigMaps)) {
 		for _, cmName := range p.caConfigMaps[ns] {
 			bundle, err := loadCAData(p.configMapLister, ns, cmName, trustedCAKey)
 			if err != nil {
 				return nil, "", err
 			}
-			if ok := pool.AppendCertsFromPEM(bundle); !ok {
+			if !base.AppendCertsFromPEM(track(bundle)) {
 				return nil, "", fmt.Errorf("unable to parse CA bundle from configmap %s/%s", ns, cmName)
 			}
-			added = true
-			_, _ = fmt.Fprintf(digest, "%d:%s", len(bundle), bundle)
+			hasBase = true
 		}
 	}
 
+	var extra [][]byte
 	for _, trustedCABundles := range p.trustedCABundles {
 		bundles, err := trustedCABundles()
 		if err != nil {
 			return nil, "", err
 		}
-		for i, bundle := range bundles {
-			if ok := pool.AppendCertsFromPEM(bundle); !ok {
-				return nil, "", fmt.Errorf("unable to parse trusted CA bundle #%d", i)
-			}
-			added = true
-			_, _ = fmt.Fprintf(digest, "%d:%s", len(bundle), bundle)
+		for _, bundle := range bundles {
+			extra = append(extra, track(bundle))
 		}
 	}
+	if !hasBase && len(extra) == 0 {
+		return nil, "", nil
+	}
 
-	if !added {
-		pool = nil
+	pool := base
+	if !hasBase {
+		var err error
+		if pool, err = x509.SystemCertPool(); err != nil {
+			return nil, "", fmt.Errorf("loading system certificate pool failed: %w", err)
+		}
+	}
+	for i, bundle := range extra {
+		if !pool.AppendCertsFromPEM(bundle) {
+			return nil, "", fmt.Errorf("unable to parse trusted CA bundle #%d", i)
+		}
 	}
 	return pool, fmt.Sprintf("%x", digest.Sum(nil)), nil
 }

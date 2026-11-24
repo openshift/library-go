@@ -541,8 +541,9 @@ func Test_validateProxyURLs(t *testing.T) {
 	}
 }
 
-// Test_getCAPool checks how the trust pool is built from the CA ConfigMaps and the trusted bundle callbacks,
-// and that it is nil when there is nothing to add, so that the system trust is used.
+// Test_getCAPool checks how the trust pool is built from the CA ConfigMaps and the trusted bundle callbacks:
+// the ConfigMaps replace the system roots, the callback bundles are added on top of the base, and the pool
+// is nil when there is nothing to add, so that the system trust is used.
 func Test_getCAPool(t *testing.T) {
 	var (
 		// every certificate is distinct, so that the expected pool tells where each one came from
@@ -558,14 +559,19 @@ func Test_getCAPool(t *testing.T) {
 		bundles [][]byte
 		err     error
 	}
+
+	system, err := x509.SystemCertPool()
+	require.NoError(t, err)
+
 	tests := []struct {
 		name string
 		// configMaps are all configured as system trust ConfigMaps, all of them in the namespace "ns".
 		configMaps []*corev1.ConfigMap
 		sources    []bundleSource
-		// wantCAs are the certificates the pool must hold, none means no pool, i.e. the system trust.
-		wantCAs [][]byte
-		wantErr string
+		// wantSystem tells whether the system roots are in the pool, next to wantCAs. Neither means a nil pool.
+		wantSystem bool
+		wantCAs    [][]byte
+		wantErr    string
 	}{
 		{
 			name: "nothing configured keeps the system trust",
@@ -585,9 +591,16 @@ func Test_getCAPool(t *testing.T) {
 			wantCAs:    [][]byte{inBinaryDataCA},
 		},
 		{
-			name:    "callback bundles are trusted",
-			sources: []bundleSource{{bundles: [][]byte{fromCallbackCA}}},
-			wantCAs: [][]byte{fromCallbackCA},
+			name:       "callback bundles without configmaps are added to the system roots",
+			sources:    []bundleSource{{bundles: [][]byte{fromCallbackCA}}},
+			wantSystem: true,
+			wantCAs:    [][]byte{fromCallbackCA},
+		},
+		{
+			name:       "callback bundles with configmaps replace the system roots",
+			configMaps: []*corev1.ConfigMap{inData},
+			sources:    []bundleSource{{bundles: [][]byte{fromCallbackCA}}},
+			wantCAs:    [][]byte{inDataCA, fromCallbackCA},
 		},
 		{
 			name:       "configmaps and the bundles of all callbacks are combined",
@@ -623,27 +636,25 @@ func Test_getCAPool(t *testing.T) {
 			}
 
 			pool, _, err := p.getCAPool()
-
 			if len(tt.wantErr) > 0 {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
-			require.True(t, certPool(t, tt.wantCAs...).Equal(pool), "the pool does not hold exactly the wanted CAs")
+			if !tt.wantSystem && len(tt.wantCAs) == 0 {
+				require.Nil(t, pool)
+				return
+			}
+			want := x509.NewCertPool()
+			if tt.wantSystem {
+				want = system.Clone()
+			}
+			for _, pem := range tt.wantCAs {
+				require.True(t, want.AppendCertsFromPEM(pem))
+			}
+			require.True(t, want.Equal(pool), "the pool does not hold exactly the wanted CAs")
 		})
 	}
-}
-
-// certPool returns a pool holding the given PEM certificates, nil when there are none.
-func certPool(t *testing.T, pems ...[]byte) *x509.CertPool {
-	if len(pems) == 0 {
-		return nil
-	}
-	pool := x509.NewCertPool()
-	for _, pem := range pems {
-		require.True(t, pool.AppendCertsFromPEM(pem))
-	}
-	return pool
 }
 
 // Test_getCAPool_digest checks that the digest of the trusted CAs is stable between calls and changes
