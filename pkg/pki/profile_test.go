@@ -112,73 +112,38 @@ func TestKeyPairGeneratorFromAPI(t *testing.T) {
 	}
 }
 
-func TestSecurityBits(t *testing.T) {
+func TestSecurityLevel(t *testing.T) {
 	testCases := []struct {
 		name string
 		g    crypto.KeyPairGenerator
-		want int
+		want crypto.SecurityLevel
 	}{
 		{
-			name: "RSA-2048",
+			name: "RSA generator",
 			g:    crypto.RSAKeyPairGenerator{Bits: 2048},
-			want: 112,
+			want: crypto.SecurityLevel{ClassicalBits: 112},
 		},
 		{
-			name: "RSA-3072",
-			g:    crypto.RSAKeyPairGenerator{Bits: 3072},
-			want: 128,
-		},
-		{
-			name: "RSA-4096",
-			g:    crypto.RSAKeyPairGenerator{Bits: 4096},
-			want: 152,
-		},
-		{
-			name: "RSA-5120",
-			g:    crypto.RSAKeyPairGenerator{Bits: 5120},
-			want: 168,
-		},
-		{
-			name: "RSA-6144",
-			g:    crypto.RSAKeyPairGenerator{Bits: 6144},
-			want: 176,
-		},
-		{
-			name: "RSA-7168",
-			g:    crypto.RSAKeyPairGenerator{Bits: 7168},
-			want: 192,
-		},
-		{
-			name: "RSA-8192",
-			g:    crypto.RSAKeyPairGenerator{Bits: 8192},
-			want: 200,
-		},
-		{
-			name: "RSA-1024 unsupported",
-			g:    crypto.RSAKeyPairGenerator{Bits: 1024},
-			want: 0,
-		},
-		{
-			name: "ECDSA-P256",
-			g:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
-			want: 128,
-		},
-		{
-			name: "ECDSA-P384",
+			name: "ECDSA generator",
 			g:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
-			want: 192,
+			want: crypto.SecurityLevel{ClassicalBits: 192},
 		},
 		{
-			name: "ECDSA-P521",
-			g:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P521},
-			want: 256,
+			name: "self-checking wrapper forwards to the wrapped generator",
+			g:    selfCheckingKeyPairGenerator{inner: crypto.ECDSAKeyPairGenerator{Curve: crypto.P521}},
+			want: crypto.SecurityLevel{ClassicalBits: 256},
+		},
+		{
+			name: "generator without a security level gets the zero level",
+			g:    brokenKeyPairGenerator{},
+			want: crypto.SecurityLevel{},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := securityBits(tc.g)
+			got := securityLevel(tc.g)
 			if got != tc.want {
-				t.Errorf("securityBits(%s) = %d, want %d", tc.name, got, tc.want)
+				t.Errorf("securityLevel(%s) = %+v, want %+v", tc.name, got, tc.want)
 			}
 		})
 	}

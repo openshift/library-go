@@ -60,47 +60,30 @@ func ecdsaCurveFromAPI(c configv1alpha1.ECDSACurve) (crypto.ECDSACurve, error) {
 	}
 }
 
-// securityBits returns the NIST security strength in bits for a given
-// KeyPairGenerator. For RSA, values come from the rsaSecurityStrength table.
-// For ECDSA, security strength is half the key size (fixed per curve).
-func securityBits(g crypto.KeyPairGenerator) int {
-	switch g := g.(type) {
-	case crypto.RSAKeyPairGenerator:
-		return rsaSecurityStrength[g.Bits]
-	case crypto.ECDSAKeyPairGenerator:
-		switch g.Curve {
-		case crypto.P256:
-			return 128
-		case crypto.P384:
-			return 192
-		case crypto.P521:
-			return 256
-		}
+// securityLevelReporter is implemented by key pair generators that report
+// the security strength of the keys they produce. A generator without the
+// method reports the zero level, which loses every comparison.
+type securityLevelReporter interface {
+	SecurityLevel() crypto.SecurityLevel
+}
+
+// securityLevel returns the security strength of the keys g produces.
+// Generators that do not report a security level get the zero level.
+func securityLevel(g crypto.KeyPairGenerator) crypto.SecurityLevel {
+	if r, ok := g.(securityLevelReporter); ok {
+		return r.SecurityLevel()
 	}
-	return 0
+	return crypto.SecurityLevel{}
 }
 
-// rsaSecurityStrength maps RSA key sizes (2048-8192 in 1024-bit increments)
-// to their security strengths from NIST SP 800-56B Rev 2 Table 2 or
-// pre-calculated from the GNFS complexity estimate.
-var rsaSecurityStrength = map[int]int{
-	2048: 112,
-	3072: 128,
-	4096: 152,
-	5120: 168,
-	6144: 176,
-	7168: 192,
-	8192: 200,
-}
-
-// strongerKeyPairGenerator returns whichever of a or b provides higher NIST
+// strongerKeyPairGenerator returns whichever of a or b provides higher
 // security strength. In case of a tie, ECDSA is preferred over RSA.
 func strongerKeyPairGenerator(a, b crypto.KeyPairGenerator) crypto.KeyPairGenerator {
-	sa, sb := securityBits(a), securityBits(b)
-	if sb > sa {
+	sa, sb := securityLevel(a), securityLevel(b)
+	if sb.Compare(sa) > 0 {
 		return b
 	}
-	if sa > sb {
+	if sa.Compare(sb) > 0 {
 		return a
 	}
 	// Equal strength: prefer ECDSA over RSA.
