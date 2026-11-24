@@ -74,3 +74,18 @@ func (g ECDSAKeyPairGenerator) ellipticCurve() (elliptic.Curve, error) {
 }
 
 var _ KeyPairGenerator = ECDSAKeyPairGenerator{}
+
+// SecurityLevel returns half the curve's key size, the security strength of
+// ECDSA. An unknown curve, which GenerateKeyPair rejects, has strength 0.
+func (g ECDSAKeyPairGenerator) SecurityLevel() SecurityLevel {
+	switch g.Curve {
+	case P256:
+		return SecurityLevel{ClassicalBits: 128}
+	case P384:
+		return SecurityLevel{ClassicalBits: 192}
+	case P521:
+		return SecurityLevel{ClassicalBits: 256}
+	default:
+		return SecurityLevel{}
+	}
+}
