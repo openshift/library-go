@@ -11,6 +11,7 @@ type CertificateOptions struct {
 	subject      *pkix.Name
 	extensionFns []CertificateExtensionFunc
 	signer       *CA
+	nowFunc      func() time.Time
 }
 
 // CertificateOption is a functional option for certificate creation.
@@ -45,5 +46,11 @@ func WithSigner(ca *CA) CertificateOption {
 func WithExtensions(fns ...CertificateExtensionFunc) CertificateOption {
 	return func(o *CertificateOptions) {
 		o.extensionFns = append(o.extensionFns, fns...)
+	}
+}
+
+func WithNowFunc(nowFn func() time.Time) CertificateOption {
+	return func(o *CertificateOptions) {
+		o.nowFunc = nowFn
 	}
 }
