@@ -820,6 +820,12 @@ func makeSelfSignedCAConfigForSubjectAndDuration(subject pkix.Name, currentTime 
 }
 
 func MakeCAConfigForDuration(name string, caLifetime time.Duration, issuer *CA) (*TLSCertificateConfig, error) {
+	return MakeCAConfigForDurationAtTime(name, caLifetime, time.Now, issuer)
+}
+
+// MakeCAConfigForDurationAtTime is MakeCAConfigForDuration with the current
+// time supplied by currentTime instead of the system clock.
+func MakeCAConfigForDurationAtTime(name string, caLifetime time.Duration, currentTime func() time.Time, issuer *CA) (*TLSCertificateConfig, error) {
 	// Create CA cert
 	signerPublicKey, signerPrivateKey, publicKeyHash, err := newKeyPairWithHash()
 	if err != nil {
@@ -827,7 +833,7 @@ func MakeCAConfigForDuration(name string, caLifetime time.Duration, issuer *CA) 
 	}
 	authorityKeyId := issuer.Config.Certs[0].SubjectKeyId
 	subjectKeyId := publicKeyHash
-	signerTemplate := newSigningCertificateTemplateForDuration(pkix.Name{CommonName: name}, caLifetime, time.Now, authorityKeyId, subjectKeyId)
+	signerTemplate := newSigningCertificateTemplateForDuration(pkix.Name{CommonName: name}, caLifetime, currentTime, authorityKeyId, subjectKeyId)
 	signerCert, err := issuer.SignCertificate(signerTemplate, signerPublicKey)
 	if err != nil {
 		return nil, err
@@ -956,10 +962,16 @@ func (ca *CA) MakeServerCert(hostnames sets.Set[string], lifetime time.Duration,
 }
 
 func (ca *CA) MakeServerCertForDuration(hostnames sets.Set[string], lifetime time.Duration, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
+	return ca.MakeServerCertForDurationAtTime(hostnames, lifetime, time.Now, fns...)
+}
+
+// MakeServerCertForDurationAtTime is MakeServerCertForDuration with the current
+// time supplied by currentTime instead of the system clock.
+func (ca *CA) MakeServerCertForDurationAtTime(hostnames sets.Set[string], lifetime time.Duration, currentTime func() time.Time, fns ...CertificateExtensionFunc) (*TLSCertificateConfig, error) {
 	serverPublicKey, serverPrivateKey, publicKeyHash, _ := newKeyPairWithHash()
 	authorityKeyId := ca.Config.Certs[0].SubjectKeyId
 	subjectKeyId := publicKeyHash
-	serverTemplate := newServerCertificateTemplateForDuration(pkix.Name{CommonName: sets.List(hostnames)[0]}, sets.List(hostnames), lifetime, time.Now, authorityKeyId, subjectKeyId)
+	serverTemplate := newServerCertificateTemplateForDuration(pkix.Name{CommonName: sets.List(hostnames)[0]}, sets.List(hostnames), lifetime, currentTime, authorityKeyId, subjectKeyId)
 	for _, fn := range fns {
 		if err := fn(serverTemplate); err != nil {
 			return nil, err
@@ -1045,8 +1057,14 @@ func (ca *CA) MakeClientCertificate(certFile, keyFile string, u user.Info, lifet
 }
 
 func (ca *CA) MakeClientCertificateForDuration(u user.Info, lifetime time.Duration) (*TLSCertificateConfig, error) {
+	return ca.MakeClientCertificateForDurationAtTime(u, lifetime, time.Now)
+}
+
+// MakeClientCertificateForDurationAtTime is MakeClientCertificateForDuration
+// with the current time supplied by currentTime instead of the system clock.
+func (ca *CA) MakeClientCertificateForDurationAtTime(u user.Info, lifetime time.Duration, currentTime func() time.Time) (*TLSCertificateConfig, error) {
 	clientPublicKey, clientPrivateKey, _ := NewKeyPair()
-	clientTemplate := NewClientCertificateTemplateForDuration(UserToSubject(u), lifetime, time.Now)
+	clientTemplate := NewClientCertificateTemplateForDuration(UserToSubject(u), lifetime, currentTime)
 	clientCrt, err := ca.SignCertificate(clientTemplate, clientPublicKey)
 	if err != nil {
 		return nil, err
