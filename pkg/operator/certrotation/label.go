@@ -4,22 +4,24 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/openshift/library-go/pkg/operator/certrotation/contract"
 )
 
-const (
-	// ManagedCertificateTypeLabelName marks config map or secret as object that contains managed certificates.
-	// This groups all objects that store certs and allow easy query to get them all.
-	// The value of this label should be set to "true".
-	ManagedCertificateTypeLabelName = "auth.openshift.io/managed-certificate-type"
-)
+// ManagedCertificateTypeLabelName marks config map or secret as object that contains managed certificates.
+// This groups all objects that store certs and allow easy query to get them all.
+// The value of this label should be set to one of the CertificateType constants below.
+const ManagedCertificateTypeLabelName = contract.ManagedCertificateTypeLabelName
 
 type CertificateType string
 
+// The certificate type label values are defined once, in the contract
+// package, and shared with external readers (oc, origin tests).
 var (
-	CertificateTypeCABundle CertificateType = "ca-bundle"
-	CertificateTypeSigner   CertificateType = "signer"
-	CertificateTypeTarget   CertificateType = "target"
-	CertificateTypeUnknown  CertificateType = "unknown"
+	CertificateTypeCABundle CertificateType = contract.CertificateTypeCABundle
+	CertificateTypeSigner   CertificateType = contract.CertificateTypeSigner
+	CertificateTypeTarget   CertificateType = contract.CertificateTypeTarget
+	CertificateTypeUnknown  CertificateType = contract.CertificateTypeUnknown
 )
 
 // LabelAsManagedConfigMap add label indicating the given config map contains certificates
