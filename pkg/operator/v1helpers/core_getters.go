@@ -6,8 +6,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -31,8 +33,9 @@ func CachedConfigMapGetter(client corev1client.ConfigMapsGetter, listers KubeInf
 
 type combinedConfigMapInterface struct {
 	corev1client.ConfigMapInterface
-	lister    corev1listers.ConfigMapNamespaceLister
-	namespace string
+	lister       corev1listers.ConfigMapNamespaceLister
+	namespace    string
+	allowLiveGet bool
 }
 
 func (g combinedConfigMapGetter) ConfigMaps(namespace string) corev1client.ConfigMapInterface {
@@ -43,12 +46,18 @@ func (g combinedConfigMapGetter) ConfigMaps(namespace string) corev1client.Confi
 	}
 }
 
-func (g combinedConfigMapInterface) Get(_ context.Context, name string, options metav1.GetOptions) (*corev1.ConfigMap, error) {
+func (g combinedConfigMapInterface) Get(ctx context.Context, name string, options metav1.GetOptions) (*corev1.ConfigMap, error) {
 	if !equality.Semantic.DeepEqual(options, emptyGetOptions) {
+		if g.allowLiveGet {
+			return g.ConfigMapInterface.Get(ctx, name, options)
+		}
 		return nil, fmt.Errorf("GetOptions are not honored by cached client: %#v", options)
 	}
 
 	ret, err := g.lister.Get(name)
+	if apierrors.IsNotFound(err) && g.allowLiveGet {
+		return g.ConfigMapInterface.Get(ctx, name, options)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -85,8 +94,9 @@ func CachedSecretGetter(client corev1client.SecretsGetter, listers KubeInformers
 
 type combinedSecretInterface struct {
 	corev1client.SecretInterface
-	lister    corev1listers.SecretNamespaceLister
-	namespace string
+	lister       corev1listers.SecretNamespaceLister
+	namespace    string
+	allowLiveGet bool
 }
 
 func (g combinedSecretGetter) Secrets(namespace string) corev1client.SecretInterface {
@@ -97,12 +107,18 @@ func (g combinedSecretGetter) Secrets(namespace string) corev1client.SecretInter
 	}
 }
 
-func (g combinedSecretInterface) Get(_ context.Context, name string, options metav1.GetOptions) (*corev1.Secret, error) {
+func (g combinedSecretInterface) Get(ctx context.Context, name string, options metav1.GetOptions) (*corev1.Secret, error) {
 	if !equality.Semantic.DeepEqual(options, emptyGetOptions) {
+		if g.allowLiveGet {
+			return g.SecretInterface.Get(ctx, name, options)
+		}
 		return nil, fmt.Errorf("GetOptions are not honored by cached client: %#v", options)
 	}
 
 	ret, err := g.lister.Get(name)
+	if apierrors.IsNotFound(err) && g.allowLiveGet {
+		return g.SecretInterface.Get(ctx, name, options)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -124,4 +140,77 @@ func (g combinedSecretInterface) List(_ context.Context, options metav1.ListOpti
 		ret.Items = append(ret.Items, *(list[i].DeepCopy()))
 	}
 	return ret, nil
+}
+
+// namespacedConfigMapGetter implements corev1client.ConfigMapsGetter for a single
+// target namespace, backed by a namespace-scoped shared informer for cached reads.
+// Reads in the target namespace use the cache, falling back to the live client on
+// a cache miss. Reads in any other namespace, and all writes, are delegated to the
+// live client.
+type namespacedConfigMapGetter struct {
+	client          corev1client.ConfigMapsGetter
+	informerFactory informers.SharedInformerFactory
+	namespace       string
+}
+
+// NewNamespacedCachedConfigMapGetter returns a corev1client.ConfigMapsGetter whose
+// reads in the target namespace are served from the given informer factory's cache,
+// falling back to the live client on a cache miss. Reads in any other namespace
+// and all writes go to the live client. Unlike CachedConfigMapGetter it has no
+// dependency on a cluster-scoped informer, so undecodable objects stored outside
+// the target namespace cannot break it.
+func NewNamespacedCachedConfigMapGetter(client corev1client.ConfigMapsGetter, informerFactory informers.SharedInformerFactory, namespace string) corev1client.ConfigMapsGetter {
+	return &namespacedConfigMapGetter{
+		client:          client,
+		informerFactory: informerFactory,
+		namespace:       namespace,
+	}
+}
+
+func (g *namespacedConfigMapGetter) ConfigMaps(namespace string) corev1client.ConfigMapInterface {
+	if namespace != g.namespace {
+		return g.client.ConfigMaps(namespace)
+	}
+	return combinedConfigMapInterface{
+		ConfigMapInterface: g.client.ConfigMaps(namespace),
+		lister:             g.informerFactory.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace),
+		namespace:          namespace,
+		allowLiveGet:       true,
+	}
+}
+
+// namespacedSecretGetter implements corev1client.SecretsGetter for a single target
+// namespace, backed by a namespace-scoped shared informer for cached reads.
+// It falls back to the live client on target-namespace cache misses. Reads in any
+// other namespace, and all writes, are delegated to the live client.
+type namespacedSecretGetter struct {
+	client          corev1client.SecretsGetter
+	informerFactory informers.SharedInformerFactory
+	namespace       string
+}
+
+// NewNamespacedCachedSecretGetter returns a corev1client.SecretsGetter whose reads
+// in the target namespace are served from the given informer factory's cache,
+// falling back to the live client on a cache miss. Reads in any other namespace
+// and all writes go to the live client. Unlike CachedSecretGetter it has no
+// dependency on a cluster-scoped informer, so undecodable objects stored outside
+// the target namespace cannot break it.
+func NewNamespacedCachedSecretGetter(client corev1client.SecretsGetter, informerFactory informers.SharedInformerFactory, namespace string) corev1client.SecretsGetter {
+	return &namespacedSecretGetter{
+		client:          client,
+		informerFactory: informerFactory,
+		namespace:       namespace,
+	}
+}
+
+func (g *namespacedSecretGetter) Secrets(namespace string) corev1client.SecretInterface {
+	if namespace != g.namespace {
+		return g.client.Secrets(namespace)
+	}
+	return combinedSecretInterface{
+		SecretInterface: g.client.Secrets(namespace),
+		lister:          g.informerFactory.Core().V1().Secrets().Lister().Secrets(namespace),
+		namespace:       namespace,
+		allowLiveGet:    true,
+	}
 }
