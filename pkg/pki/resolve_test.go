@@ -174,6 +174,10 @@ func (brokenKeyPairGenerator) Matches(pub gocrypto.PublicKey) error {
 	return brokenKeyPairGeneratorError
 }
 
+func (brokenKeyPairGenerator) SecurityLevel() crypto.SecurityLevel {
+	return crypto.SecurityLevel{}
+}
+
 // TestSelfCheckingKeyPairGenerator demonstrates that selfCheckingKeyPairGenerator will return a
 // non-nil error from GenerateKeyPair if the Match method of the KeyPairGenerator it wraps does not
 // recognize a key that it has itself generated.
