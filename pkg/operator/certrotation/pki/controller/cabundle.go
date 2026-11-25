@@ -67,6 +67,7 @@ func NewCABundleController(
 		clock:         clock.RealClock{},
 	}
 
+	// TODO: Go degraded on error?
 	return factory.New().
 		ResyncEvery(time.Minute).
 		WithSync(caBundle.Sync).
@@ -87,7 +88,11 @@ func (c *CABundle) Sync(ctx context.Context, syncCtx factory.SyncContext) error 
 	}
 
 	existingCopy := existing.DeepCopy()
-	needsMetadataUpdate := c.metadataFn(existingCopy)
+
+	needsMetadataUpdate := false
+	if c.metadataFn != nil {
+		needsMetadataUpdate = c.metadataFn(existingCopy)
+	}
 
 	err = c.updateCAs(ctx, existingCopy)
 	if err != nil {
@@ -109,6 +114,9 @@ func (c *CABundle) Sync(ctx context.Context, syncCtx factory.SyncContext) error 
 
 func (c *CABundle) createConfigMap(ctx context.Context) error {
 	caCerts := map[string]*x509.Certificate{}
+	// TODO: For now, fail if any signer data cannot be retrieved.
+	// We should probably allow writing any signers we are able to successfully
+	// get and parse.
 	for _, signerGetter := range c.signerGetters {
 		signer, err := signerGetter.GetSigner(ctx)
 		if err != nil {
@@ -155,7 +163,9 @@ func (c *CABundle) createConfigMap(ctx context.Context) error {
 		},
 	}
 
-	_ = c.metadataFn(cm)
+	if c.metadataFn != nil {
+		_ = c.metadataFn(cm)
+	}
 
 	actual, err := c.client.ConfigMaps(c.namespace).Create(ctx, cm, metav1.CreateOptions{})
 	resourcehelper.ReportCreateEvent(c.eventRecorder, actual, err)
@@ -168,6 +178,11 @@ func (c *CABundle) createConfigMap(ctx context.Context) error {
 
 func (c *CABundle) updateCAs(ctx context.Context, cm *corev1.ConfigMap) error {
 	caCerts := map[string]*x509.Certificate{}
+	now := c.clock.Now()
+
+	// TODO: For now, fail if any existing/signer data cannot be read/retrieved.
+	// We should probably be a bit better about this and be able to write anything
+	// we can successfully fetch.
 
 	if cm.Data != nil {
 		if certsStr, ok := cm.Data["ca-bundle.crt"]; ok && len(certsStr) > 0 {
@@ -176,7 +191,7 @@ func (c *CABundle) updateCAs(ctx context.Context, cm *corev1.ConfigMap) error {
 				return fmt.Errorf("could not parse existing certificates: %w", err)
 			}
 
-			certs = crypto.FilterExpiredCerts(certs...)
+			certs = crypto.FilterExpiredCertsWithTime(now, certs...)
 
 			for _, cert := range certs {
 				caCerts[string(cert.Raw)] = cert
@@ -197,7 +212,7 @@ func (c *CABundle) updateCAs(ctx context.Context, cm *corev1.ConfigMap) error {
 		leaf := signer.Config.Certs[0]
 
 		// ignore any expired signing CA certificates
-		if c.clock.Now().After(leaf.NotAfter) {
+		if now.After(leaf.NotAfter) {
 			continue
 		}
 

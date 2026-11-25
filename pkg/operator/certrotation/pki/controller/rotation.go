@@ -51,6 +51,7 @@ func NewCertificateRotationController(
 	}
 
 	// TODO: add an event channel that triggers reconciliation to handle things like serving certificate rotation on hostname changes
+	// TODO: Go degraded on error?
 	return factory.New().
 		ResyncEvery(time.Minute).
 		WithSync(rotation.Sync).
@@ -80,10 +81,10 @@ type CertificateRotation struct {
 
 func (r *CertificateRotation) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	existing, err := r.lister.Secrets(r.namespace).Get(r.name)
-	if errors.IsNotFound(err) {
-		return r.createSecret(ctx)
-	}
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return r.createSecret(ctx)
+		}
 		return fmt.Errorf("getting secret %q: %w", fmt.Sprintf("%s/%s", r.namespace, r.name), err)
 	}
 
@@ -121,11 +122,18 @@ func (r *CertificateRotation) Sync(ctx context.Context, syncCtx factory.SyncCont
 			return fmt.Errorf("creating certificate and key bytes: %w", err)
 		}
 
+		if existingCopy.Data == nil {
+			existingCopy.Data = map[string][]byte{}
+		}
+
 		existingCopy.Data["tls.crt"] = certBytes
 		existingCopy.Data["tls.key"] = keyBytes
 	}
 
-	needsMetadataUpdate := r.metadataFn(existingCopy)
+	needsMetadataUpdate := false
+	if r.metadataFn != nil {
+		needsMetadataUpdate = r.metadataFn(existingCopy)
+	}
 
 	if needsRotation || needsMetadataUpdate {
 		// TODO: Do we need to have some kind of pre-update hook here?
@@ -167,7 +175,9 @@ func (r *CertificateRotation) createSecret(ctx context.Context) error {
 		},
 	}
 
-	_ = r.metadataFn(secret)
+	if r.metadataFn != nil {
+		_ = r.metadataFn(secret)
+	}
 
 	actual, err := r.client.Secrets(r.namespace).Create(ctx, secret, metav1.CreateOptions{})
 	resourcehelper.ReportCreateEvent(r.eventRecorder, actual, err)
