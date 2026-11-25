@@ -348,8 +348,8 @@ func verifySignatureWithKeyring(r io.Reader, keyring openpgp.EntityList) ([]byte
 				return nil, "", fmt.Errorf("signature expired on %s", expiry)
 			}
 		}
-	} else if md.SignatureV3 == nil {
-		return nil, "", fmt.Errorf("unexpected openpgp.MessageDetails: neither Signature nor SignatureV3 is set")
+	} else if md.SignatureV3 != nil {
+		return nil, "", fmt.Errorf("unexpected openpgp.MessageDetails: unacceptably old SignatureV3 format")
 	}
 
 	// follow conventions in containers/image
