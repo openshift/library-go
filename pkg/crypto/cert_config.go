@@ -2,6 +2,9 @@ package crypto
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
@@ -11,14 +14,39 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-// KeyPairGenerator generates a cryptographic key pair.
-type KeyPairGenerator interface {
-	GenerateKeyPair() (crypto.PublicKey, crypto.PrivateKey, error)
-	// Matches returns nil if pub is consistent with a key pair
-	// that a generator with the same parameters would
-	// produce. Returns a non-nil error describing the mismatch
-	// otherwise.
-	Matches(pub crypto.PublicKey) error
+// KeyUsageForPublicKey returns the x509.KeyUsage flags appropriate for the
+// given public key type. ECDSA keys use DigitalSignature only; RSA keys also
+// include KeyEncipherment.
+func KeyUsageForPublicKey(pub crypto.PublicKey) x509.KeyUsage {
+	switch pub.(type) {
+	case *ecdsa.PublicKey:
+		return x509.KeyUsageDigitalSignature
+	default:
+		return x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
+	}
+}
+
+// SubjectKeyIDFromPublicKey computes a truncated SHA-256 hash suitable for
+// use as a certificate SubjectKeyId from any supported public key type.
+// This uses the first 160 bits of the SHA-256 hash per RFC 7093, consistent
+// with the Go standard library since Go 1.25 (go.dev/issue/71746) and
+// Let's Encrypt. Prior Go versions used SHA-1 which is not FIPS-compatible.
+func SubjectKeyIDFromPublicKey(pub crypto.PublicKey) ([]byte, error) {
+	var rawBytes []byte
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		rawBytes = pub.N.Bytes()
+	case *ecdsa.PublicKey:
+		ecdhKey, err := pub.ECDH()
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert ECDSA public key: %w", err)
+		}
+		rawBytes = ecdhKey.Bytes()
+	default:
+		return nil, fmt.Errorf("unsupported public key type: %T", pub)
+	}
+	hash := sha256.Sum256(rawBytes)
+	return hash[:20], nil
 }
 
 // NewSigningCertificate creates a CA certificate.

@@ -1,12 +1,9 @@
 package crypto
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rsa"
+	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -15,26 +12,28 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-var allKeyPairGenerators = []KeyPairGenerator{
-	RSAKeyPairGenerator{Bits: 2048},
-	RSAKeyPairGenerator{Bits: 4096},
-	ECDSAKeyPairGenerator{Curve: P256},
-	ECDSAKeyPairGenerator{Curve: P384},
-	ECDSAKeyPairGenerator{Curve: P521},
+var allKeySpecs = []KeySpec{
+	{Algorithm: RSAKeyAlgorithm, RSABits: 2048},
+	{Algorithm: RSAKeyAlgorithm, RSABits: 4096},
+	{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P256},
+	{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P384},
+	{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P521},
 }
 
-func keyGenName(g KeyPairGenerator) string {
-	switch g := g.(type) {
-	case RSAKeyPairGenerator:
-		return fmt.Sprintf("RSA-%d", g.Bits)
-	case ECDSAKeyPairGenerator:
-		return "ECDSA-" + string(g.Curve)
+var allKeyPairGenerators = func() []KeyPairGenerator {
+	generators := make([]KeyPairGenerator, len(allKeySpecs))
+	for i, spec := range allKeySpecs {
+		generators[i] = mustGenerator(spec)
 	}
-	return "unknown"
+	return generators
+}()
+
+func keyGenName(i int) string {
+	return allKeySpecs[i].String()
 }
 
 func TestKeyUsageForPublicKey(t *testing.T) {
-	rsaGen := RSAKeyPairGenerator{Bits: 2048}
+	rsaGen := mustGenerator(KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 2048})
 	rsaPub, _, err := rsaGen.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +43,7 @@ func TestKeyUsageForPublicKey(t *testing.T) {
 		t.Errorf("RSA KeyUsage = %v, want KeyEncipherment|DigitalSignature", rsaUsage)
 	}
 
-	ecdsaGen := ECDSAKeyPairGenerator{Curve: P256}
+	ecdsaGen := mustGenerator(KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P256})
 	ecdsaPub, _, err := ecdsaGen.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -61,32 +60,32 @@ func TestKeyUsageForPublicKey(t *testing.T) {
 func TestGenerateKeyPair(t *testing.T) {
 	testCases := []struct {
 		name string
-		gen  KeyPairGenerator
+		spec KeySpec
 	}{
 		{
 			name: "RSA-2048",
-			gen:  RSAKeyPairGenerator{Bits: 2048},
+			spec: KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 2048},
 		},
 		{
 			name: "RSA-4096",
-			gen:  RSAKeyPairGenerator{Bits: 4096},
+			spec: KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 4096},
 		},
 		{
 			name: "ECDSA-P256",
-			gen:  ECDSAKeyPairGenerator{Curve: P256},
+			spec: KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P256},
 		},
 		{
 			name: "ECDSA-P384",
-			gen:  ECDSAKeyPairGenerator{Curve: P384},
+			spec: KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P384},
 		},
 		{
 			name: "ECDSA-P521",
-			gen:  ECDSAKeyPairGenerator{Curve: P521},
+			spec: KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P521},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pub, priv, err := tc.gen.GenerateKeyPair()
+			pub, priv, err := mustGenerator(tc.spec).GenerateKeyPair()
 			if err != nil {
 				t.Fatalf("GenerateKeyPair() error = %v", err)
 			}
@@ -94,32 +93,17 @@ func TestGenerateKeyPair(t *testing.T) {
 				t.Fatal("GenerateKeyPair() returned nil key")
 			}
 
-			switch g := tc.gen.(type) {
-			case RSAKeyPairGenerator:
-				rsaPub, ok := pub.(*rsa.PublicKey)
-				if !ok {
-					t.Fatalf("expected *rsa.PublicKey, got %T", pub)
-				}
-				if rsaPub.N.BitLen() != g.Bits {
-					t.Errorf("RSA key size = %d, want %d", rsaPub.N.BitLen(), g.Bits)
-				}
-			case ECDSAKeyPairGenerator:
-				ecPub, ok := pub.(*ecdsa.PublicKey)
-				if !ok {
-					t.Fatalf("expected *ecdsa.PublicKey, got %T", pub)
-				}
-				wantCurve := curveForName(g.Curve)
-				if ecPub.Curve != wantCurve {
-					t.Errorf("ECDSA curve = %v, want %v", ecPub.Curve.Params().Name, wantCurve.Params().Name)
-				}
+			if err := tc.spec.Matches(pub); err != nil {
+				t.Errorf("generated key does not match spec: %v", err)
 			}
 		})
 	}
 }
 
 func TestSubjectKeyIDFromPublicKey(t *testing.T) {
-	for _, g := range allKeyPairGenerators {
-		t.Run(keyGenName(g), func(t *testing.T) {
+	for i, spec := range allKeySpecs {
+		g := mustGenerator(spec)
+		t.Run(keyGenName(i), func(t *testing.T) {
 			pub, _, err := g.GenerateKeyPair()
 			if err != nil {
 				t.Fatalf("GenerateKeyPair() error = %v", err)
@@ -137,8 +121,9 @@ func TestSubjectKeyIDFromPublicKey(t *testing.T) {
 }
 
 func TestNewSigningCertificate(t *testing.T) {
-	for _, g := range allKeyPairGenerators {
-		t.Run(keyGenName(g), func(t *testing.T) {
+	for i, spec := range allKeySpecs {
+		g := mustGenerator(spec)
+		t.Run(keyGenName(i), func(t *testing.T) {
 			config, err := NewSigningCertificate("test-ca", g,
 				WithLifetime(24*time.Hour),
 			)
@@ -167,13 +152,13 @@ func TestNewSigningCertificate(t *testing.T) {
 				t.Error("self-signed CA should have SubjectKeyId == AuthorityKeyId")
 			}
 
-			assertKeyType(t, config.Key, g)
+			assertKeyType(t, config.Key, spec)
 		})
 	}
 }
 
 func TestNewSigningCertificate_WithSubject(t *testing.T) {
-	g := RSAKeyPairGenerator{Bits: 2048}
+	g := mustGenerator(KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 2048})
 	config, err := NewSigningCertificate("ignored-name", g,
 		WithSubject(x509pkixName("custom-cn", "custom-org")),
 	)
@@ -191,34 +176,34 @@ func TestNewSigningCertificate_WithSubject(t *testing.T) {
 
 func TestNewSigningCertificate_WithSigner(t *testing.T) {
 	testCases := []struct {
-		name   string
-		rootKG KeyPairGenerator
-		intKG  KeyPairGenerator
+		name     string
+		rootSpec KeySpec
+		intSpec  KeySpec
 	}{
 		{
-			name:   "RSA root, RSA intermediate",
-			rootKG: RSAKeyPairGenerator{Bits: 2048},
-			intKG:  RSAKeyPairGenerator{Bits: 4096},
+			name:     "RSA root, RSA intermediate",
+			rootSpec: KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 2048},
+			intSpec:  KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 4096},
 		},
 		{
-			name:   "RSA root, ECDSA intermediate",
-			rootKG: RSAKeyPairGenerator{Bits: 4096},
-			intKG:  ECDSAKeyPairGenerator{Curve: P256},
+			name:     "RSA root, ECDSA intermediate",
+			rootSpec: KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 4096},
+			intSpec:  KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P256},
 		},
 		{
-			name:   "ECDSA root, RSA intermediate",
-			rootKG: ECDSAKeyPairGenerator{Curve: P384},
-			intKG:  RSAKeyPairGenerator{Bits: 2048},
+			name:     "ECDSA root, RSA intermediate",
+			rootSpec: KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P384},
+			intSpec:  KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 2048},
 		},
 		{
-			name:   "ECDSA root, ECDSA intermediate",
-			rootKG: ECDSAKeyPairGenerator{Curve: P256},
-			intKG:  ECDSAKeyPairGenerator{Curve: P384},
+			name:     "ECDSA root, ECDSA intermediate",
+			rootSpec: KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P256},
+			intSpec:  KeySpec{Algorithm: ECDSAKeyAlgorithm, ECDSACurve: P384},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			rootConfig, err := NewSigningCertificate("root-ca", tc.rootKG)
+			rootConfig, err := NewSigningCertificate("root-ca", mustGenerator(tc.rootSpec))
 			if err != nil {
 				t.Fatalf("root NewSigningCertificate() error = %v", err)
 			}
@@ -227,7 +212,7 @@ func TestNewSigningCertificate_WithSigner(t *testing.T) {
 				SerialGenerator: &RandomSerialGenerator{},
 			}
 
-			intConfig, err := NewSigningCertificate("intermediate-ca", tc.intKG,
+			intConfig, err := NewSigningCertificate("intermediate-ca", mustGenerator(tc.intSpec),
 				WithSigner(rootCA),
 				WithLifetime(24*time.Hour),
 			)
@@ -262,15 +247,17 @@ func TestNewSigningCertificate_WithSigner(t *testing.T) {
 			}
 
 			// Verify the key type matches the intermediate's config
-			assertKeyType(t, intConfig.Key, tc.intKG)
+			assertKeyType(t, intConfig.Key, tc.intSpec)
 		})
 	}
 }
 
 func TestNewServerCertificate(t *testing.T) {
-	for _, caKG := range allKeyPairGenerators {
-		for _, leafKG := range allKeyPairGenerators {
-			name := keyGenName(caKG) + "-CA_" + keyGenName(leafKG) + "-leaf"
+	for caI, caSpec := range allKeySpecs {
+		caKG := mustGenerator(caSpec)
+		for leafI, leafSpec := range allKeySpecs {
+			leafKG := mustGenerator(leafSpec)
+			name := keyGenName(caI) + "-CA_" + keyGenName(leafI) + "-leaf"
 			t.Run(name, func(t *testing.T) {
 				caConfig, err := NewSigningCertificate("test-ca", caKG)
 				if err != nil {
@@ -295,7 +282,7 @@ func TestNewServerCertificate(t *testing.T) {
 					t.Error("server cert should not be CA")
 				}
 				assertHasEKU(t, cert, x509.ExtKeyUsageServerAuth)
-				assertKeyType(t, serverConfig.Key, leafKG)
+				assertKeyType(t, serverConfig.Key, leafSpec)
 
 				// Verify hostnames are in SANs
 				if !slices.Contains(cert.DNSNames, "localhost") {
@@ -315,9 +302,11 @@ func TestNewServerCertificate(t *testing.T) {
 }
 
 func TestNewClientCertificate(t *testing.T) {
-	for _, caKG := range allKeyPairGenerators {
-		for _, leafKG := range allKeyPairGenerators {
-			name := keyGenName(caKG) + "-CA_" + keyGenName(leafKG) + "-leaf"
+	for caI, caSpec := range allKeySpecs {
+		caKG := mustGenerator(caSpec)
+		for leafI, leafSpec := range allKeySpecs {
+			leafKG := mustGenerator(leafSpec)
+			name := keyGenName(caI) + "-CA_" + keyGenName(leafI) + "-leaf"
 			t.Run(name, func(t *testing.T) {
 				caConfig, err := NewSigningCertificate("test-ca", caKG)
 				if err != nil {
@@ -354,8 +343,9 @@ func TestNewClientCertificate(t *testing.T) {
 }
 
 func TestNewPeerCertificate(t *testing.T) {
-	for _, g := range allKeyPairGenerators {
-		t.Run(keyGenName(g), func(t *testing.T) {
+	for i, spec := range allKeySpecs {
+		g := mustGenerator(spec)
+		t.Run(keyGenName(i), func(t *testing.T) {
 			caConfig, err := NewSigningCertificate("test-ca", g)
 			if err != nil {
 				t.Fatalf("NewSigningCertificate() error = %v", err)
@@ -401,7 +391,7 @@ func TestNewPeerCertificate(t *testing.T) {
 }
 
 func TestNewServerCertificate_WithExtensions(t *testing.T) {
-	g := RSAKeyPairGenerator{Bits: 2048}
+	g := mustGenerator(KeySpec{Algorithm: RSAKeyAlgorithm, RSABits: 2048})
 	caConfig, err := NewSigningCertificate("test-ca", g)
 	if err != nil {
 		t.Fatalf("NewSigningCertificate() error = %v", err)
@@ -433,28 +423,15 @@ func TestNewServerCertificate_WithExtensions(t *testing.T) {
 
 // Helper functions
 
-func assertKeyType(t *testing.T, key any, g KeyPairGenerator) {
+func assertKeyType(t *testing.T, key any, spec KeySpec) {
 	t.Helper()
-	switch g := g.(type) {
-	case RSAKeyPairGenerator:
-		rsaKey, ok := key.(*rsa.PrivateKey)
-		if !ok {
-			t.Errorf("expected *rsa.PrivateKey, got %T", key)
-			return
-		}
-		if rsaKey.N.BitLen() != g.Bits {
-			t.Errorf("RSA key size = %d, want %d", rsaKey.N.BitLen(), g.Bits)
-		}
-	case ECDSAKeyPairGenerator:
-		ecKey, ok := key.(*ecdsa.PrivateKey)
-		if !ok {
-			t.Errorf("expected *ecdsa.PrivateKey, got %T", key)
-			return
-		}
-		wantCurve := curveForName(g.Curve)
-		if ecKey.Curve != wantCurve {
-			t.Errorf("ECDSA curve = %v, want %v", ecKey.Curve.Params().Name, wantCurve.Params().Name)
-		}
+	signer, ok := key.(crypto.Signer)
+	if !ok {
+		t.Errorf("expected a crypto.Signer private key, got %T", key)
+		return
+	}
+	if err := spec.Matches(signer.Public()); err != nil {
+		t.Errorf("private key does not match spec: %v", err)
 	}
 }
 
@@ -463,18 +440,6 @@ func assertHasEKU(t *testing.T, cert *x509.Certificate, eku x509.ExtKeyUsage) {
 	if !slices.Contains(cert.ExtKeyUsage, eku) {
 		t.Errorf("certificate missing ExtKeyUsage %v", eku)
 	}
-}
-
-func curveForName(c ECDSACurve) elliptic.Curve {
-	switch c {
-	case P256:
-		return elliptic.P256()
-	case P384:
-		return elliptic.P384()
-	case P521:
-		return elliptic.P521()
-	}
-	return nil
 }
 
 func x509pkixName(cn, org string) pkix.Name {

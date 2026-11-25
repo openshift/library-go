@@ -25,25 +25,30 @@ func DefaultPKIProfile() configv1alpha1.PKIProfile {
 	}
 }
 
-// KeyPairGeneratorFromAPI converts a configv1alpha1.KeyConfig to a
-// crypto.KeyPairGenerator.
-func KeyPairGeneratorFromAPI(apiKey configv1alpha1.KeyConfig) (crypto.KeyPairGenerator, error) {
+// KeySpecFromAPI converts a configv1alpha1.KeyConfig to a crypto.KeySpec.
+// The returned spec is validated: RSA key sizes below crypto.MinRSAKeySize
+// are rejected. Which sizes above that floor are allowed is enforced by the
+// PKI API's validation, not here.
+func KeySpecFromAPI(apiKey configv1alpha1.KeyConfig) (crypto.KeySpec, error) {
+	var spec crypto.KeySpec
 	switch apiKey.Algorithm {
 	case configv1alpha1.KeyAlgorithmRSA:
-		return crypto.RSAKeyPairGenerator{
-			Bits: int(apiKey.RSA.KeySize),
-		}, nil
+		spec = crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: int(apiKey.RSA.KeySize)}
 	case configv1alpha1.KeyAlgorithmECDSA:
 		curve, err := ecdsaCurveFromAPI(apiKey.ECDSA.Curve)
 		if err != nil {
-			return nil, err
+			return crypto.KeySpec{}, err
 		}
-		return crypto.ECDSAKeyPairGenerator{
-			Curve: curve,
-		}, nil
+		spec = crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: curve}
+	case "":
+		return crypto.KeySpec{}, fmt.Errorf("key.algorithm is required")
 	default:
-		return nil, fmt.Errorf("unknown key algorithm: %q", apiKey.Algorithm)
+		return crypto.KeySpec{}, fmt.Errorf("unknown key algorithm: %q", apiKey.Algorithm)
 	}
+	if err := spec.Validate(); err != nil {
+		return crypto.KeySpec{}, err
+	}
+	return spec, nil
 }
 
 // ecdsaCurveFromAPI converts an API ECDSA curve name to the crypto package's ECDSACurve.
@@ -58,57 +63,4 @@ func ecdsaCurveFromAPI(c configv1alpha1.ECDSACurve) (crypto.ECDSACurve, error) {
 	default:
 		return "", fmt.Errorf("unknown ECDSA curve: %q", c)
 	}
-}
-
-// securityBits returns the NIST security strength in bits for a given
-// KeyPairGenerator. For RSA, values come from the rsaSecurityStrength table.
-// For ECDSA, security strength is half the key size (fixed per curve).
-func securityBits(g crypto.KeyPairGenerator) int {
-	switch g := g.(type) {
-	case crypto.RSAKeyPairGenerator:
-		return rsaSecurityStrength[g.Bits]
-	case crypto.ECDSAKeyPairGenerator:
-		switch g.Curve {
-		case crypto.P256:
-			return 128
-		case crypto.P384:
-			return 192
-		case crypto.P521:
-			return 256
-		}
-	}
-	return 0
-}
-
-// rsaSecurityStrength maps RSA key sizes (2048-8192 in 1024-bit increments)
-// to their security strengths from NIST SP 800-56B Rev 2 Table 2 or
-// pre-calculated from the GNFS complexity estimate.
-var rsaSecurityStrength = map[int]int{
-	2048: 112,
-	3072: 128,
-	4096: 152,
-	5120: 168,
-	6144: 176,
-	7168: 192,
-	8192: 200,
-}
-
-// strongerKeyPairGenerator returns whichever of a or b provides higher NIST
-// security strength. In case of a tie, ECDSA is preferred over RSA.
-func strongerKeyPairGenerator(a, b crypto.KeyPairGenerator) crypto.KeyPairGenerator {
-	sa, sb := securityBits(a), securityBits(b)
-	if sb > sa {
-		return b
-	}
-	if sa > sb {
-		return a
-	}
-	// Equal strength: prefer ECDSA over RSA.
-	if _, ok := a.(crypto.ECDSAKeyPairGenerator); ok {
-		return a
-	}
-	if _, ok := b.(crypto.ECDSAKeyPairGenerator); ok {
-		return b
-	}
-	return a
 }

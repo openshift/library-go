@@ -25,6 +25,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// mustKeyGen returns the generator for spec, failing the test if spec is invalid.
+func mustKeyGen(t *testing.T, spec crypto.KeySpec) crypto.KeyPairGenerator {
+	t.Helper()
+	g, err := spec.KeyPairGenerator()
+	if err != nil {
+		t.Fatalf("KeySpec%+v.KeyPairGenerator() error = %v", spec, err)
+	}
+	return g
+}
+
 func TestNeedNewTargetCertKeyPairForTime(t *testing.T) {
 	now := time.Now()
 	nowFn := func() time.Time { return now }
@@ -719,17 +729,17 @@ func TestClientRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:    "RSA-4096",
-			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			keyGen:  mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: 4096}),
 			wantAlg: x509.RSA,
 		},
 		{
 			name:    "ECDSA-P256",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:  mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256}),
 			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			keyGen:  mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P384}),
 			wantAlg: x509.ECDSA,
 		},
 	}
@@ -772,17 +782,17 @@ func TestServingRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:    "RSA-4096",
-			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			keyGen:  mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: 4096}),
 			wantAlg: x509.RSA,
 		},
 		{
 			name:    "ECDSA-P256",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:  mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256}),
 			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			keyGen:  mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P384}),
 			wantAlg: x509.ECDSA,
 		},
 	}
@@ -830,7 +840,7 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:      "ECDSA keyGen with UserInfo",
-			keyGen:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:    mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256}),
 			userInfo:  &user.DefaultInfo{Name: "peer-user", Groups: []string{"peer-group"}},
 			hostnames: []string{"localhost", "127.0.0.1"},
 			wantAlg:   x509.ECDSA,
@@ -844,7 +854,7 @@ func TestPeerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:      "nil UserInfo with keyGen errors",
-			keyGen:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:    mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256}),
 			userInfo:  nil,
 			hostnames: []string{"localhost"},
 			wantErr:   "requires UserInfo",
@@ -932,17 +942,17 @@ func TestSignerRotation_NewCertificate_WithKeyPairGenerator(t *testing.T) {
 		},
 		{
 			name:    "RSA-4096",
-			keyGen:  crypto.RSAKeyPairGenerator{Bits: 4096},
+			keyGen:  mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: 4096}),
 			wantAlg: x509.RSA,
 		},
 		{
 			name:    "ECDSA-P256",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			keyGen:  mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256}),
 			wantAlg: x509.ECDSA,
 		},
 		{
 			name:    "ECDSA-P384",
-			keyGen:  crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			keyGen:  mustKeyGen(t, crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P384}),
 			wantAlg: x509.ECDSA,
 		},
 	}

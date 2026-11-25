@@ -207,29 +207,30 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 	return notBefore, notAfter, ""
 }
 
-func (c RotatedSigningCASecret) resolveKeyPairGenerator() (crypto.KeyPairGenerator, error) {
-	return resolveKeyPairGeneratorWithFallback(c.PKIProfileProvider, pki.CertificateTypeSigner, c.CertificateName)
+func (c RotatedSigningCASecret) resolveKeySpec() (crypto.KeySpec, error) {
+	return resolveKeySpecWithFallback(c.PKIProfileProvider, pki.CertificateTypeSigner, c.CertificateName)
 }
 
-// resolveKeyPairGeneratorWithFallback resolves the key pair generator from the
-// PKI profile provider. Returns nil for Unmanaged mode (no key override).
+// resolveKeySpecWithFallback resolves the key specification from the
+// PKI profile provider. Returns the zero KeySpec for Unmanaged mode (no key
+// override).
 //
 // TODO(sanchezl): Remove the fallback to DefaultPKIProfile() once installer
 // support for the PKI resource is in place. Until then, the PKI resource may
 // not exist in TechPreview clusters. Once removed, callers can use
 // pki.ResolveCertificateConfig directly.
-func resolveKeyPairGeneratorWithFallback(provider pki.PKIProfileProvider, certType pki.CertificateType, name string) (crypto.KeyPairGenerator, error) {
+func resolveKeySpecWithFallback(provider pki.PKIProfileProvider, certType pki.CertificateType, name string) (crypto.KeySpec, error) {
 	cfg, err := pki.ResolveCertificateConfig(provider, certType, name)
 	if err != nil {
 		klog.Warningf("Failed to resolve PKI config for %s %q, falling back to default profile: %v", certType, name, err)
 		defaultProfile := pki.DefaultPKIProfile()
 		cfg, err = pki.ResolveCertificateConfig(pki.NewStaticPKIProfileProvider(&defaultProfile), certType, name)
 		if err != nil {
-			return nil, err
+			return crypto.KeySpec{}, err
 		}
 	}
 	if cfg == nil {
-		return nil, nil
+		return crypto.KeySpec{}, nil
 	}
 	return cfg.Key, nil
 }
@@ -253,17 +254,21 @@ func (c RotatedSigningCASecret) setSigningCertKeyPairSecret(signingCertKeyPairSe
 	var ca *crypto.TLSCertificateConfig
 	var err error
 	if c.PKIProfileProvider != nil {
-		keyGen, err := c.resolveKeyPairGenerator()
+		keySpec, err := c.resolveKeySpec()
 		if err != nil {
 			return nil, err
 		}
-		if keyGen != nil {
+		if keySpec.Algorithm != "" {
+			keyGen, err := keySpec.KeyPairGenerator()
+			if err != nil {
+				return nil, err
+			}
 			ca, err = crypto.NewSigningCertificate(signerName, keyGen, crypto.WithLifetime(c.Validity))
 			if err != nil {
 				return nil, err
 			}
 		}
-		// nil keyGen means Unmanaged: fall through to legacy cert generation
+		// a zero keySpec means Unmanaged: fall through to legacy cert generation
 	}
 	if ca == nil {
 		ca, err = crypto.MakeSelfSignedCAConfigForDuration(signerName, c.Validity)

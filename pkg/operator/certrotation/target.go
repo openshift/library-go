@@ -279,10 +279,15 @@ func (c RotatedSelfSignedCertKeySecret) setTargetCertKeyPairSecret(targetCertKey
 
 	var keyGen crypto.KeyPairGenerator
 	if c.PKIProfileProvider != nil {
-		var err error
-		keyGen, err = c.resolveKeyPairGenerator()
+		keySpec, err := c.resolveKeySpec()
 		if err != nil {
 			return nil, err
+		}
+		if keySpec.Algorithm != "" {
+			keyGen, err = keySpec.KeyPairGenerator()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -314,8 +319,8 @@ func (c RotatedSelfSignedCertKeySecret) setTLSAnnotationsOnTargetCertKeyPairSecr
 	c.CertCreator.SetAnnotations(certKeyPair, targetCertKeyPairSecret.Annotations)
 }
 
-func (c RotatedSelfSignedCertKeySecret) resolveKeyPairGenerator() (crypto.KeyPairGenerator, error) {
-	return resolveKeyPairGeneratorWithFallback(c.PKIProfileProvider, c.CertCreator.CertificateType(), c.CertificateName)
+func (c RotatedSelfSignedCertKeySecret) resolveKeySpec() (crypto.KeySpec, error) {
+	return resolveKeySpecWithFallback(c.PKIProfileProvider, c.CertCreator.CertificateType(), c.CertificateName)
 }
 
 type ClientRotation struct {

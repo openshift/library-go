@@ -1,7 +1,6 @@
 package pki
 
 import (
-	gocrypto "crypto"
 	"fmt"
 
 	configv1alpha1 "github.com/openshift/api/config/v1alpha1"
@@ -12,8 +11,9 @@ import (
 // Currently contains key configuration; will grow as the PKI API expands to
 // include additional certificate properties.
 type CertificateConfig struct {
-	// Key is the resolved key pair generator.
-	Key crypto.KeyPairGenerator
+	// Key is the resolved key specification. Obtain the generator for it
+	// with Key.KeyPairGenerator at the point where a key is generated.
+	Key crypto.KeySpec
 }
 
 // ResolveCertificateConfig resolves the effective certificate configuration
@@ -24,13 +24,7 @@ type CertificateConfig struct {
 //
 // The name parameter is reserved for future per-certificate overrides and
 // can be used for metrics and logging.
-func ResolveCertificateConfig(provider PKIProfileProvider, certType CertificateType, name string) (cfg *CertificateConfig, err error) {
-	defer func() {
-		if cfg != nil {
-			cfg.Key = selfCheckingKeyPairGenerator{inner: cfg.Key}
-		}
-	}()
-
+func ResolveCertificateConfig(provider PKIProfileProvider, certType CertificateType, name string) (*CertificateConfig, error) {
 	profile, err := provider.PKIProfile()
 	if err != nil {
 		return nil, fmt.Errorf("resolving PKI profile for %s certificate %q: %w", certType, name, err)
@@ -60,11 +54,11 @@ func resolveKeyConfig(defaults configv1alpha1.DefaultCertificateConfig, override
 	if override.Key.Algorithm != "" {
 		apiKey = override.Key
 	}
-	g, err := KeyPairGeneratorFromAPI(apiKey)
+	spec, err := KeySpecFromAPI(apiKey)
 	if err != nil {
 		return nil, err
 	}
-	return &CertificateConfig{Key: g}, nil
+	return &CertificateConfig{Key: spec}, nil
 }
 
 // resolvePeerKeyConfig resolves both the serving and client configs and
@@ -79,30 +73,6 @@ func resolvePeerKeyConfig(profile *configv1alpha1.PKIProfile) (*CertificateConfi
 		return nil, fmt.Errorf("resolving client config for peer: %w", err)
 	}
 	return &CertificateConfig{
-		Key: strongerKeyPairGenerator(servingCfg.Key, clientCfg.Key),
+		Key: crypto.StrongerKeySpec(servingCfg.Key, clientCfg.Key),
 	}, nil
-}
-
-// selfCheckingKeyPairGenerator wraps a KeyPairGenerator and returns an error if a generated key
-// would not satisfy the generator's Matches method. Any KeyPairGenerator must return a nil error
-// from Matches for a key that it generates, therefore if selfCheckingKeyPairGenerator returns a
-// non-nil error from GenerateKeyPair, there is a bug in the wrapped KeyPairGenerator
-// implementation.
-type selfCheckingKeyPairGenerator struct {
-	inner crypto.KeyPairGenerator
-}
-
-func (g selfCheckingKeyPairGenerator) GenerateKeyPair() (gocrypto.PublicKey, gocrypto.PrivateKey, error) {
-	pub, priv, err := g.inner.GenerateKeyPair()
-	if err != nil {
-		return nil, nil, err
-	}
-	if matchErr := g.inner.Matches(pub); matchErr != nil {
-		return nil, nil, fmt.Errorf("%T generated a key that does not match its own configuration: %w", g.inner, matchErr)
-	}
-	return pub, priv, nil
-}
-
-func (g selfCheckingKeyPairGenerator) Matches(pub gocrypto.PublicKey) error {
-	return g.inner.Matches(pub)
 }

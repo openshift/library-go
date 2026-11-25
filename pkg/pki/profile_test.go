@@ -35,11 +35,11 @@ func TestDefaultPKIProfile(t *testing.T) {
 	}
 }
 
-func TestKeyPairGeneratorFromAPI(t *testing.T) {
+func TestKeySpecFromAPI(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   configv1alpha1.KeyConfig
-		want    crypto.KeyPairGenerator
+		want    crypto.KeySpec
 		wantErr bool
 	}{
 		{
@@ -48,7 +48,7 @@ func TestKeyPairGeneratorFromAPI(t *testing.T) {
 				Algorithm: configv1alpha1.KeyAlgorithmRSA,
 				RSA:       configv1alpha1.RSAKeyConfig{KeySize: 2048},
 			},
-			want: crypto.RSAKeyPairGenerator{Bits: 2048},
+			want: crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: 2048},
 		},
 		{
 			name: "RSA-4096",
@@ -56,7 +56,7 @@ func TestKeyPairGeneratorFromAPI(t *testing.T) {
 				Algorithm: configv1alpha1.KeyAlgorithmRSA,
 				RSA:       configv1alpha1.RSAKeyConfig{KeySize: 4096},
 			},
-			want: crypto.RSAKeyPairGenerator{Bits: 4096},
+			want: crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: 4096},
 		},
 		{
 			name: "ECDSA-P256",
@@ -64,7 +64,7 @@ func TestKeyPairGeneratorFromAPI(t *testing.T) {
 				Algorithm: configv1alpha1.KeyAlgorithmECDSA,
 				ECDSA:     configv1alpha1.ECDSAKeyConfig{Curve: configv1alpha1.ECDSACurveP256},
 			},
-			want: crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
+			want: crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256},
 		},
 		{
 			name: "ECDSA-P384",
@@ -72,7 +72,7 @@ func TestKeyPairGeneratorFromAPI(t *testing.T) {
 				Algorithm: configv1alpha1.KeyAlgorithmECDSA,
 				ECDSA:     configv1alpha1.ECDSAKeyConfig{Curve: configv1alpha1.ECDSACurveP384},
 			},
-			want: crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
+			want: crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P384},
 		},
 		{
 			name: "ECDSA-P521",
@@ -80,7 +80,22 @@ func TestKeyPairGeneratorFromAPI(t *testing.T) {
 				Algorithm: configv1alpha1.KeyAlgorithmECDSA,
 				ECDSA:     configv1alpha1.ECDSAKeyConfig{Curve: configv1alpha1.ECDSACurveP521},
 			},
-			want: crypto.ECDSAKeyPairGenerator{Curve: crypto.P521},
+			want: crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P521},
+		},
+		{
+			name: "missing algorithm",
+			input: configv1alpha1.KeyConfig{
+				RSA: configv1alpha1.RSAKeyConfig{KeySize: 2048},
+			},
+			wantErr: true,
+		},
+		{
+			name: "RSA below the floor",
+			input: configv1alpha1.KeyConfig{
+				Algorithm: configv1alpha1.KeyAlgorithmRSA,
+				RSA:       configv1alpha1.RSAKeyConfig{KeySize: 1024},
+			},
+			wantErr: true,
 		},
 		{
 			name: "unknown algorithm",
@@ -100,101 +115,29 @@ func TestKeyPairGeneratorFromAPI(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := KeyPairGeneratorFromAPI(tc.input)
+			got, err := KeySpecFromAPI(tc.input)
 			if (err != nil) != tc.wantErr {
-				t.Errorf("KeyPairGeneratorFromAPI() error = %v, wantErr %v", err, tc.wantErr)
+				t.Errorf("KeySpecFromAPI() error = %v, wantErr %v", err, tc.wantErr)
 				return
 			}
 			if !tc.wantErr && got != tc.want {
-				t.Errorf("KeyPairGeneratorFromAPI() = %+v, want %+v", got, tc.want)
+				t.Errorf("KeySpecFromAPI() = %+v, want %+v", got, tc.want)
 			}
 		})
 	}
 }
 
-func TestSecurityBits(t *testing.T) {
-	testCases := []struct {
-		name string
-		g    crypto.KeyPairGenerator
-		want int
-	}{
-		{
-			name: "RSA-2048",
-			g:    crypto.RSAKeyPairGenerator{Bits: 2048},
-			want: 112,
-		},
-		{
-			name: "RSA-3072",
-			g:    crypto.RSAKeyPairGenerator{Bits: 3072},
-			want: 128,
-		},
-		{
-			name: "RSA-4096",
-			g:    crypto.RSAKeyPairGenerator{Bits: 4096},
-			want: 152,
-		},
-		{
-			name: "RSA-5120",
-			g:    crypto.RSAKeyPairGenerator{Bits: 5120},
-			want: 168,
-		},
-		{
-			name: "RSA-6144",
-			g:    crypto.RSAKeyPairGenerator{Bits: 6144},
-			want: 176,
-		},
-		{
-			name: "RSA-7168",
-			g:    crypto.RSAKeyPairGenerator{Bits: 7168},
-			want: 192,
-		},
-		{
-			name: "RSA-8192",
-			g:    crypto.RSAKeyPairGenerator{Bits: 8192},
-			want: 200,
-		},
-		{
-			name: "RSA-1024 unsupported",
-			g:    crypto.RSAKeyPairGenerator{Bits: 1024},
-			want: 0,
-		},
-		{
-			name: "ECDSA-P256",
-			g:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P256},
-			want: 128,
-		},
-		{
-			name: "ECDSA-P384",
-			g:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P384},
-			want: 192,
-		},
-		{
-			name: "ECDSA-P521",
-			g:    crypto.ECDSAKeyPairGenerator{Curve: crypto.P521},
-			want: 256,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := securityBits(tc.g)
-			if got != tc.want {
-				t.Errorf("securityBits(%s) = %d, want %d", tc.name, got, tc.want)
-			}
-		})
-	}
-}
-
-func TestStrongerKeyPairGenerator(t *testing.T) {
-	rsa2048 := crypto.RSAKeyPairGenerator{Bits: 2048}
-	rsa3072 := crypto.RSAKeyPairGenerator{Bits: 3072}
-	rsa4096 := crypto.RSAKeyPairGenerator{Bits: 4096}
-	ecP256 := crypto.ECDSAKeyPairGenerator{Curve: crypto.P256}
-	ecP384 := crypto.ECDSAKeyPairGenerator{Curve: crypto.P384}
+func TestStrongerKeySpec(t *testing.T) {
+	rsa2048 := crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: 2048}
+	rsa3072 := crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: 3072}
+	rsa4096 := crypto.KeySpec{Algorithm: crypto.RSAKeyAlgorithm, RSABits: 4096}
+	ecP256 := crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P256}
+	ecP384 := crypto.KeySpec{Algorithm: crypto.ECDSAKeyAlgorithm, ECDSACurve: crypto.P384}
 
 	testCases := []struct {
 		name string
-		a, b crypto.KeyPairGenerator
-		want crypto.KeyPairGenerator
+		a, b crypto.KeySpec
+		want crypto.KeySpec
 	}{
 		{
 			name: "RSA-2048 vs RSA-4096",
@@ -259,9 +202,9 @@ func TestStrongerKeyPairGenerator(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := strongerKeyPairGenerator(tc.a, tc.b)
+			got := crypto.StrongerKeySpec(tc.a, tc.b)
 			if got != tc.want {
-				t.Errorf("strongerKeyPairGenerator() = %+v, want %+v", got, tc.want)
+				t.Errorf("StrongerKeySpec() = %+v, want %+v", got, tc.want)
 			}
 		})
 	}
