@@ -1,0 +1,18 @@
+version: "2"
+
+linters:
+  # Keep this intentionally minimal: the point of this config is the depguard rule below.
+  default: none
+  enable:
+    - depguard
+  settings:
+    depguard:
+      # golang.org/x/crypto/openpgp is frozen upstream (see CVE-2021-33194 and
+      # friends) and will not receive fixes. All OpenPGP code in this repository
+      # must use the maintained fork, github.com/ProtonMail/go-crypto/openpgp
+      # (see pkg/verify/verify.go).
+      rules:
+        main:
+          deny:
+            - pkg: golang.org/x/crypto/openpgp
+              desc: "golang.org/x/crypto/openpgp is frozen and unmaintained; use github.com/ProtonMail/go-crypto/openpgp instead"
