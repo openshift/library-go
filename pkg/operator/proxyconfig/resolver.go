@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/net/http/httpproxy"
 
+	"k8s.io/apimachinery/pkg/types"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
 	"github.com/openshift/library-go/pkg/network/httptransport"
@@ -21,9 +22,11 @@ type ResolvedProxy struct {
 	HTTPSProxy string
 	// NoProxy is the list of NO_PROXY entries.
 	NoProxy []string
-	// TrustedCAName is the name of a ConfigMap holding the proxy trusted CA bundle
-	// under the "ca-bundle.crt" key.
-	TrustedCAName string
+	// TrustedCA identifies the ConfigMap holding the proxy trusted CA bundle under the "ca-bundle.crt" key.
+	// An empty name means there is no trusted CA, otherwise the namespace must be set as well.
+	// The proxy config controller reads the ConfigMap from its informers, so the namespace must be one
+	// of the namespaces of the KubeInformersForNamespaces passed to NewProxyConfigController.
+	TrustedCA types.NamespacedName
 }
 
 // IsProxyConfigured returns true when either HTTP or HTTPS proxy is set.
@@ -42,39 +45,28 @@ func (p ResolvedProxy) ProxyFunc() func(*url.URL) (*url.URL, error) {
 	return c.ProxyFunc()
 }
 
-// ProxyResolver resolves the effective proxy configuration and builds
-// pre-configured HTTP transports for outbound requests.
+// ProxyResolver resolves the effective proxy configuration.
 type ProxyResolver interface {
 	// ResolveProxy resolves proxy configuration.
 	ResolveProxy() (ResolvedProxy, error)
-
-	// NewTransport returns an http.RoundTripper with proxy settings, the
-	// proxy's trusted CA, and any additional options applied.
-	//
-	// The opts must be applied after the resolver's own options so that they take
-	// precedence. In particular, httptransport.WithProxyFunc(nil) must disable the proxy,
-	// the proxy config controller relies on it to probe endpoints directly.
-	// NewTransport in this package satisfies this.
-	NewTransport(opts ...httptransport.Option) (http.RoundTripper, error)
 }
 
 // NewTransport builds a round tripper for the given resolved proxy. The proxy trusted CA is loaded
-// from the trustedCANamespace namespace, and the proxy function is set when a proxy is configured.
+// from the ConfigMap the proxy names, and the proxy function is set when a proxy is configured.
 // The caller-supplied opts are applied last so they can override the resolved proxy configuration
 // (e.g. httptransport.WithProxyFunc(nil) disables the proxy).
 func NewTransport(
-	cmLister corev1listers.ConfigMapLister,
-	trustedCANamespace string,
 	proxy ResolvedProxy,
+	cmLister corev1listers.ConfigMapLister,
 	opts ...httptransport.Option,
 ) (http.RoundTripper, error) {
 	var all []httptransport.Option
-	if len(proxy.TrustedCAName) > 0 {
-		proxyCA, err := loadCAData(cmLister, trustedCANamespace, proxy.TrustedCAName, trustedCAKey)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, httptransport.WithCAData(fmt.Sprintf("proxy trustedCA %q", proxy.TrustedCAName), proxyCA))
+	proxyCA, err := loadProxyTrustedCA(cmLister, proxy)
+	if err != nil {
+		return nil, err
+	}
+	if proxyCA != nil {
+		all = append(all, httptransport.WithCAData(fmt.Sprintf("proxy trustedCA %q", proxy.TrustedCA), proxyCA))
 	}
 	if proxy.IsProxyConfigured() {
 		proxyFunc := proxy.ProxyFunc()
@@ -82,6 +74,17 @@ func NewTransport(
 	}
 	all = append(all, opts...)
 	return httptransport.NewRoundTripper(all...)
+}
+
+// loadProxyTrustedCA returns the proxy trusted CA bundle, or nil when the proxy has none.
+func loadProxyTrustedCA(cmLister corev1listers.ConfigMapLister, proxy ResolvedProxy) ([]byte, error) {
+	if len(proxy.TrustedCA.Name) == 0 {
+		return nil, nil
+	}
+	if len(proxy.TrustedCA.Namespace) == 0 {
+		return nil, fmt.Errorf("proxy trusted CA %q has no namespace", proxy.TrustedCA.Name)
+	}
+	return loadCAData(cmLister, proxy.TrustedCA.Namespace, proxy.TrustedCA.Name, trustedCAKey)
 }
 
 // loadCAData reads CA bundle bytes from a ConfigMap. It checks Data first and falls back to BinaryData.

@@ -22,7 +22,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -192,7 +194,7 @@ func Test_warnIfUnreachable(t *testing.T) {
 
 		proxyA       = ResolvedProxy{HTTPProxy: "http://proxy-a:3128"}
 		proxyB       = ResolvedProxy{HTTPProxy: "http://proxy-b:3128"}
-		proxyAWithCA = ResolvedProxy{HTTPProxy: "http://proxy-a:3128", TrustedCAName: "proxy-ca"}
+		proxyAWithCA = ResolvedProxy{HTTPProxy: "http://proxy-a:3128", TrustedCA: types.NamespacedName{Namespace: "openshift-config", Name: "proxy-ca"}}
 
 		// the warnings the controller emits when the endpoints are down
 		aDown     = []string{fmt.Sprintf("endpoints unreachable through proxy: %q returned 404", endpointA)}
@@ -492,6 +494,50 @@ func TestSync_endpointWarnings(t *testing.T) {
 	require.Equal(t, "IdPUnreachable", recorder.Events()[0].Reason)
 }
 
+// TestSync_endpointWarnings_proxyTrustedCAChange checks that a change of the proxy trusted CA contents
+// that keeps the ConfigMap name makes the warning endpoints get probed again, and that an unchanged one does not.
+func TestSync_endpointWarnings_proxyTrustedCAChange(t *testing.T) {
+	configMap := func(pem []byte) *corev1.ConfigMap {
+		return &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "openshift-config", Name: "proxy-ca"},
+			Data:       map[string]string{trustedCAKey: string(pem)},
+		}
+	}
+	pemA, pemB := newTestCAPEM(t), newTestCAPEM(t)
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, indexer.Add(configMap(pemA)))
+
+	// every sync creates the regular, direct and forced proxy transports, in this order,
+	// and the warnings are probed with the regular one
+	resolver := &fakeResolver{
+		proxy: ResolvedProxy{
+			HTTPSProxy: "http://proxy:3128",
+			TrustedCA:  types.NamespacedName{Namespace: "openshift-config", Name: "proxy-ca"},
+		},
+		transports: []http.RoundTripper{
+			ok, ok, ok, // the first sync probes the endpoint, which is reachable
+			notFound, ok, ok, // the CA is unchanged, so the endpoint is not probed, despite being unreachable now
+			notFound, ok, ok, // the CA changed, so the endpoint is probed again
+		},
+	}
+	p := &proxyConfigChecker{configMapLister: corev1listers.NewConfigMapLister(indexer), proxyResolver: resolver}
+	WithEndpointWarnings("IdPUnreachable", endpoints(mustParse(t, "https://idp.example.com")))(p)
+
+	recorder, err := runSync(t, p)
+	require.NoError(t, err)
+	require.Empty(t, recorder.Events())
+
+	recorder, err = runSync(t, p)
+	require.NoError(t, err)
+	require.Empty(t, recorder.Events(), "an unchanged proxy trusted CA must not trigger a probe")
+
+	require.NoError(t, indexer.Update(configMap(pemB)))
+	recorder, err = runSync(t, p)
+	require.NoError(t, err)
+	require.Len(t, recorder.Events(), 1, "a changed proxy trusted CA must trigger a probe")
+	require.Equal(t, "IdPUnreachable", recorder.Events()[0].Reason)
+}
+
 // Test_noProxyMatches checks that noProxyMatches reports whether NO_PROXY covers an endpoint. The matching
 // rules themselves belong to httpproxy, so only what the wrapper and its callers rely on is covered.
 func Test_noProxyMatches(t *testing.T) {
@@ -682,12 +728,13 @@ func Test_getCAPool_digest(t *testing.T) {
 
 // Test_createHTTPClients checks how every probe client routes. The regular client honors NO_PROXY, the direct
 // one never uses the proxy and the forced proxy one uses it for everything but loopback addresses.
-// All of them route by the proxy they are given, not by the one the resolver would resolve again.
 func Test_createHTTPClients(t *testing.T) {
-	// The resolver holds a stale proxy, the clients must route by the proxy passed in.
-	stale := ResolvedProxy{HTTPSProxy: "http://stale:3128"}
 	given := ResolvedProxy{HTTPSProxy: "http://current:3128", NoProxy: []string{"internal.example.com"}}
-	p := &proxyConfigChecker{proxyResolver: &transportResolver{proxy: stale, cms: newCMLister(t)}}
+	cms := newCMLister(t)
+	p := &proxyConfigChecker{configMapLister: cms}
+	p.newTransport = func(proxy ResolvedProxy, opts ...httptransport.Option) (http.RoundTripper, error) {
+		return NewTransport(proxy, cms, opts...)
+	}
 	clients, _, err := p.createHTTPClients(given)
 	require.NoError(t, err)
 
@@ -728,9 +775,9 @@ func status(code int) http.RoundTripper {
 	})
 }
 
-// fakeResolver returns the transports in the order createHTTPClients requests them in:
-// the regular one honoring NO_PROXY, the direct one and the one forced through the proxy.
-// A nil transport makes NewTransport fail with errBoom.
+// fakeResolver resolves a fixed proxy and returns the transports in the order createHTTPClients requests
+// them in: the regular one honoring NO_PROXY, the direct one and the one forced through the proxy.
+// A nil transport makes newTransport fail with errBoom.
 type fakeResolver struct {
 	proxy      ResolvedProxy
 	err        error
@@ -740,25 +787,13 @@ type fakeResolver struct {
 
 func (r *fakeResolver) ResolveProxy() (ResolvedProxy, error) { return r.proxy, r.err }
 
-func (r *fakeResolver) NewTransport(...httptransport.Option) (http.RoundTripper, error) {
+func (r *fakeResolver) newTransport(ResolvedProxy, ...httptransport.Option) (http.RoundTripper, error) {
 	t := r.transports[r.calls]
 	r.calls++
 	if t == nil {
 		return nil, errBoom
 	}
 	return t, nil
-}
-
-// transportResolver builds real transports, so that the proxy configuration of the probe clients can be checked.
-type transportResolver struct {
-	proxy ResolvedProxy
-	cms   corev1listers.ConfigMapLister
-}
-
-func (r *transportResolver) ResolveProxy() (ResolvedProxy, error) { return r.proxy, nil }
-
-func (r *transportResolver) NewTransport(opts ...httptransport.Option) (http.RoundTripper, error) {
-	return NewTransport(r.cms, "openshift-config", r.proxy, opts...)
 }
 
 func mustParseAll(t *testing.T, rawURLs ...string) []*url.URL {
@@ -778,6 +813,9 @@ func newRecorder(t *testing.T) events.InMemoryRecorder {
 }
 
 func runSync(t *testing.T, p *proxyConfigChecker) (events.InMemoryRecorder, error) {
+	if r, ok := p.proxyResolver.(*fakeResolver); ok && p.newTransport == nil {
+		p.newTransport = r.newTransport
+	}
 	recorder := newRecorder(t)
 	return recorder, p.sync(context.Background(), factory.NewSyncContext(t.Name(), recorder))
 }

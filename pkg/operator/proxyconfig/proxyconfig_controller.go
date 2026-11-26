@@ -110,6 +110,8 @@ type proxyConfigChecker struct {
 	configMapLister corev1listers.ConfigMapLister
 	caConfigMaps    map[string][]string // ns -> []configmapNames
 	proxyResolver   ProxyResolver
+	// newTransport builds a transport for the proxy, NewTransport unless replaced in tests.
+	newTransport func(proxy ResolvedProxy, opts ...httptransport.Option) (http.RoundTripper, error)
 
 	endpointGroups    []endpointGroup
 	warningGroups     []*warningGroup
@@ -120,6 +122,12 @@ type proxyConfigChecker struct {
 
 // NewProxyConfigController returns a controller validating that proxy settings work.
 // instanceName is used as the controller name, and thus determines the Degraded condition type.
+//
+// All the ConfigMaps are read through configMapInformers, so it must have an informer for every namespace
+// of caConfigMaps and for the namespace of the proxy trusted CA (ResolvedProxy.TrustedCA). A missing
+// namespace is a coding error and panics, like in any other combined lister of KubeInformersForNamespaces.
+// The informers of the proxy trusted CA ConfigMap are not registered by the controller, because the ConfigMap
+// is only known once the proxy is resolved, so pass them with WithInformers or WithFilteredInformers.
 func NewProxyConfigController(
 	instanceName string,
 	proxyResolver ProxyResolver,
@@ -133,6 +141,9 @@ func NewProxyConfigController(
 		configMapLister: configMapInformers.ConfigMapLister(),
 		caConfigMaps:    caConfigMaps,
 		proxyResolver:   proxyResolver,
+	}
+	p.newTransport = func(proxy ResolvedProxy, opts ...httptransport.Option) (http.RoundTripper, error) {
+		return NewTransport(proxy, p.configMapLister, opts...)
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -279,7 +290,7 @@ func (p *proxyConfigChecker) warnIfUnreachable(ctx context.Context, recorder eve
 
 func computeValidationHash(proxy ResolvedProxy, trustDigest string, endpoints []string) string {
 	h := sha256.New()
-	_, _ = fmt.Fprintf(h, "%s\n%s\n%s\n%s\n%s\n", proxy.HTTPProxy, proxy.HTTPSProxy, strings.Join(proxy.NoProxy, ","), proxy.TrustedCAName, trustDigest)
+	_, _ = fmt.Fprintf(h, "%s\n%s\n%s\n%s\n%s\n", proxy.HTTPProxy, proxy.HTTPSProxy, strings.Join(proxy.NoProxy, ","), proxy.TrustedCA, trustDigest)
 	for _, u := range endpoints {
 		_, _ = fmt.Fprintf(h, "%s\n", u)
 	}
@@ -367,24 +378,28 @@ type probeClients struct {
 	forcedProxy *http.Client
 }
 
-// createHTTPClients returns the probe clients and a digest of the CAs they trust
-// (except the proxy trusted CA, which is identified by proxy.TrustedCAName).
+// createHTTPClients returns the probe clients and a digest of the CAs they trust.
 func (p *proxyConfigChecker) createHTTPClients(proxy ResolvedProxy) (probeClients, string, error) {
 	caPool, trustDigest, err := p.getCAPool()
 	if err != nil {
 		return probeClients{}, "", err
 	}
+	// The proxy trusted CA is added to the transports by NewTransport, so its contents are only hashed here.
+	proxyCA, err := loadProxyTrustedCA(p.configMapLister, proxy)
+	if err != nil {
+		return probeClients{}, "", err
+	}
+	trustDigest = fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s\n%d:%s", trustDigest, len(proxyCA), proxyCA))))
 	poolOpt := httptransport.WithCertPool(caPool)
 
-	// The resolver resolves the proxy again inside NewTransport. The proxy function passed here overrides
-	// its, so that a change in between cannot make the probes route by settings other than the ones the
-	// results are evaluated and recorded for.
+	// The transports are built for the proxy this sync resolved, so that the probes cannot route by
+	// settings other than the ones the results are evaluated and recorded for.
 	newClient := func(proxyFunc func(*url.URL) (*url.URL, error)) (*http.Client, error) {
-		opt := httptransport.WithProxyFunc(nil)
+		proxyOpt := httptransport.WithProxyFunc(nil)
 		if proxyFunc != nil {
-			opt = httptransport.WithProxyFunc(func(req *http.Request) (*url.URL, error) { return proxyFunc(req.URL) })
+			proxyOpt = httptransport.WithProxyFunc(func(req *http.Request) (*url.URL, error) { return proxyFunc(req.URL) })
 		}
-		transport, err := p.proxyResolver.NewTransport(poolOpt, opt)
+		transport, err := p.newTransport(proxy, poolOpt, proxyOpt)
 		if err != nil {
 			return nil, err
 		}
@@ -413,8 +428,8 @@ func (p *proxyConfigChecker) createHTTPClients(proxy ResolvedProxy) (probeClient
 	return probeClients{regular: regular, direct: direct, forcedProxy: forcedProxy}, trustDigest, nil
 }
 
-// getCAPool builds the pool the probe clients trust and a digest of its CAs (except the proxy trusted CA,
-// which is identified by proxy.TrustedCAName). The system trust ConfigMaps are the base trust and replace
+// getCAPool builds the pool the probe clients trust and a digest of its CAs, which
+// does not cover the proxy trusted CA that NewTransport adds. The system trust ConfigMaps are the base trust and replace
 // the system roots, like the bundle the operand uses. The trusted CA bundles are added on top of the base,
 // which is the system roots when there are no ConfigMaps. When there are no CAs to add, the pool is nil,
 // so that the system roots are used.
