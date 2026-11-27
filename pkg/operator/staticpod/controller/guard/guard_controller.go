@@ -316,6 +316,14 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			}
 		}
 
+		var pods []*corev1.Pod
+		if c.nodeFilter == nil {
+			pods, err = c.podLister.Pods(c.targetNamespace).List(c.operandPodLabelSelector)
+			if err != nil {
+				return err
+			}
+		}
+
 		if c.nodeFilter != nil {
 			selected, retired, filterErr := c.filterNodes(ctx, nodes)
 			if filterErr != nil {
@@ -366,11 +374,12 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 		}
 
-		// Apply the conservative fallback before reading operands, so a Pod
-		// lister failure cannot leave an earlier reduced budget in place.
-		pods, err := c.podLister.Pods(c.targetNamespace).List(c.operandPodLabelSelector)
-		if err != nil {
-			return err
+		if c.nodeFilter != nil {
+			// Restore PDB protection even if the operand Pod lookup fails.
+			pods, err = c.podLister.Pods(c.targetNamespace).List(c.operandPodLabelSelector)
+			if err != nil {
+				return err
+			}
 		}
 		operands := map[string]*corev1.Pod{}
 		for _, pod := range pods {
@@ -448,14 +457,8 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			if err == nil {
 				if c.nodeFilter != nil {
 					uid := actual.Labels[guardNodeUIDLabel]
-					if actual.Spec.NodeName != node.Name || actual.Labels["app"] != "guard" {
+					if actual.Spec.NodeName != node.Name || actual.Labels["app"] != "guard" || (uid != "" && uid != string(node.UID)) {
 						errs = append(errs, fmt.Errorf("unexpected identity for guard %s/%s", actual.Namespace, actual.Name))
-						continue
-					}
-					if uid != "" && node.UID != "" && uid != string(node.UID) {
-						if err := c.evictStaleGuard(ctx, actual); err != nil {
-							errs = append(errs, err)
-						}
 						continue
 					}
 				}

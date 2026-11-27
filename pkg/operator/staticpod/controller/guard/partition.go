@@ -172,8 +172,7 @@ func (c *GuardController) reconcileGuardPartition(ctx context.Context, all, reta
 		}
 	}
 
-	// Add identity to existing retained guards even on cordoned Nodes. Never
-	// overwrite an identity: name reuse and mismatches must remain protected.
+	// Add identity to existing retained guards even on cordoned Nodes.
 	pods, err := c.podGetter.Pods(c.targetNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app=guard"})
 	if err != nil {
 		return err
@@ -181,13 +180,6 @@ func (c *GuardController) reconcileGuardPartition(ctx context.Context, all, reta
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 		uid := pod.Labels[guardNodeUIDLabel]
-		if wanted, retained := retainedUIDs[pod.Spec.NodeName]; retained && uid != "" && uid != wanted &&
-			pod.Name == getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName) {
-			if err := c.restoreOrdinaryGuardBudget(ctx, all, recorder); err != nil {
-				return err
-			}
-			return fmt.Errorf("restored ordinary guard budget before replacing stale guard %s", pod.Name)
-		}
 		if uid != "" && (allUIDs[pod.Spec.NodeName] != uid || pod.Name != getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName)) {
 			if err := c.freezeGuardBudget(ctx, recorder); err != nil {
 				return err
@@ -286,8 +278,9 @@ func (c *GuardController) restoreOrdinaryGuardBudget(ctx context.Context, nodes 
 		return err
 	}
 	for _, pod := range pods.Items {
-		_, found := identities[pod.Spec.NodeName]
-		if !found || pod.Name != getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName) {
+		uid, found := identities[pod.Spec.NodeName]
+		if !found || pod.Name != getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName) ||
+			(pod.Labels[guardNodeUIDLabel] != "" && pod.Labels[guardNodeUIDLabel] != uid) {
 			if err := c.freezeGuardBudget(ctx, recorder); err != nil {
 				return err
 			}
@@ -420,30 +413,6 @@ func (c *GuardController) checkRetainedGuardHealth(ctx context.Context, retained
 		return fmt.Errorf("retained guards are below the post-retirement minimum: healthy=%d required=%d", len(healthy), minimum)
 	}
 	return nil
-}
-
-// evictStaleGuard repairs a guard with a valid name and binding but an old
-// Node UID. Wait for the normal budget instead of bypassing a frozen budget.
-func (c *GuardController) evictStaleGuard(ctx context.Context, pod *corev1.Pod) error {
-	budgets := c.pdbGetter.PodDisruptionBudgets(pod.Namespace)
-	name := getGuardPDBName(c.podResourcePrefix)
-	if _, err := budgets.Get(ctx, name+unidentifiedGuardBudgetSuffix, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("waiting for ordinary guard budget before replacing stale guard %s", pod.Name)
-	}
-	budget, err := budgets.Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	ordinary := c.guardBudget(nil)
-	if !equality.Semantic.DeepEqual(budget.Spec.Selector, ordinary.Spec.Selector) ||
-		budget.Spec.MinAvailable == nil || budget.Spec.MinAvailable.IntValue() == frozenGuardMinimum ||
-		!observedGuardBudget(budget) {
-		return fmt.Errorf("waiting for ordinary guard budget before replacing stale guard %s", pod.Name)
-	}
-	return c.evictGuard(ctx, pod)
 }
 
 func (c *GuardController) evictGuard(ctx context.Context, pod *corev1.Pod) error {
