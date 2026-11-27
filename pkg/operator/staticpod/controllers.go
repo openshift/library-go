@@ -98,6 +98,17 @@ func NewBuilder(
 	configInformers externalversions.SharedInformerFactory,
 	clock clock.Clock,
 ) Builder {
+	return newBuilder(staticPodOperatorClient, kubeClient, kubeNamespaceInformers, clusterInformers, configInformers, clock)
+}
+
+func newBuilder(
+	staticPodOperatorClient v1helpers.StaticPodOperatorClient,
+	kubeClient kubernetes.Interface,
+	kubeNamespaceInformers v1helpers.KubeInformersForNamespaces,
+	clusterInformers informers.SharedInformerFactory,
+	configInformers externalversions.SharedInformerFactory,
+	clock clock.Clock,
+) *staticPodOperatorControllerBuilder {
 	return &staticPodOperatorControllerBuilder{
 		staticPodOperatorClient: staticPodOperatorClient,
 		kubeClient:              kubeClient,
@@ -134,16 +145,24 @@ type Builder interface {
 	// This can help to drain/maintain a node and recover without a manual intervention when multiple instances of nodes or pods are misbehaving.
 	// Use this with caution, as this option can disrupt perspective pods that have not yet had a chance to become healthy.
 	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, pdbUnhealthyPodEvictionPolicy *v1.UnhealthyPodEvictionPolicyType, createConditionalFunc func() (bool, bool, error)) Builder
-	// WithGuardNodeFilter excludes permanently retired operands from guard and
-	// PDB management. Informers must cover every additional cached input used
-	// by the filter. Existing consumers do not opt into this behavior.
-	WithGuardNodeFilter(filter guard.NodeFilterFunc, informers ...factory.Informer) Builder
 	WithRevisionControllerPrecondition(revisionControllerPrecondition revisioncontroller.PreconditionFunc) Builder
 	WithRevisionControllerReadinessCheck(revisionControllerReadinessCheck revisioncontroller.ReadinessCheckFunc) Builder
 	ToControllers() (manager.ControllerManager, error)
 }
 
-func (b *staticPodOperatorControllerBuilder) WithGuardNodeFilter(filter guard.NodeFilterFunc, informers ...factory.Informer) Builder {
+// NewBuilderWithGuardNodeFilter opts into guard retirement. Pass informers for
+// any additional cached inputs used by the filter.
+func NewBuilderWithGuardNodeFilter(
+	staticPodOperatorClient v1helpers.StaticPodOperatorClient,
+	kubeClient kubernetes.Interface,
+	kubeNamespaceInformers v1helpers.KubeInformersForNamespaces,
+	clusterInformers informers.SharedInformerFactory,
+	configInformers externalversions.SharedInformerFactory,
+	clock clock.Clock,
+	filter guard.NodeFilterFunc,
+	informers ...factory.Informer,
+) Builder {
+	b := newBuilder(staticPodOperatorClient, kubeClient, kubeNamespaceInformers, clusterInformers, configInformers, clock)
 	b.guardNodeFilter = filter
 	b.guardNodeFilterInformers = informers
 	return b
