@@ -61,7 +61,7 @@ type GuardController struct {
 }
 
 // NodeFilterFunc may exclude Nodes whose operands have permanently retired.
-// The returned slice must be a nonempty subset of the selected Nodes. Guards
+// The returned slice must be a nonempty subset and may omit at most one Node. Guards
 // for excluded Nodes are deleted before the disruption budget is reduced.
 // Callers must not exclude temporarily unhealthy or restarting operands.
 type NodeFilterFunc func(context.Context, []*corev1.Node) ([]*corev1.Node, error)
@@ -249,7 +249,7 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		}
 
 		for _, pdbItem := range pdbs {
-			if pdbItem.Name != pdb.Name && (c.nodeFilter == nil || pdbItem.Name != pdb.Name+unidentifiedGuardBudgetSuffix) {
+			if pdbItem.Name != pdb.Name && pdbItem.Name != pdb.Name+unidentifiedGuardBudgetSuffix {
 				continue
 			}
 			_, _, err := resourceapply.DeletePodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdbItem)
@@ -334,6 +334,14 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			klog.V(5).Infof("Rendering guard pdb")
 
 			pdb := c.guardBudget(nodes)
+
+			_, err := c.pdbLister.PodDisruptionBudgets(pdb.Namespace).Get(pdb.Name + unidentifiedGuardBudgetSuffix)
+			if err == nil {
+				return c.restoreOrdinaryGuardBudget(ctx, nodes, syncCtx.Recorder())
+			}
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
 
 			pdbObj, err := c.pdbLister.PodDisruptionBudgets(pdb.Namespace).Get(pdb.Name)
 			if err == nil {
@@ -440,8 +448,14 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			if err == nil {
 				if c.nodeFilter != nil {
 					uid := actual.Labels[guardNodeUIDLabel]
-					if actual.Spec.NodeName != node.Name || actual.Labels["app"] != "guard" || (uid != "" && uid != string(node.UID)) {
+					if actual.Spec.NodeName != node.Name || actual.Labels["app"] != "guard" {
 						errs = append(errs, fmt.Errorf("unexpected identity for guard %s/%s", actual.Namespace, actual.Name))
+						continue
+					}
+					if uid != "" && node.UID != "" && uid != string(node.UID) {
+						if err := c.evictStaleGuard(ctx, actual); err != nil {
+							errs = append(errs, err)
+						}
 						continue
 					}
 				}
@@ -524,6 +538,9 @@ func (c *GuardController) filterNodes(ctx context.Context, nodes []*corev1.Node)
 		if !retained[node.Name] {
 			retired = append(retired, node)
 		}
+	}
+	if len(retired) > 1 {
+		return nil, nil, fmt.Errorf("guard retirement supports one outgoing Node at a time")
 	}
 	return filtered, retired, nil
 }

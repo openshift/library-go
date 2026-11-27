@@ -181,6 +181,13 @@ func (c *GuardController) reconcileGuardPartition(ctx context.Context, all, reta
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 		uid := pod.Labels[guardNodeUIDLabel]
+		if wanted, retained := retainedUIDs[pod.Spec.NodeName]; retained && uid != "" && uid != wanted &&
+			pod.Name == getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName) {
+			if err := c.restoreOrdinaryGuardBudget(ctx, all, recorder); err != nil {
+				return err
+			}
+			return fmt.Errorf("restored ordinary guard budget before replacing stale guard %s", pod.Name)
+		}
 		if uid != "" && (allUIDs[pod.Spec.NodeName] != uid || pod.Name != getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName)) {
 			if err := c.freezeGuardBudget(ctx, recorder); err != nil {
 				return err
@@ -221,6 +228,9 @@ func (c *GuardController) reconcileGuardPartition(ctx context.Context, all, reta
 		}
 		if !observedGuardBudget(current) {
 			return fmt.Errorf("waiting for retained guard budget observation")
+		}
+		if current.Status.ExpectedPods != int32(len(retained)) {
+			return fmt.Errorf("waiting for disruption budget to count retained guards")
 		}
 		updated := current.DeepCopy()
 		updated.Spec = desired.Spec
@@ -276,9 +286,8 @@ func (c *GuardController) restoreOrdinaryGuardBudget(ctx context.Context, nodes 
 		return err
 	}
 	for _, pod := range pods.Items {
-		uid, found := identities[pod.Spec.NodeName]
-		if !found || pod.Name != getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName) ||
-			(pod.Labels[guardNodeUIDLabel] != "" && pod.Labels[guardNodeUIDLabel] != uid) {
+		_, found := identities[pod.Spec.NodeName]
+		if !found || pod.Name != getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName) {
 			if err := c.freezeGuardBudget(ctx, recorder); err != nil {
 				return err
 			}
@@ -365,11 +374,7 @@ func (c *GuardController) evictOutgoingGuards(ctx context.Context, all, retained
 			return err
 		}
 		pods := c.podGetter.Pods(c.targetNamespace)
-		eviction := &policyv1.Eviction{
-			ObjectMeta:    metav1.ObjectMeta{Name: p.Name, Namespace: p.Namespace},
-			DeleteOptions: &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &p.UID, ResourceVersion: &p.ResourceVersion}},
-		}
-		if err := pods.EvictV1(ctx, eviction); err != nil && !apierrors.IsNotFound(err) {
+		if err := c.evictGuard(ctx, p); err != nil {
 			return err
 		}
 		if _, err := pods.Get(ctx, p.Name, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
@@ -388,13 +393,17 @@ func (c *GuardController) checkRetainedGuardHealth(ctx context.Context, retained
 	if err != nil {
 		return err
 	}
-	retainedNames := map[string]bool{}
+	retainedUIDs := make(map[string]string, len(retained))
 	for _, node := range retained {
-		retainedNames[node.Name] = true
+		retainedUIDs[node.Name] = string(node.UID)
 	}
 	healthy := map[string]bool{}
 	for _, pod := range pods.Items {
-		if !retainedNames[pod.Spec.NodeName] || pod.Name != getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName) || pod.DeletionTimestamp != nil {
+		uid, retained := retainedUIDs[pod.Spec.NodeName]
+		if !retained || pod.Name != getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName) || pod.DeletionTimestamp != nil {
+			continue
+		}
+		if label := pod.Labels[guardNodeUIDLabel]; label != "" && label != uid {
 			continue
 		}
 		if _, disrupted := current.Status.DisruptedPods[pod.Name]; disrupted {
@@ -409,6 +418,44 @@ func (c *GuardController) checkRetainedGuardHealth(ctx context.Context, retained
 	minimum := c.guardBudget(retained).Spec.MinAvailable.IntValue()
 	if len(healthy) < minimum {
 		return fmt.Errorf("retained guards are below the post-retirement minimum: healthy=%d required=%d", len(healthy), minimum)
+	}
+	return nil
+}
+
+// evictStaleGuard repairs a guard with a valid name and binding but an old
+// Node UID. Wait for the normal budget instead of bypassing a frozen budget.
+func (c *GuardController) evictStaleGuard(ctx context.Context, pod *corev1.Pod) error {
+	budgets := c.pdbGetter.PodDisruptionBudgets(pod.Namespace)
+	name := getGuardPDBName(c.podResourcePrefix)
+	if _, err := budgets.Get(ctx, name+unidentifiedGuardBudgetSuffix, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("waiting for ordinary guard budget before replacing stale guard %s", pod.Name)
+	}
+	budget, err := budgets.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	ordinary := c.guardBudget(nil)
+	if !equality.Semantic.DeepEqual(budget.Spec.Selector, ordinary.Spec.Selector) ||
+		budget.Spec.MinAvailable == nil || budget.Spec.MinAvailable.IntValue() == frozenGuardMinimum ||
+		!observedGuardBudget(budget) {
+		return fmt.Errorf("waiting for ordinary guard budget before replacing stale guard %s", pod.Name)
+	}
+	return c.evictGuard(ctx, pod)
+}
+
+func (c *GuardController) evictGuard(ctx context.Context, pod *corev1.Pod) error {
+	if pod.UID == "" || pod.ResourceVersion == "" {
+		return fmt.Errorf("missing Pod identity for guard %s/%s", pod.Namespace, pod.Name)
+	}
+	eviction := &policyv1.Eviction{
+		ObjectMeta:    metav1.ObjectMeta{Name: pod.Name, Namespace: pod.Namespace},
+		DeleteOptions: &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &pod.UID, ResourceVersion: &pod.ResourceVersion}},
+	}
+	if err := c.podGetter.Pods(pod.Namespace).EvictV1(ctx, eviction); err != nil && !apierrors.IsNotFound(err) {
+		return err
 	}
 	return nil
 }

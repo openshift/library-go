@@ -37,6 +37,9 @@ func TestRetiredNodesGuardPolicy(t *testing.T) {
 		{name: "failed filter restores conservative policy", filter: func(context.Context, []*corev1.Node) ([]*corev1.Node, error) {
 			return nil, errors.New("membership unavailable")
 		}, wantMinimum: 3, wantGuard: true, wantError: true},
+		{name: "two retirements are rejected", filter: func(_ context.Context, nodes []*corev1.Node) ([]*corev1.Node, error) {
+			return nodes[2:], nil
+		}, wantMinimum: 3, wantGuard: true, wantError: true},
 		{name: "empty result is rejected", filter: func(context.Context, []*corev1.Node) ([]*corev1.Node, error) { return nil, nil }, wantMinimum: 3, wantGuard: true, wantError: true},
 		{name: "foreign Node is rejected", filter: func(context.Context, []*corev1.Node) ([]*corev1.Node, error) {
 			return []*corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "foreign"}}}, nil
@@ -434,7 +437,7 @@ func TestRetirementWaitsForConservativeBudgetObservation(t *testing.T) {
 }
 
 func TestRetirementPreservesRetainedHealthFloor(t *testing.T) {
-	for _, mode := range []string{"exactly two healthy", "two unhealthy", "two terminating", "two approved disruptions"} {
+	for _, mode := range []string{"exactly two healthy", "two unhealthy", "two terminating", "two approved disruptions", "two stale node identities"} {
 		t.Run(mode, func(t *testing.T) {
 			ctrl, kube, refresh, syncContext := retiredGuardFixture(t)
 			ctrl.nodeFilter = omitFirstGuardNode
@@ -454,6 +457,8 @@ func TestRetirementPreservesRetainedHealthFloor(t *testing.T) {
 					t.Fatal(err)
 				}
 				switch mode {
+				case "two stale node identities":
+					pod.Labels[guardNodeUIDLabel] = "previous-node-uid"
 				case "two terminating":
 					now := metav1.Now()
 					pod.DeletionTimestamp = &now
@@ -856,6 +861,20 @@ func TestRetirementRetriesWhenOutgoingGuardReappears(t *testing.T) {
 	if err := ctrl.sync(ctx, syncContext); err == nil {
 		t.Fatal("expected recovery before retry")
 	}
+	if err := ctrl.sync(ctx, syncContext); err == nil {
+		t.Fatal("expected to wait for the retained guard count after eviction")
+	}
+	budget, err = budgets.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if budget.Spec.MinAvailable.IntValue() != frozenGuardMinimum {
+		t.Fatalf("expected a frozen budget while the count is stale, got %+v", budget.Spec)
+	}
+	budget.Status.ExpectedPods = 3
+	if _, err := budgets.UpdateStatus(ctx, budget, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
 	if err := ctrl.sync(ctx, syncContext); err != nil {
 		t.Fatal(err)
 	}
@@ -893,5 +912,90 @@ func TestDisablingRetirementAwareGuardsRemovesBothBudgets(t *testing.T) {
 		if _, err := budgets.Get(ctx, name, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
 			t.Errorf("expected budget %s to be removed: %v", name, err)
 		}
+	}
+}
+
+func TestRetirementReplacesGuardFromPreviousNodeUID(t *testing.T) {
+	ctrl, kube, refresh, syncContext := retiredGuardFixture(t)
+	ctrl.nodeFilter = func(_ context.Context, nodes []*corev1.Node) ([]*corev1.Node, error) {
+		return nodes, nil
+	}
+	ctx := context.Background()
+	pods := kube.CoreV1().Pods("test")
+	const name = "operand-guard-master-1"
+	pod, err := pods.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pod.Labels[guardNodeUIDLabel] = "previous-node-uid"
+	if _, err := pods.Update(ctx, pod, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	refresh()
+	if err := ctrl.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pods.Get(ctx, name, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("expected eviction of the stale guard before replacement: %v", err)
+	}
+	refresh()
+	if err := ctrl.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := pods.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := replacement.Labels[guardNodeUIDLabel]; got != "master-1" {
+		t.Fatalf("replacement guard Node UID = %q, want master-1", got)
+	}
+}
+
+func TestRetirementRestoresBudgetToReplaceStaleGuard(t *testing.T) {
+	ctrl, kube, refresh, syncContext := retiredGuardFixture(t)
+	ctrl.nodeFilter = omitFirstGuardNode
+	ctx := context.Background()
+	if err := ctrl.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	pods := kube.CoreV1().Pods("test")
+	const name = "operand-guard-master-1"
+	stale, err := pods.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale.Labels[guardNodeUIDLabel] = "previous-node-uid"
+	if _, err := pods.Update(ctx, stale, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	refresh()
+	if err := ctrl.sync(ctx, syncContext); err == nil {
+		t.Fatal("expected restoration before resuming retirement")
+	}
+	if _, err := pods.Get(ctx, name, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("expected stale guard to be evicted after restoration: %v", err)
+	}
+	budgets := kube.PolicyV1().PodDisruptionBudgets("test")
+	const primary = "operand-guard-pdb"
+	budget, err := budgets.Get(ctx, primary, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if budget.Spec.MinAvailable.IntValue() != 3 || len(budget.Spec.Selector.MatchExpressions) != 0 {
+		t.Fatalf("expected ordinary budget during stale guard recovery, got %+v", budget.Spec)
+	}
+	if _, err := budgets.Get(ctx, primary+unidentifiedGuardBudgetSuffix, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("expected temporary budget to be removed: %v", err)
+	}
+	refresh()
+	if err := ctrl.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := pods.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacement.Labels[guardNodeUIDLabel] != "master-1" {
+		t.Fatalf("replacement has wrong Node UID: %v", replacement.Labels)
 	}
 }
