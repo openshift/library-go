@@ -8,6 +8,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/client-go/config/informers/externalversions"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/controller/manager"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -80,6 +81,8 @@ type staticPodOperatorControllerBuilder struct {
 	readyzEndpoint                string
 	pdbUnhealthyPodEvictionPolicy *v1.UnhealthyPodEvictionPolicyType
 	guardCreateConditionalFunc    func() (bool, bool, error)
+	guardNodeFilter               guard.NodeFilterFunc
+	guardNodeFilterInformers      []factory.Informer
 
 	revisionControllerPrecondition   revisioncontroller.PreconditionFunc
 	revisionControllerReadinessCheck revisioncontroller.ReadinessCheckFunc
@@ -95,6 +98,17 @@ func NewBuilder(
 	configInformers externalversions.SharedInformerFactory,
 	clock clock.Clock,
 ) Builder {
+	return newBuilder(staticPodOperatorClient, kubeClient, kubeNamespaceInformers, clusterInformers, configInformers, clock)
+}
+
+func newBuilder(
+	staticPodOperatorClient v1helpers.StaticPodOperatorClient,
+	kubeClient kubernetes.Interface,
+	kubeNamespaceInformers v1helpers.KubeInformersForNamespaces,
+	clusterInformers informers.SharedInformerFactory,
+	configInformers externalversions.SharedInformerFactory,
+	clock clock.Clock,
+) *staticPodOperatorControllerBuilder {
 	return &staticPodOperatorControllerBuilder{
 		staticPodOperatorClient: staticPodOperatorClient,
 		kubeClient:              kubeClient,
@@ -134,6 +148,24 @@ type Builder interface {
 	WithRevisionControllerPrecondition(revisionControllerPrecondition revisioncontroller.PreconditionFunc) Builder
 	WithRevisionControllerReadinessCheck(revisionControllerReadinessCheck revisioncontroller.ReadinessCheckFunc) Builder
 	ToControllers() (manager.ControllerManager, error)
+}
+
+// NewBuilderWithGuardNodeFilter opts into guard retirement. Pass informers for
+// any additional cached inputs used by the filter.
+func NewBuilderWithGuardNodeFilter(
+	staticPodOperatorClient v1helpers.StaticPodOperatorClient,
+	kubeClient kubernetes.Interface,
+	kubeNamespaceInformers v1helpers.KubeInformersForNamespaces,
+	clusterInformers informers.SharedInformerFactory,
+	configInformers externalversions.SharedInformerFactory,
+	clock clock.Clock,
+	filter guard.NodeFilterFunc,
+	informers ...factory.Informer,
+) Builder {
+	b := newBuilder(staticPodOperatorClient, kubeClient, kubeNamespaceInformers, clusterInformers, configInformers, clock)
+	b.guardNodeFilter = filter
+	b.guardNodeFilterInformers = informers
+	return b
 }
 
 func (b *staticPodOperatorControllerBuilder) WithExtraNodeSelector(extraNodeSelector labels.Selector) Builder {
@@ -412,6 +444,8 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			eventRecorder,
 			b.guardCreateConditionalFunc,
 			b.extraNodeSelector,
+			guard.WithNodeFilter(b.guardNodeFilter),
+			guard.WithAdditionalInformers(b.guardNodeFilterInformers...),
 		); err == nil {
 			manager.WithController(guardController, 1)
 		} else {
