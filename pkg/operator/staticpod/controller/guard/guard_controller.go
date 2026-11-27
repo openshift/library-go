@@ -12,7 +12,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/policy/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -250,13 +249,13 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		}
 
 		for _, pdbItem := range pdbs {
-			if pdbItem.Name == pdb.Name {
-				_, _, err := resourceapply.DeletePodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
-				if err != nil {
-					klog.Errorf("Unable to delete PodDisruptionBudget: %v", err)
-					errs = append(errs, err)
-				}
-				break
+			if pdbItem.Name != pdb.Name && (c.nodeFilter == nil || pdbItem.Name != pdb.Name+unidentifiedGuardBudgetSuffix) {
+				continue
+			}
+			_, _, err := resourceapply.DeletePodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdbItem)
+			if err != nil {
+				klog.Errorf("Unable to delete PodDisruptionBudget: %v", err)
+				errs = append(errs, err)
 			}
 		}
 
@@ -317,90 +316,46 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			}
 		}
 
-		allNodes := nodes
-		guardNodes := nodes
 		if c.nodeFilter != nil {
-			selected, retired, err := c.filterNodes(ctx, nodes)
-			if err != nil {
-				// Continue with all Nodes so an earlier reduced budget is
-				// restored even when membership validation is unavailable.
-				errs = append(errs, fmt.Errorf("guard node retirement check failed: %w", err))
+			selected, retired, filterErr := c.filterNodes(ctx, nodes)
+			if filterErr != nil {
+				freezeErr := c.restoreOrdinaryGuardBudget(ctx, nodes, syncCtx.Recorder())
+				if freezeErr != nil {
+					return utilerrors.NewAggregate([]error{filterErr, freezeErr})
+				}
+				errs = append(errs, filterErr)
 			} else {
-				guardNodes = selected
-				if err := c.deleteRetiredGuards(ctx, nodes, selected, retired, syncCtx.Recorder()); err != nil {
-					// A previously reduced budget must also be restored
-					// if a stale guard reappears and cannot be removed.
+				if err := c.reconcileGuardPartition(ctx, nodes, selected, retired, syncCtx.Recorder()); err != nil {
 					errs = append(errs, err)
-				} else {
-					nodes = selected
 				}
-			}
-		}
-
-		klog.V(5).Infof("Rendering guard pdb")
-
-		pdb := c.guardBudget(nodes)
-
-		pdbObj, err := c.pdbLister.PodDisruptionBudgets(pdb.Namespace).Get(pdb.Name)
-		if c.nodeFilter != nil {
-			// Retirement may just have restored a conservative budget. Its
-			// own write must not be hidden by the informer snapshot.
-			pdbObj, err = c.pdbGetter.PodDisruptionBudgets(pdb.Namespace).Get(ctx, pdb.Name, metav1.GetOptions{})
-		}
-		reduceBudget := false
-		if len(nodes) < len(allNodes) {
-			conservative := c.guardBudget(allNodes)
-			accounted := false
-			if err == nil && equality.Semantic.DeepEqual(pdbObj.Spec.Selector, conservative.Spec.Selector) {
-				// A spec write advances Generation before status can catch up.
-				// Keep a matching reduction while retirement and guard identity
-				// still check out. Require status before entering the reduction.
-				alreadyReduced := equality.Semantic.DeepEqual(pdbObj.Spec, pdb.Spec)
-				accounted = alreadyReduced || (equality.Semantic.DeepEqual(pdbObj.Spec, conservative.Spec) &&
-					pdbObj.Status.ObservedGeneration == pdbObj.Generation &&
-					pdbObj.Status.ExpectedPods == int32(len(nodes)))
-			}
-			if accounted {
-				accounted, err = c.budgetMatchesRetainedGuards(ctx, nodes, conservative)
-				if err != nil {
-					errs = append(errs, err)
-					err = nil
-				}
-			}
-			if !accounted {
-				errs = append(errs, fmt.Errorf("waiting for disruption budget to account for retained guards"))
-				pdb = conservative
-			} else {
-				reduceBudget = !ptr.Equal(pdbObj.Spec.MinAvailable, pdb.Spec.MinAvailable)
-			}
-		}
-		if reduceBudget {
-			// Use the exact PDB version we evaluated. An eviction reservation
-			// can change its status before this write, so retry via reconciliation.
-			updated := pdbObj.DeepCopy()
-			updated.Spec.MinAvailable = pdb.Spec.MinAvailable
-			if _, err := c.pdbGetter.PodDisruptionBudgets(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("reduce guard disruption budget: %w", err)
-			}
-		} else if err == nil {
-			if !ptr.Equal(pdbObj.Spec.UnhealthyPodEvictionPolicy, pdb.Spec.UnhealthyPodEvictionPolicy) ||
-				!ptr.Equal(pdbObj.Spec.MinAvailable, pdb.Spec.MinAvailable) ||
-				(c.nodeFilter != nil && !equality.Semantic.DeepEqual(pdbObj.Spec.Selector, pdb.Spec.Selector)) {
-				_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
-				if err != nil {
-					klog.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
-					return fmt.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
-				}
-			}
-		} else if apierrors.IsNotFound(err) {
-			_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
-			if err != nil {
-				klog.Errorf("Unable to create PodDisruptionBudget: %v", err)
-				return fmt.Errorf("Unable to create PodDisruptionBudget: %v", err)
+				nodes = selected
 			}
 		} else {
-			klog.Errorf("Unable to get PodDisruptionBudget: %v", err)
-			return err
+			klog.V(5).Infof("Rendering guard pdb")
+
+			pdb := c.guardBudget(nodes)
+
+			pdbObj, err := c.pdbLister.PodDisruptionBudgets(pdb.Namespace).Get(pdb.Name)
+			if err == nil {
+				if !ptr.Equal(pdbObj.Spec.UnhealthyPodEvictionPolicy, pdb.Spec.UnhealthyPodEvictionPolicy) ||
+					!ptr.Equal(pdbObj.Spec.MinAvailable, pdb.Spec.MinAvailable) {
+					_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
+					if err != nil {
+						klog.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
+						return fmt.Errorf("Unable to apply PodDisruptionBudget changes: %v", err)
+					}
+				}
+			} else if apierrors.IsNotFound(err) {
+				_, _, err = resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, syncCtx.Recorder(), pdb)
+				if err != nil {
+					klog.Errorf("Unable to create PodDisruptionBudget: %v", err)
+					return fmt.Errorf("Unable to create PodDisruptionBudget: %v", err)
+				}
+			} else {
+				klog.Errorf("Unable to get PodDisruptionBudget: %v", err)
+				return err
+			}
+
 		}
 
 		// Apply the conservative fallback before reading operands, so a Pod
@@ -432,7 +387,7 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			return err
 		}
 
-		for _, node := range guardNodes {
+		for _, node := range nodes {
 			// Check whether the node is schedulable
 			if nodeHasUnschedulableTaint(node) {
 				klog.Infof("Node %v not schedulable, skipping reconciling the guard pod", node.Name)
@@ -467,6 +422,9 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			pod.ObjectMeta.Namespace = c.targetNamespace
 			pod.Spec.Hostname = getGuardPodHostname(c.targetNamespace, node.Name)
 			pod.Spec.NodeName = node.Name
+			if c.nodeFilter != nil && node.UID != "" {
+				pod.Labels[guardNodeUIDLabel] = string(node.UID)
+			}
 			pod.Spec.Containers[0].Image = c.installerPodImageFn()
 			pod.Spec.Containers[0].ReadinessProbe.HTTPGet.Host = operands[node.Name].Status.PodIP
 			pod.Spec.ServiceAccountName = serviceAccount.Name
@@ -480,6 +438,13 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 			actual, err := c.podGetter.Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
 			if err == nil {
+				if c.nodeFilter != nil {
+					uid := actual.Labels[guardNodeUIDLabel]
+					if actual.Spec.NodeName != node.Name || actual.Labels["app"] != "guard" || (uid != "" && uid != string(node.UID)) {
+						errs = append(errs, fmt.Errorf("unexpected identity for guard %s/%s", actual.Namespace, actual.Name))
+						continue
+					}
+				}
 				// Delete the pod so it can be re-created. ApplyPod only updates the metadata part of the manifests, ignores the rest
 				delete := false
 				if actual.Spec.Containers[0].Image != pod.Spec.Containers[0].Image {
@@ -572,107 +537,4 @@ func (c *GuardController) guardBudget(nodes []*corev1.Node) *v1.PodDisruptionBud
 		pdb.Spec.MinAvailable = &minimum
 	}
 	return pdb
-}
-
-// budgetMatchesRetainedGuards verifies the identities behind the disruption
-// controller's count before reducing the minimum.
-func (c *GuardController) budgetMatchesRetainedGuards(ctx context.Context, nodes []*corev1.Node, budget *v1.PodDisruptionBudget) (bool, error) {
-	selector, err := metav1.LabelSelectorAsSelector(budget.Spec.Selector)
-	if err != nil {
-		return false, err
-	}
-	pods, err := c.podGetter.Pods(budget.Namespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
-	if err != nil {
-		return false, err
-	}
-	if len(pods.Items) != len(nodes) {
-		return false, nil
-	}
-	expected := make(map[string]string, len(nodes))
-	for _, node := range nodes {
-		expected[getGuardPodName(c.podResourcePrefix, node.Name)] = node.Name
-	}
-	for _, pod := range pods.Items {
-		if expected[pod.Name] != pod.Spec.NodeName || pod.Spec.NodeName == "" {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-func (c *GuardController) deleteRetiredGuards(ctx context.Context, all, retained, retired []*corev1.Node, recorder events.Recorder) error {
-	var retiringPods []*corev1.Pod
-	for _, node := range retired {
-		name := getGuardPodName(c.podResourcePrefix, node.Name)
-		pod, err := c.podGetter.Pods(c.targetNamespace).Get(ctx, name, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if pod.Spec.NodeName != node.Name || pod.Labels["app"] != "guard" {
-			return fmt.Errorf("unexpected identity for retired guard %s/%s", c.targetNamespace, name)
-		}
-		retiringPods = append(retiringPods, pod)
-	}
-	if len(retiringPods) == 0 {
-		return nil
-	}
-	// A reappearing Ready guard must not temporarily supply false capacity
-	// under an earlier reduced budget while we retire it. Restore the ordinary
-	// budget and wait for the disruption controller to observe that generation.
-	budget, _, err := resourceapply.ApplyPodDisruptionBudget(ctx, c.pdbGetter, recorder, c.guardBudget(all))
-	if err != nil {
-		return err
-	}
-	if budget.Status.ObservedGeneration < budget.Generation {
-		return fmt.Errorf("waiting for conservative guard budget generation before retirement")
-	}
-	pods, err := c.podGetter.Pods(c.targetNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app=guard"})
-	if err != nil {
-		return err
-	}
-	retainedNames := map[string]bool{}
-	for _, node := range retained {
-		retainedNames[node.Name] = true
-	}
-	healthy := map[string]bool{}
-	for _, pod := range pods.Items {
-		if !retainedNames[pod.Spec.NodeName] || pod.Name != getGuardPodName(c.podResourcePrefix, pod.Spec.NodeName) || pod.DeletionTimestamp != nil {
-			continue
-		}
-		if _, disrupted := budget.Status.DisruptedPods[pod.Name]; disrupted {
-			continue
-		}
-		for _, condition := range pod.Status.Conditions {
-			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-				healthy[pod.Spec.NodeName] = true
-			}
-		}
-	}
-	minimum := c.guardBudget(retained).Spec.MinAvailable.IntValue()
-	if len(healthy) < minimum {
-		return fmt.Errorf("retained guards are below the post-retirement minimum: healthy=%d required=%d", len(healthy), minimum)
-	}
-	for _, pod := range retiringPods {
-		options := metav1.DeleteOptions{}
-		if pod.UID != "" {
-			options.Preconditions = &metav1.Preconditions{UID: &pod.UID}
-			if pod.ResourceVersion != "" {
-				options.Preconditions.ResourceVersion = &pod.ResourceVersion
-			}
-		}
-		if err := c.podGetter.Pods(c.targetNamespace).Delete(ctx, pod.Name, options); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		if _, err := c.podGetter.Pods(c.targetNamespace).Get(ctx, pod.Name, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
-			if err != nil {
-				return err
-			}
-			return fmt.Errorf("waiting for retired guard %s/%s to disappear before reducing its budget", c.targetNamespace, pod.Name)
-		}
-		recorder.Eventf("GuardRetired", "Removed guard %s/%s for a confirmed retired operand", c.targetNamespace, pod.Name)
-	}
-	return nil
 }

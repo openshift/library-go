@@ -129,8 +129,8 @@ func TestRetiredGuardDeletionFailureKeepsBudget(t *testing.T) {
 			// Update the controller's PDB cache too, as if the previous
 			// reduced policy had already been fully observed.
 			refresh()
-			kube.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-				if action.(clienttesting.DeleteAction).GetName() != "operand-guard-master-0" {
+			kube.PrependReactor("create", "pods/eviction", func(action clienttesting.Action) (bool, runtime.Object, error) {
+				if action.(clienttesting.CreateAction).GetObject().(*policyv1.Eviction).Name != "operand-guard-master-0" {
 					return false, nil, nil
 				}
 				if pending {
@@ -211,11 +211,132 @@ func TestRetiredGuardUncertainIdentityRestoresBudget(t *testing.T) {
 				t.Fatalf("uncertainty retained a reduced budget: %v", pdb.Spec.MinAvailable)
 			}
 			for _, action := range kube.Actions() {
+				if action.Matches("create", "pods/eviction") && action.(clienttesting.CreateAction).GetObject().(*policyv1.Eviction).Name == pod.Name {
+					t.Fatal("guard with unverified identity was evicted")
+				}
 				if action.Matches("delete", "pods") && action.(clienttesting.DeleteAction).GetName() == pod.Name {
 					t.Fatal("guard with unverified identity was deleted")
 				}
 			}
 		})
+	}
+}
+
+// If a retained guard takes the last eviction slot after the health check,
+// admission refuses the outgoing Ready guard. Reconciliation must preserve
+// the conservative budget and must never fall back to direct deletion.
+func TestRetiredGuardWaitsForEvictionAdmission(t *testing.T) {
+	ctrl, kube, refresh, syncContext := retiredGuardFixture(t)
+	ctrl.nodeFilter = omitFirstGuardNode
+	ctx := context.Background()
+	pods := kube.CoreV1().Pods("test")
+	unready, err := pods.Get(ctx, "operand-guard-master-3", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unready.Status.Conditions[0].Status = corev1.ConditionFalse
+	if _, err := pods.UpdateStatus(ctx, unready, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	budgets := kube.PolicyV1().PodDisruptionBudgets("test")
+	budget, err := budgets.Get(ctx, "operand-guard-pdb", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	budget.Status.ExpectedPods = 4
+	budget.Status.CurrentHealthy = 4 // The disruption controller has not observed the readiness change.
+	budget.Status.DesiredHealthy = 3
+	budget.Status.DisruptionsAllowed = 1
+	if _, err := budgets.UpdateStatus(ctx, budget, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	refresh()
+	const outgoing = "operand-guard-master-0"
+	kube.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		t.Fatalf("unexpected direct delete: %v", action)
+		return false, nil, nil
+	})
+	requested := false
+	kube.PrependReactor("create", "pods/eviction", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		eviction := action.(clienttesting.CreateAction).GetObject().(*policyv1.Eviction)
+		if eviction.Name != outgoing {
+			t.Fatalf("unexpected eviction of %q", eviction.Name)
+		}
+		requested = true
+		reserved := budget.DeepCopy()
+		reserved.Status.DisruptionsAllowed = 0
+		reserved.Status.DisruptedPods = map[string]metav1.Time{"operand-guard-master-1": metav1.Now()}
+		if err := kube.Tracker().Update(policyv1.SchemeGroupVersion.WithResource("poddisruptionbudgets"), reserved, reserved.Namespace); err != nil {
+			t.Fatal(err)
+		}
+		return true, nil, apierrors.NewTooManyRequests("disruption budget exhausted", 0)
+	})
+	if err := ctrl.sync(ctx, syncContext); err == nil || !requested {
+		t.Fatalf("expected eviction rejection, requested=%t, err=%v", requested, err)
+	}
+	if _, err := kube.CoreV1().Pods("test").Get(ctx, outgoing, metav1.GetOptions{}); err != nil {
+		t.Fatalf("outgoing guard after rejected eviction: %v", err)
+	}
+	budget, err = budgets.Get(ctx, budget.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, reserved := budget.Status.DisruptedPods["operand-guard-master-1"]; !reserved || budget.Spec.MinAvailable.IntValue() != 3 {
+		t.Fatalf("expected original budget and retained reservation, got %+v", budget)
+	}
+}
+
+func TestRetirementRejectsStaleMatchingGuardCount(t *testing.T) {
+	ctrl, kube, refresh, syncContext := retiredGuardFixture(t)
+	ctrl.nodeFilter = omitFirstGuardNode
+	ctx := context.Background()
+	pods := kube.CoreV1().Pods("test")
+	budgets := kube.PolicyV1().PodDisruptionBudgets("test")
+	retained, err := pods.Get(ctx, "operand-guard-master-3", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pods.Delete(ctx, retained.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	// At this point the PDB counts the outgoing guard and two retained guards.
+	budget, err := budgets.Get(ctx, "operand-guard-pdb", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	budget.Generation = 1
+	budget.Status = policyv1.PodDisruptionBudgetStatus{
+		ObservedGeneration: 1, ExpectedPods: 3, CurrentHealthy: 3, DesiredHealthy: 3,
+	}
+	if _, err := budgets.Update(ctx, budget, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	// The live set now has three retained guards. The PDB still describes
+	// the previous set, with the same count and the correct generation.
+	outgoing, err := pods.Get(ctx, "operand-guard-master-0", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pods.Delete(ctx, outgoing.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	retained.UID = "new-retained-guard"
+	retained.ResourceVersion = ""
+	if _, err := pods.Create(ctx, retained, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	refresh()
+	syncErr := ctrl.sync(ctx, syncContext)
+	budget, err = budgets.Get(ctx, budget.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	selector, err := metav1.LabelSelectorAsSelector(budget.Spec.Selector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := budget.Spec.MinAvailable.IntValue(); got < 3 && selector.Matches(labels.Set(outgoing.Labels)) {
+		t.Fatalf("minAvailable reduced to %d while the selector still matches the cached outgoing guard (sync error: %v)", got, syncErr)
 	}
 }
 
@@ -236,12 +357,12 @@ func TestRetiredGuardUIDPrecondition(t *testing.T) {
 			}
 			refresh()
 			checkedUID := false
-			kube.PrependReactor("delete", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-				deletion := action.(clienttesting.DeleteAction)
-				if deletion.GetName() != pod.Name {
+			kube.PrependReactor("create", "pods/eviction", func(action clienttesting.Action) (bool, runtime.Object, error) {
+				eviction := action.(clienttesting.CreateAction).GetObject().(*policyv1.Eviction)
+				if eviction.Name != pod.Name {
 					return false, nil, nil
 				}
-				preconditions := deletion.GetDeleteOptions().Preconditions
+				preconditions := eviction.DeleteOptions.Preconditions
 				if preconditions == nil || preconditions.UID == nil || *preconditions.UID != pod.UID {
 					t.Fatal("retirement deletion must target the UID that was read")
 				}
@@ -390,10 +511,11 @@ func retiredGuardFixture(t *testing.T) (*GuardController, *fake.Clientset, func(
 	for i := 0; i < 4; i++ {
 		name := fmt.Sprintf("master-%d", i)
 		ip := fmt.Sprintf("192.0.2.%d", i+10)
-		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"node-role.kubernetes.io/master": ""}}}
+		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, UID: types.UID(name), Labels: map[string]string{"node-role.kubernetes.io/master": ""}}}
 		operand := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "operand-" + name, Namespace: "test", Labels: map[string]string{"app": "operand"}}, Spec: corev1.PodSpec{NodeName: name}, Status: corev1.PodStatus{PodIP: ip}}
 		pod := resourceread.ReadPodV1OrDie(podTemplate)
 		pod.Name, pod.Namespace, pod.Spec.NodeName = getGuardPodName("operand", name), "test", name
+		pod.UID, pod.ResourceVersion = types.UID(pod.Name), "1"
 		pod.Spec.ServiceAccountName = resourceread.ReadServiceAccountV1OrDie(serviceAccountTemplate).Name
 		pod.Spec.Hostname = getGuardPodHostname("test", name)
 		pod.Spec.Containers[0].Image = "example.invalid/operator:test"
@@ -406,6 +528,12 @@ func retiredGuardFixture(t *testing.T) (*GuardController, *fake.Clientset, func(
 	}
 	objects = append(objects, &policyv1.PodDisruptionBudget{ObjectMeta: metav1.ObjectMeta{Name: "operand-guard-pdb", Namespace: "test"}, Status: policyv1.PodDisruptionBudgetStatus{ExpectedPods: 3}, Spec: policyv1.PodDisruptionBudgetSpec{MinAvailable: ptrMinimum(3), Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "guard"}}}})
 	kube := fake.NewSimpleClientset(objects...)
+	// Complete an accepted eviction in the object tracker. Individual tests
+	// override this reactor to exercise pending, rejected and conflicting requests.
+	kube.PrependReactor("create", "pods/eviction", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		eviction := action.(clienttesting.CreateAction).GetObject().(*policyv1.Eviction)
+		return true, nil, kube.Tracker().Delete(corev1.SchemeGroupVersion.WithResource("pods"), eviction.Namespace, eviction.Name)
+	})
 	inf := informers.NewSharedInformerFactory(kube, 0)
 	nodes, pods, pdbs := inf.Core().V1().Nodes(), inf.Core().V1().Pods(), inf.Policy().V1().PodDisruptionBudgets()
 	refresh := func() {
@@ -463,39 +591,42 @@ func TestWaitForRetainedGuardAccounting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, stage := range []struct {
-		expectedPods int32
-		wantMinimum  int
-	}{
-		{expectedPods: 4, wantMinimum: 3},
-		{expectedPods: 3, wantMinimum: 2},
-	} {
-		pdb, err := budgets.Get(ctx, budgetName, metav1.GetOptions{})
-		if err != nil {
-			t.Fatal(err)
+	ctrl.nodeFilter = omitFirstGuardNode
+	kube.PrependReactor("update", "poddisruptionbudgets", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		pdb := action.(clienttesting.UpdateAction).GetObject().(*policyv1.PodDisruptionBudget)
+		if pdb.Name == budgetName && len(pdb.Spec.Selector.MatchExpressions) != 0 && pdb.Generation == 0 {
+			pdb.Generation = 1 // The fake API does not advance spec generations.
 		}
-		pdb.Status.ExpectedPods = stage.expectedPods
-		if _, err := budgets.UpdateStatus(ctx, pdb, metav1.UpdateOptions{}); err != nil {
-			t.Fatal(err)
-		}
-		refresh()
-		// Start from the fixture controller configuration with no prior
-		// retirement reconciliation. The API objects carry the transition.
-		restarted := *ctrl
-		restarted.nodeFilter = omitFirstGuardNode
-		if err := restarted.sync(ctx, syncContext); (err != nil) != (stage.wantMinimum == 3) {
-			t.Fatalf("expectedPods=%d: unexpected sync result: %v", stage.expectedPods, err)
-		}
-		pdb, err = budgets.Get(ctx, budgetName, metav1.GetOptions{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got := pdb.Spec.MinAvailable.IntValue(); got != stage.wantMinimum {
-			t.Fatalf("expectedPods=%d: minAvailable=%d, want %d", stage.expectedPods, got, stage.wantMinimum)
-		}
-		if _, err := kube.CoreV1().Pods("test").Get(ctx, "operand-guard-master-0", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
-			t.Fatalf("retired guard was recreated: %v", err)
-		}
+		return false, nil, nil
+	})
+	if err := ctrl.sync(ctx, syncContext); err == nil {
+		t.Fatal("expected to wait for the retained selector to be observed")
+	}
+	pdb, err := budgets.Get(ctx, budgetName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pdb.Spec.MinAvailable.IntValue() != frozenGuardMinimum || len(pdb.Spec.Selector.MatchExpressions) == 0 {
+		t.Fatalf("expected the retained selector with the frozen minimum, got %+v", pdb.Spec)
+	}
+	pdb.Status.ObservedGeneration = pdb.Generation
+	if _, err := budgets.UpdateStatus(ctx, pdb, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	refresh()
+	restarted := *ctrl
+	if err := restarted.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	pdb, err = budgets.Get(ctx, budgetName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := pdb.Spec.MinAvailable.IntValue(); got != 2 {
+		t.Fatalf("minAvailable=%d, want 2 after selector observation", got)
+	}
+	if _, err := kube.CoreV1().Pods("test").Get(ctx, "operand-guard-master-0", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("retired guard was recreated: %v", err)
 	}
 }
 
@@ -604,35 +735,53 @@ func TestRetirementBudgetReductionConflictsWithEvictionReservation(t *testing.T)
 	}
 
 	resource := policyv1.SchemeGroupVersion.WithResource("poddisruptionbudgets")
+	conflict := apierrors.NewConflict(resource.GroupResource(), name, errors.New("eviction reserved after budget read"))
+	const retainedGuard = "operand-guard-master-1"
 	reserved := false
-	kube.PrependReactor("list", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
-		if !reserved {
-			current := budget.DeepCopy()
-			current.ResourceVersion = "2"
-			current.Status.DisruptedPods = map[string]metav1.Time{"operand-guard-master-1": metav1.Now()}
-			if err := kube.Tracker().Update(resource, current, "test"); err != nil {
-				t.Fatal(err)
-			}
-			reserved = true
-		}
-		return false, nil, nil
-	})
 	kube.PrependReactor("update", "poddisruptionbudgets", func(action clienttesting.Action) (bool, runtime.Object, error) {
 		update := action.(clienttesting.UpdateAction).GetObject().(*policyv1.PodDisruptionBudget)
-		if update.ResourceVersion != "2" {
-			return true, nil, apierrors.NewConflict(resource.GroupResource(), name, errors.New("eviction reserved after budget read"))
+		if update.Name != name || update.Spec.MinAvailable.IntValue() != 2 || reserved {
+			return false, nil, nil
 		}
-		return false, nil, nil
+		obj, err := kube.Tracker().Get(resource, "test", name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		current := obj.(*policyv1.PodDisruptionBudget).DeepCopy()
+		if current.Spec.MinAvailable.IntValue() != frozenGuardMinimum || update.ResourceVersion != current.ResourceVersion {
+			t.Fatalf("expected reduction from the frozen budget at version %q, got %+v", current.ResourceVersion, update)
+		}
+		current.ResourceVersion = "2"
+		current.Status.DisruptedPods = map[string]metav1.Time{retainedGuard: metav1.Now()}
+		if err := kube.Tracker().Update(resource, current, "test"); err != nil {
+			t.Fatal(err)
+		}
+		reserved = true
+		return true, nil, conflict
 	})
-	if err := ctrl.sync(ctx, syncContext); !apierrors.IsConflict(err) {
+	if err := ctrl.sync(ctx, syncContext); !errors.Is(err, conflict) || !reserved {
 		t.Fatalf("expected conflict from the intervening eviction, got %v", err)
 	}
 	current, err := budgets.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if current.Spec.MinAvailable.IntValue() != 3 || len(current.Status.DisruptedPods) != 1 {
-		t.Fatalf("expected conservative budget and preserved reservation, got %+v", current)
+	if _, ok := current.Status.DisruptedPods[retainedGuard]; !ok || current.Spec.MinAvailable.IntValue() != frozenGuardMinimum {
+		t.Fatalf("expected frozen budget and preserved reservation, got %+v", current)
+	}
+	if err := ctrl.sync(ctx, syncContext); err == nil {
+		t.Fatal("expected to wait for the accepted eviction to settle")
+	}
+	current, err = budgets.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := current.Status.DisruptedPods[retainedGuard]; !ok || current.Spec.MinAvailable.IntValue() != frozenGuardMinimum {
+		t.Fatalf("retry changed the frozen budget or reservation: %+v", current)
+	}
+	current.Status.DisruptedPods = nil
+	if _, err := budgets.UpdateStatus(ctx, current, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
 	}
 	if err := ctrl.sync(ctx, syncContext); err != nil {
 		t.Fatal(err)
@@ -641,7 +790,108 @@ func TestRetirementBudgetReductionConflictsWithEvictionReservation(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if current.Spec.MinAvailable.IntValue() != 2 || len(current.Status.DisruptedPods) != 1 {
-		t.Fatalf("expected reduction after a new reconcile with the reservation preserved, got %+v", current)
+	if current.Spec.MinAvailable.IntValue() != 2 {
+		t.Fatalf("expected reduction after the reservation settled, got %+v", current.Spec)
+	}
+}
+
+func TestRetirementRestoresMissingPrimaryBudget(t *testing.T) {
+	ctrl, kube, _, syncContext := retiredGuardFixture(t)
+	ctx := context.Background()
+	budgets := kube.PolicyV1().PodDisruptionBudgets("test")
+	const name = "operand-guard-pdb"
+	if err := kube.CoreV1().Pods("test").Delete(ctx, "operand-guard-master-0", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ctrl.nodeFilter = omitFirstGuardNode
+	if err := ctrl.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	if err := budgets.Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ctrl.nodeFilter = func(_ context.Context, nodes []*corev1.Node) ([]*corev1.Node, error) {
+		return nodes, nil
+	}
+	if err := ctrl.sync(ctx, syncContext); err == nil {
+		t.Fatal("expected recovery to wait for observation of the restored budget")
+	}
+	budget, err := budgets.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if budget.Spec.MinAvailable.IntValue() != frozenGuardMinimum || budget.Spec.Selector.MatchLabels["app"] != "guard" {
+		t.Fatalf("expected broad frozen coverage during recovery, got %+v", budget.Spec)
+	}
+	if _, err := budgets.Get(ctx, name+"-unidentified", metav1.GetOptions{}); err != nil {
+		t.Fatalf("expected temporary coverage to remain during recovery: %v", err)
+	}
+}
+
+func TestRetirementRetriesWhenOutgoingGuardReappears(t *testing.T) {
+	ctrl, kube, _, syncContext := retiredGuardFixture(t)
+	ctrl.nodeFilter = omitFirstGuardNode
+	ctx := context.Background()
+	pods := kube.CoreV1().Pods("test")
+	outgoing, err := pods.Get(ctx, "operand-guard-master-0", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctrl.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pods.Create(ctx, outgoing, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	budgets := kube.PolicyV1().PodDisruptionBudgets("test")
+	const name = "operand-guard-pdb"
+	budget, err := budgets.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	budget.Status.ExpectedPods = 4
+	if _, err := budgets.UpdateStatus(ctx, budget, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ctrl.sync(ctx, syncContext); err == nil {
+		t.Fatal("expected recovery before retry")
+	}
+	if err := ctrl.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pods.Get(ctx, outgoing.Name, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("outgoing guard still present after retry: %v", err)
+	}
+	budget, err = budgets.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if budget.Spec.MinAvailable.IntValue() != 2 {
+		t.Fatalf("expected retirement to finish, got %+v", budget.Spec)
+	}
+}
+
+func TestDisablingRetirementAwareGuardsRemovesBothBudgets(t *testing.T) {
+	ctrl, kube, refresh, syncContext := retiredGuardFixture(t)
+	ctrl.nodeFilter = omitFirstGuardNode
+	ctx := context.Background()
+	if err := ctrl.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	budgets := kube.PolicyV1().PodDisruptionBudgets("test")
+	const primary = "operand-guard-pdb"
+	const fallback = primary + unidentifiedGuardBudgetSuffix
+	if _, err := budgets.Get(ctx, fallback, metav1.GetOptions{}); err != nil {
+		t.Fatalf("expected temporary budget before disabling guards: %v", err)
+	}
+	ctrl.createConditionalFunc = func() (bool, bool, error) { return false, true, nil }
+	refresh()
+	if err := ctrl.sync(ctx, syncContext); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{primary, fallback} {
+		if _, err := budgets.Get(ctx, name, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+			t.Errorf("expected budget %s to be removed: %v", name, err)
+		}
 	}
 }
