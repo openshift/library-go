@@ -17,7 +17,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/signals"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
@@ -106,7 +106,7 @@ func NewFileWatcherWatchdog() *cobra.Command {
 			klog.V(1).Info(spew.Sdump(o))
 
 			// Handle shutdown
-			termHandler := server.SetupSignalHandler()
+			termHandler := signals.SetupSignalHandler()
 			ctx, shutdown := context.WithCancel(context.TODO())
 			go func() {
 				defer shutdown()

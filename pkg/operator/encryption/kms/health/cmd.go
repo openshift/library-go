@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/signals"
 	k8senvelopekmsv2 "k8s.io/apiserver/pkg/storage/value/encrypt/envelope/kmsv2"
 	"k8s.io/klog/v2"
 
@@ -124,7 +124,7 @@ func keyIDFromSocket(socket string) (string, error) {
 // setupSignalContext.
 func setupSignalContext(baseCtx context.Context) context.Context {
 	shutdownCtx, cancel := context.WithCancel(baseCtx)
-	shutdownHandler := server.SetupSignalHandler()
+	shutdownHandler := signals.SetupSignalHandler()
 	go func() {
 		defer cancel()
 		<-shutdownHandler

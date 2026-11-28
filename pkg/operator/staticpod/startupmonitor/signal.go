@@ -3,7 +3,7 @@ package startupmonitor
 import (
 	"context"
 
-	"k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/signals"
 	"k8s.io/klog/v2"
 )
 
@@ -11,7 +11,7 @@ import (
 // that will be cancelled once a signal is received.
 func setupSignalContext(baseCtx context.Context) context.Context {
 	shutdownCtx, cancel := context.WithCancel(baseCtx)
-	shutdownHandler := server.SetupSignalHandler()
+	shutdownHandler := signals.SetupSignalHandler()
 	go func() {
 		defer cancel()
 		<-shutdownHandler
