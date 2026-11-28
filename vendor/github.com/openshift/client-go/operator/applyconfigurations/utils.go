@@ -60,6 +60,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.BootImageSkewEnforcementConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BootImageSkewEnforcementStatus"):
 		return &operatorv1.BootImageSkewEnforcementStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("CanaryNodePlacement"):
+		return &operatorv1.CanaryNodePlacementApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("CanaryToleration"):
+		return &operatorv1.CanaryTolerationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Capability"):
 		return &operatorv1.CapabilityApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("CapabilityVisibility"):
@@ -72,6 +76,22 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.CloudCredentialSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("CloudCredentialStatus"):
 		return &operatorv1.CloudCredentialStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ClusterAPI"):
+		return &operatorv1.ClusterAPIApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ClusterAPIInstallerComponent"):
+		return &operatorv1.ClusterAPIInstallerComponentApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ClusterAPIInstallerComponentImage"):
+		return &operatorv1.ClusterAPIInstallerComponentImageApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ClusterAPIInstallerComponentSource"):
+		return &operatorv1.ClusterAPIInstallerComponentSourceApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ClusterAPIInstallerRevision"):
+		return &operatorv1.ClusterAPIInstallerRevisionApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ClusterAPIInstallerRevisionManifestSubstitution"):
+		return &operatorv1.ClusterAPIInstallerRevisionManifestSubstitutionApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ClusterAPISpec"):
+		return &operatorv1.ClusterAPISpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ClusterAPIStatus"):
+		return &operatorv1.ClusterAPIStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ClusterBootImageAutomatic"):
 		return &operatorv1.ClusterBootImageAutomaticApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ClusterBootImageManual"):
@@ -194,6 +214,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.IBMLoadBalancerParametersApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Ingress"):
 		return &operatorv1.IngressApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("IngressCanary"):
+		return &operatorv1.IngressCanaryApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressController"):
 		return &operatorv1.IngressControllerApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressControllerCaptureHTTPCookie"):
@@ -204,6 +226,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.IngressControllerCaptureHTTPHeaderApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressControllerCaptureHTTPHeaders"):
 		return &operatorv1.IngressControllerCaptureHTTPHeadersApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("IngressControllerContainerResource"):
+		return &operatorv1.IngressControllerContainerResourceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressControllerHTTPHeader"):
 		return &operatorv1.IngressControllerHTTPHeaderApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressControllerHTTPHeaderActions"):
@@ -216,6 +240,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.IngressControllerHTTPUniqueIdHeaderPolicyApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressControllerLogging"):
 		return &operatorv1.IngressControllerLoggingApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("IngressControllerResources"):
+		return &operatorv1.IngressControllerResourcesApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressControllerSetHTTPHeader"):
 		return &operatorv1.IngressControllerSetHTTPHeaderApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IngressControllerSpec"):
@@ -476,8 +502,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1.VSphereCSIDriverConfigSpecApplyConfiguration{}
 
 		// Group=operator.openshift.io, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithKind("BackupJobReference"):
-		return &operatorv1alpha1.BackupJobReferenceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ClusterAPI"):
 		return &operatorv1alpha1.ClusterAPIApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ClusterAPIInstallerComponent"):
@@ -502,10 +526,36 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &operatorv1alpha1.ClusterVersionOperatorStatusApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackup"):
 		return &operatorv1alpha1.EtcdBackupApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupFile"):
+		return &operatorv1alpha1.EtcdBackupFileApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupPolicy"):
+		return &operatorv1alpha1.EtcdBackupPolicyApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupPolicyRetentionQuantity"):
+		return &operatorv1alpha1.EtcdBackupPolicyRetentionQuantityApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupPolicyRetentionRule"):
+		return &operatorv1alpha1.EtcdBackupPolicyRetentionRuleApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupPolicyRetentionSize"):
+		return &operatorv1alpha1.EtcdBackupPolicyRetentionSizeApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupPolicySpec"):
+		return &operatorv1alpha1.EtcdBackupPolicySpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupPolicyStatus"):
+		return &operatorv1alpha1.EtcdBackupPolicyStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupPolicyStorage"):
+		return &operatorv1alpha1.EtcdBackupPolicyStorageApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupPolicyStorageLocal"):
+		return &operatorv1alpha1.EtcdBackupPolicyStorageLocalApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupPolicyStoragePvc"):
+		return &operatorv1alpha1.EtcdBackupPolicyStoragePvcApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupSpec"):
 		return &operatorv1alpha1.EtcdBackupSpecApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupStatus"):
 		return &operatorv1alpha1.EtcdBackupStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupStorage"):
+		return &operatorv1alpha1.EtcdBackupStorageApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupStorageLocal"):
+		return &operatorv1alpha1.EtcdBackupStorageLocalApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EtcdBackupStoragePvc"):
+		return &operatorv1alpha1.EtcdBackupStoragePvcApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("GatewayAPIIngressConfig"):
 		return &operatorv1alpha1.GatewayAPIIngressConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ImageContentSourcePolicy"):
