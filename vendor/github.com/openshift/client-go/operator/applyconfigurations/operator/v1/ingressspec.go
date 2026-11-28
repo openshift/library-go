@@ -11,6 +11,13 @@ type IngressSpecApplyConfiguration struct {
 	// ingress operator manages Gateway API CRDs, the OpenShift Gateway API
 	// implementation, and its Gateway API controllers.
 	GatewayAPI *GatewayAPIIngressConfigApplyConfiguration `json:"gatewayAPI,omitempty"`
+	// canary holds configuration for the ingress canary daemonset (the
+	// ingress-canary DaemonSet in the openshift-ingress-canary namespace).
+	//
+	// canary is optional. When omitted, the ingress canary daemonset keeps its
+	// default configuration. When specified, canary must set at least one of
+	// its fields; an empty object is rejected.
+	Canary *IngressCanaryApplyConfiguration `json:"canary,omitempty"`
 }
 
 // IngressSpecApplyConfiguration constructs a declarative configuration of the IngressSpec type for use with
@@ -24,5 +31,13 @@ func IngressSpec() *IngressSpecApplyConfiguration {
 // If called multiple times, the GatewayAPI field is set to the value of the last call.
 func (b *IngressSpecApplyConfiguration) WithGatewayAPI(value *GatewayAPIIngressConfigApplyConfiguration) *IngressSpecApplyConfiguration {
 	b.GatewayAPI = value
+	return b
+}
+
+// WithCanary sets the Canary field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Canary field is set to the value of the last call.
+func (b *IngressSpecApplyConfiguration) WithCanary(value *IngressCanaryApplyConfiguration) *IngressSpecApplyConfiguration {
+	b.Canary = value
 	return b
 }
